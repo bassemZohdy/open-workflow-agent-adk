@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from .models import OpenWorkflowDocument, TaskItem
-from .translator import build_workflow, task_kind
+from openworkflow_adk.models import OpenWorkflowDocument, TaskItem
+from openworkflow_adk.translator import build_workflow, task_kind
 
 
 @dataclass(frozen=True)

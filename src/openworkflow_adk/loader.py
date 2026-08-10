@@ -10,8 +10,8 @@ from typing import Any
 from jsonschema import Draft202012Validator
 from pydantic import ValidationError
 
-from .models import AgentCharacteristics, OpenWorkflowDocument
-from .schema import load_schema_for
+from openworkflow_adk.models import AgentCharacteristics, OpenWorkflowDocument
+from openworkflow_adk.schema import load_schema_for
 
 
 class WorkflowValidationError(ValueError):

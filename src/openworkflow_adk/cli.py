@@ -6,10 +6,10 @@ import json
 import os
 from pathlib import Path
 
-from .diagnostics import lint_workflow, workflow_mermaid, workflow_plan
-from .diagnostics_server import serve_stdio
-from .loader import load
-from .runtime import run_workflow
+from openworkflow_adk.tools.diagnostics import lint_workflow, workflow_mermaid, workflow_plan
+from openworkflow_adk.tools.diagnostics_server import serve_stdio
+from openworkflow_adk.loader import load
+from openworkflow_adk.runtime import run_workflow
 
 
 def main() -> int:

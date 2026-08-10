@@ -1,6 +1,6 @@
 import httpx
 
-from openworkflow_adk.auth import OAuth2ClientCredentialsAuth, resolve_authentication
+from openworkflow_adk.security.auth import OAuth2ClientCredentialsAuth, resolve_authentication
 
 
 def test_all_authentication_variants_resolve(monkeypatch) -> None:

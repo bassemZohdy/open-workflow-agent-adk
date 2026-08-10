@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import ConfigDict, create_model
 
-from .models import OpenWorkflowDocument, Task, TaskItem
+from openworkflow_adk.models import OpenWorkflowDocument, Task, TaskItem
 
 
 def _names(value: Any) -> set[str]:

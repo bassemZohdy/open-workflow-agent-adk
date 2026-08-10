@@ -9,8 +9,8 @@ import time
 from statistics import mean
 from typing import Any
 
-from .loader import load
-from .runtime import run_workflow
+from openworkflow_adk.loader import load
+from openworkflow_adk.runtime import run_workflow
 
 
 def _document() -> Any:

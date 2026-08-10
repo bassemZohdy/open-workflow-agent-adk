@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from .loader import load
-from .models import OpenWorkflowDocument
+from openworkflow_adk.loader import load
+from openworkflow_adk.models import OpenWorkflowDocument
 
 
 def _envelope(namespace: str, name: str, version: str) -> dict[str, Any]:

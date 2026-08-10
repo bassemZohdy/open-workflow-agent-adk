@@ -69,7 +69,7 @@ class WorkflowHost:
             )
 
     async def execute(self, document: Any, input: dict[str, Any] | None = None, **kwargs: Any):
-        from .runtime import run_workflow
+        from openworkflow_adk.runtime import run_workflow
 
         async with self.health.run():
             return await run_workflow(document, input, **kwargs)

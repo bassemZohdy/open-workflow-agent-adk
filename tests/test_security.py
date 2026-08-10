@@ -1,6 +1,6 @@
 import pytest
 
-from openworkflow_adk.security import EgressDeniedError, validate_egress
+from openworkflow_adk.security.security import EgressDeniedError, validate_egress
 
 
 def test_egress_guard_blocks_private_targets_by_default() -> None:

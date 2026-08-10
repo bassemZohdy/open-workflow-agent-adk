@@ -1,7 +1,7 @@
 import io
 
 from openworkflow_adk import JsonRunLogger, load, run_workflow
-from openworkflow_adk.security import redact
+from openworkflow_adk.security.security import redact
 
 
 async def test_json_run_logger_records_lifecycle_and_redacts_secret(monkeypatch) -> None:

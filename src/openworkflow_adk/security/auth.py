@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 
-from .security import resolve_secret
+from openworkflow_adk.security.security import resolve_secret
 
 
 def _secret(value: Any, environ: Mapping[str, str]) -> str | None:

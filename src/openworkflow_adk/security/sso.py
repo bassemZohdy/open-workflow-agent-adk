@@ -10,7 +10,7 @@ from typing import Any
 
 import httpx
 
-from .security import validate_egress
+from openworkflow_adk.security.security import validate_egress
 
 
 @dataclass(frozen=True)

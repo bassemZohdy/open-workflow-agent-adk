@@ -6,7 +6,7 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from .models import OpenWorkflowDocument
+from openworkflow_adk.models import OpenWorkflowDocument
 
 
 @dataclass(frozen=True)

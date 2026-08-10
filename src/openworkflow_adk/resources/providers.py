@@ -12,8 +12,8 @@ from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
-from .models import ProviderConfig
-from .security import resolve_secret
+from openworkflow_adk.models import ProviderConfig
+from openworkflow_adk.security.security import resolve_secret
 
 
 class OpenAICompatibleLlm(BaseLlm):

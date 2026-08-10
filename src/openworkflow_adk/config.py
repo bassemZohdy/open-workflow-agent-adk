@@ -10,7 +10,7 @@ from typing import Any
 
 import yaml
 
-from .models import (
+from openworkflow_adk.models import (
     AgentCharacteristics,
     MemoryConfig,
     ModelReference,

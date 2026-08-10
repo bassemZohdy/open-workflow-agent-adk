@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from openworkflow_adk import InMemoryRunHistory, SQLiteRunHistory, load, run_workflow
-from openworkflow_adk.broker import InMemoryBroker
+from openworkflow_adk.resources.broker import InMemoryBroker
 
 
 def _timer_document():

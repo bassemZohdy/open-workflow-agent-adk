@@ -26,18 +26,18 @@ from google.adk.workflow._function_node import FunctionNode
 from google.adk.workflow._graph import DEFAULT_ROUTE
 from google.adk.workflow._join_node import JoinNode
 
-from .auth import resolve_authentication
-from .broker import Broker
-from .config import resolve_agent_characteristics, resolve_provider_config
-from .errors import OpenWorkflowError
-from .expressions import bind, evaluate
-from .models import TASK_KEYS, OpenWorkflowDocument, ProviderConfig, Task, TaskItem
-from .providers import create_llm
-from .registry import WorkflowRegistry
-from .schedule import duration_seconds
-from .security import validate_egress
-from .state import derive_state_schema
-from .suspension import WorkflowSuspended
+from openworkflow_adk.security.auth import resolve_authentication
+from openworkflow_adk.resources.broker import Broker
+from openworkflow_adk.config import resolve_agent_characteristics, resolve_provider_config
+from openworkflow_adk.errors import OpenWorkflowError
+from openworkflow_adk.expressions import bind, evaluate
+from openworkflow_adk.models import TASK_KEYS, OpenWorkflowDocument, ProviderConfig, Task, TaskItem
+from openworkflow_adk.resources.providers import create_llm
+from openworkflow_adk.tools.registry import WorkflowRegistry
+from openworkflow_adk.ops.schedule import duration_seconds
+from openworkflow_adk.security.security import validate_egress
+from openworkflow_adk.state import derive_state_schema
+from openworkflow_adk.ops.suspension import WorkflowSuspended
 
 NodeBuilder = Callable[[str, Task], Any]
 

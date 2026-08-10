@@ -8,9 +8,9 @@ from typing import Any
 
 import yaml
 
-from .loader import load
-from .models import OpenWorkflowDocument
-from .translator import build_workflow
+from openworkflow_adk.loader import load
+from openworkflow_adk.models import OpenWorkflowDocument
+from openworkflow_adk.translator import build_workflow
 
 GenerationResult = str | dict[str, Any]
 Generator = Callable[[str], GenerationResult | Awaitable[GenerationResult]]

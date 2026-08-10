@@ -6,10 +6,10 @@ import asyncio
 from collections.abc import AsyncIterator
 from typing import Any
 
-from .diagnostics import workflow_plan
-from .history import InMemoryRunHistory, SQLiteRunHistory
-from .registry import WorkflowRegistry
-from .runtime import run_workflow
+from openworkflow_adk.tools.diagnostics import workflow_plan
+from openworkflow_adk.ops.history import InMemoryRunHistory, SQLiteRunHistory
+from openworkflow_adk.tools.registry import WorkflowRegistry
+from openworkflow_adk.runtime import run_workflow
 
 
 class WorkflowManager:

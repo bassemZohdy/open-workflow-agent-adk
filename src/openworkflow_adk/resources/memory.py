@@ -11,7 +11,7 @@ from google.adk.memory import BaseMemoryService
 from google.adk.memory.base_memory_service import MemoryEntry, SearchMemoryResponse
 from google.genai import types
 
-from .models import MemoryConfig
+from openworkflow_adk.models import MemoryConfig
 
 _SQL_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 

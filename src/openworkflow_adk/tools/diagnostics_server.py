@@ -12,9 +12,9 @@ import sys
 from dataclasses import dataclass
 from typing import Any, TextIO
 
-from .diagnostics import lint_workflow
-from .loader import WorkflowValidationError, load
-from .models import TASK_KEYS
+from openworkflow_adk.tools.diagnostics import lint_workflow
+from openworkflow_adk.loader import WorkflowValidationError, load
+from openworkflow_adk.models import TASK_KEYS
 
 _TASK_LINE = re.compile(r"^\s*-\s*([A-Za-z][A-Za-z0-9_-]*)\s*:")
 

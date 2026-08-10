@@ -1,4 +1,4 @@
-from openworkflow_adk.benchmark import benchmark
+from openworkflow_adk.tools.benchmark import benchmark
 
 
 async def test_benchmark_reports_latency_percentiles() -> None:

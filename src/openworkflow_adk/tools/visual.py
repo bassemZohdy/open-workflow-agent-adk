@@ -6,7 +6,7 @@ from typing import Any
 
 import yaml
 
-from .loader import load
+from openworkflow_adk.loader import load
 
 
 def graph_to_document(graph: dict[str, Any]) -> dict[str, Any]:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .models import OpenWorkflowDocument
+from openworkflow_adk.models import OpenWorkflowDocument
 
 
 def export_temporal(document: OpenWorkflowDocument) -> str:
