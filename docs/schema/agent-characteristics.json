@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openworkflow-adk.example/schema/agent-characteristics.json",
+  "title": "OpenWorkflow ADK agent characteristics",
+  "description": "The intentional per-task OpenWorkflow ADK extension.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["use"],
+          "properties": {"use": {"type": "string", "minLength": 1}}
+        }
+      ]
+    },
+    "instruction": {"type": "string"},
+    "tools": {"type": "array"},
+    "agent": {"type": "boolean", "default": true},
+    "generate_content_config": {"type": ["object", "null"]},
+    "output_key": {"type": ["string", "null"]},
+    "request_input": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {"question": {"type": "string"}}
+    }
+  }
+}

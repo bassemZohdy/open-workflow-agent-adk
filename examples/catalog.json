@@ -1,0 +1,7 @@
+[
+  {"name": "hello", "file": "hello.yaml", "description": "Minimal deterministic workflow"},
+  {"name": "echo", "file": "echo.yaml", "description": "Input and output mapping"},
+  {"name": "approval", "file": "approval.yaml", "description": "Human approval workflow"},
+  {"name": "multi-agent", "file": "multi-agent.yaml", "description": "Coordinator and sub-agent handoff"},
+  {"name": "rag", "file": "rag.yaml", "description": "Memory-backed retrieval example"}
+]

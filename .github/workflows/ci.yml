@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync --extra dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest
+
+  adk-compat:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        adk-version: ["2.6.3"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev --locked
+      - run: uv run python -c "import importlib.metadata as m; assert m.version('google-adk') == '${{ matrix.adk-version }}'"
+      - run: uv run pytest
+
+  compatibility-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+        adk-version: ["2.6.3"]
+        spec-version: ["1.0.3"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync --extra dev --locked
+      - run: uv run python -c "import importlib.metadata as m; assert m.version('google-adk') == '${{ matrix.adk-version }}'"
+      - run: uv run pytest
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev --locked
+      - run: uv export --no-dev --no-emit-project --format requirements-txt > /tmp/owf-requirements.txt
+      - run: uv run pip-audit -r /tmp/owf-requirements.txt --no-deps --disable-pip --strict
+      - uses: anchore/sbom-action@v0
+        with:
+          path: .
+          artifact-name: owf-adk-sbom.spdx.json
+
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev --locked
+      - run: uv run python -m openworkflow_adk.benchmark --iterations 10 --max-p99-ms 5000
+
+  mutation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev --locked
+      - run: uv run mutmut run --max-children 2 > /tmp/owf-mutmut.log 2>&1
+      - run: uv run python scripts/check_mutation_score.py /tmp/owf-mutmut.log
+
+  memory-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --extra dev --locked
+      - run: uv run pytest tests/test_memory_integration.py
+        env:
+          WORKFLOW_RUN_INTEGRATION_TESTS: "1"

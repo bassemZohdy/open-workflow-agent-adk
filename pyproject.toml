@@ -2,10 +2,62 @@
 name = "open-workflow-agent-adk"
 version = "0.1.0"
 description = "Translates OpenWorkflow Specification documents into runnable ADK agentic components"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "OpenWorkflow ADK contributors" }]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
 requires-python = ">=3.10"
 dependencies = [
-    "google-adk",
+    "google-adk==2.6.3",
+    "boto3>=1.34",
+    "docker>=7.0",
+    "grpcio>=1.60",
+    "grpcio-tools>=1.60",
+    "greenlet>=3.0",
+    "httpx",
+    "hypothesis>=6.100",
+    "mutmut>=3.2",
+    "asyncpg>=0.29",
+    "redis>=5.0",
+    "opentelemetry-api>=1.30",
+    "sqlalchemy>=2.0",
+    "jsonschema",
+    "jsonata-python",
+    "pydantic>=2",
+    "pyyaml",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "google-adk[eval]==2.6.3",
+    "pytest",
+    "pytest-asyncio",
+    "pip-audit>=2.7",
+    "opentelemetry-sdk>=1.30",
+    "respx",
+    "ruff",
+    "testcontainers[postgres,redis]>=4.0",
+]
+brokers = [
+    "aiokafka>=0.10",
+    "aio-pika>=9.4",
+    "nats-py>=2.7",
+]
+
+[project.scripts]
+owf-adk = "openworkflow_adk.cli:main"
+spec-drift-check = "openworkflow_adk.schema:spec_drift_check"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openworkflow_adk"]
 
 [tool.ruff]
 line-length = 100
@@ -13,3 +65,18 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.mutmut]
+source_paths = ["src/openworkflow_adk/expressions.py"]
+also_copy = ["src/openworkflow_adk"]
+pytest_add_cli_args_test_selection = [
+    "tests/test_expressions.py",
+    "tests/test_expression_safety.py",
+    "tests/test_expression_properties.py",
+]
