@@ -1,6 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtual envs
+.venv/
+
+# Tooling caches
 .ruff_cache/
 .pytest_cache/
-__pycache__/
-*.pyc
-.venv/
+.mypy_cache/
+
+# Test / coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Environment & secrets (.env.example stays committed)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# OS / editor noise
 .DS_Store
