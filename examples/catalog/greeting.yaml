@@ -1,0 +1,13 @@
+document:
+  dsl: '1.0.3'
+  namespace: examples-catalog
+  name: greeting
+  version: '1.0.0'
+use:
+  catalogs:
+    shared:
+      endpoint: file://./functions.yaml
+      functions: functions.yaml
+do:
+  - greet:
+      call: makeGreeting

@@ -1,0 +1,16 @@
+document:
+  dsl: '1.0.3'
+  namespace: examples-catalog
+  name: summarize
+  version: '1.0.0'
+use:
+  catalogs:
+    shared:
+      endpoint: file://./functions.yaml
+      functions: functions.yaml
+  secrets: [OPENAI_KEY]
+do:
+  - summarize:
+      call: summarize
+      with:
+        text: '${ .text }'
