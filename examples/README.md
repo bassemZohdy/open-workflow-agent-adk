@@ -5,3 +5,4 @@
 - `approval.yaml` — event-driven approval using `listen` and `switch`.
 - `rag.yaml` — retrieval HTTP call followed by an agent task.
 - `multi-agent.yaml` — two agent tasks connected in a workflow sequence.
+- `catalog/` — two spec-pure workflows sharing deterministic and LLM-wrapping functions.

@@ -1,1 +1,1 @@
-"""internal subpackage; public API is re-exported from the package root."""
+"""Authoring, diagnostics, interoperability, and management tools."""

@@ -55,6 +55,15 @@ class MemoryConfig(BaseModel):
         return value
 
 
+class CatalogConfig(BaseModel):
+    """Reusable catalog endpoint and optional external function file."""
+
+    model_config = ConfigDict(extra="allow")
+
+    endpoint: Any = None
+    functions: str | None = None
+
+
 class ModelReference(BaseModel):
     """Reference to a named model bundle in ``use.models``."""
 
@@ -127,7 +136,7 @@ class UseDefinition(BaseModel):
     retries: dict[str, Any] = Field(default_factory=dict)
     secrets: list[str] = Field(default_factory=list)
     timeouts: dict[str, Any] = Field(default_factory=dict)
-    catalogs: dict[str, Any] = Field(default_factory=dict)
+    catalogs: dict[str, CatalogConfig] = Field(default_factory=dict)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Provide mapping-style access for runtime registries."""

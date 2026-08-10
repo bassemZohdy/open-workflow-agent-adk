@@ -4,12 +4,12 @@ Guidance for AI coding agents. `CLAUDE.md` holds the architectural baseline
 (spec version, ADK mapping, config-layering precedence, stack) — read it first;
 this file only adds what it doesn't already cover.
 
-## Status: greenfield
+## Status: v0.1.0 delivered; restructuring and cleanup in progress
 
-No Python source, tests, Dockerfile, or CI exist yet. Only `CLAUDE.md`,
-`pyproject.toml`, `.gitignore`, and the `.claude/` (hook + skill) config are
-tracked. Expect to establish package layout, entrypoints, and test infra
-rather than find them.
+The v1 workflow runtime, production hardening, tests, Docker support, CI, and
+release packaging are implemented. The active cleanup backlog is tracked in
+[`TODO.md`](TODO.md), with the current focus on regrouping source, tests, and
+documentation without changing the public behavior.
 
 ## Python is auto-formatted on every edit
 
@@ -24,8 +24,9 @@ Ruff config (`pyproject.toml`): line-length 100, target py310, rules `E,F,I,UP`.
 
 ## Tooling
 
-`uv`/`uvx` is the expected runner (the format hook depends on it). The only
-declared dependency is `google-adk` (Python >=3.10); no lockfile yet.
+`uv`/`uvx` is the expected runner (the format hook depends on it). Use the
+checked-in lockfile for reproducible environments and consult `pyproject.toml`
+for the supported Python versions and optional dependency groups.
 
 ## Before extending the OpenWorkflow schema
 

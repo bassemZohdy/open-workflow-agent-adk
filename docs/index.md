@@ -1,10 +1,12 @@
 # OpenWorkflow ADK documentation
 
-- [Configuration](configuration.md)
-- [Extension specification](extension-spec.md)
-- [Architecture](architecture.md)
-- [Generation](generation.md)
-- [Support window](support-window.md)
-- [Upstream sync](upstream-sync.md)
+- [Configuration](reference/configuration.md)
+- [Extension specification](reference/extension-spec.md)
+- [Architecture](reference/architecture.md)
+- [Generation](guides/generation.md)
+- [Support window](reference/support-window.md)
+- [Upstream sync](guides/upstream-sync.md)
 - [Examples](../examples/README.md)
+- [Workflow flavors](flavors.md)
+- [Catalog mode](reference/catalogs.md)
 - [Contributing](../CONTRIBUTING.md)

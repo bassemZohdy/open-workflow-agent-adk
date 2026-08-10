@@ -1,0 +1,136 @@
+"""Builders for ADK agent tasks."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from datetime import datetime, timezone
+from typing import Any
+
+from google.adk.agents import LlmAgent
+
+from openworkflow_adk.config import resolve_agent_characteristics, resolve_provider_config
+from openworkflow_adk.models import ProviderConfig, Task
+from openworkflow_adk.ops.suspension import WorkflowSuspended
+from openworkflow_adk.resources.providers import create_llm
+
+
+def _agent_builder(
+    name: str,
+    task: Task,
+    model_factory: Callable[[str], Any] | None = None,
+    model_specs: dict[str, Any] | None = None,
+    environ: dict[str, str] | None = None,
+    tool_registry: dict[str, Callable[..., Any]] | None = None,
+    provider_configs: dict[str, ProviderConfig] | None = None,
+    provider_factory: Callable[[str, ProviderConfig], Any] | None = None,
+    resume_input: Any = None,
+    route_options: set[str] | None = None,
+) -> LlmAgent:
+    if task.agent is None:
+        raise ValueError("agent builder requires task.agent")
+    config = resolve_agent_characteristics(
+        task.agent, models=model_specs, environ=environ, providers=provider_configs
+    )
+    return _build_agent(
+        name,
+        config,
+        model_factory=model_factory,
+        model_specs=model_specs,
+        environ=environ,
+        tool_registry=tool_registry,
+        provider_configs=provider_configs,
+        provider_factory=provider_factory,
+        as_sub_agent=False,
+        resume_input=resume_input,
+        route_options=route_options,
+    )
+
+
+def _build_agent(
+    name: str,
+    config: Any,
+    *,
+    model_factory: Callable[[str], Any] | None,
+    model_specs: dict[str, Any] | None,
+    environ: dict[str, str] | None,
+    tool_registry: dict[str, Callable[..., Any]] | None,
+    provider_configs: dict[str, ProviderConfig] | None,
+    provider_factory: Callable[[str, ProviderConfig], Any] | None,
+    as_sub_agent: bool,
+    resume_input: Any = None,
+    route_options: set[str] | None = None,
+) -> LlmAgent:
+    """Build one ADK agent and recursively assemble its coordinator tree."""
+    model = model_factory(config.model or "") if model_factory else config.model or ""
+    if config.provider:
+        provider = resolve_provider_config(
+            config.provider.model_dump(), providers=provider_configs, environ=environ
+        )
+        model = (
+            provider_factory(config.model or "", provider)
+            if provider_factory
+            else create_llm(config.model or "", provider)
+        )
+    tools = [
+        (tool_registry or {}).get(tool, tool) if isinstance(tool, str) else tool
+        for tool in config.tools
+    ]
+    if config.request_input is not None:
+        question = str(config.request_input.get("question", "Input required to continue."))
+
+        async def request_input(_question: str = question) -> Any:
+            """Pause this agent until an external user supplies the requested input."""
+            if resume_input is None:
+                raise WorkflowSuspended(
+                    task=name,
+                    resume_at=datetime.now(timezone.utc),
+                    reason="human_input",
+                )
+            return resume_input
+
+        request_input.__name__ = "request_input"
+        request_input.__doc__ = question
+        tools.append(request_input)
+    if route_options:
+
+        async def route_to(route: str, tool_context: Any) -> str:
+            """Select one of the workflow switch routes."""
+            if route not in route_options:
+                raise ValueError(f"unknown workflow route {route!r}")
+            tool_context.state["workflow:route"] = route
+            return f"selected route {route}"
+
+        route_to.__name__ = "route_to"
+        tools.append(route_to)
+    if config.memory:
+        from google.adk.tools import load_memory
+
+        if load_memory not in tools:
+            tools.append(load_memory)
+    sub_agents = [
+        _build_agent(
+            child.name or f"{name}_sub_{index}",
+            child,
+            model_factory=model_factory,
+            model_specs=model_specs,
+            environ=environ,
+            tool_registry=tool_registry,
+            provider_configs=provider_configs,
+            provider_factory=provider_factory,
+            as_sub_agent=True,
+            resume_input=resume_input,
+            route_options=None,
+        )
+        for index, child in enumerate(config.sub_agents)
+    ]
+    return LlmAgent(
+        name=name,
+        description=config.description or "",
+        model=model,
+        instruction=config.instruction or "",
+        tools=tools,
+        sub_agents=sub_agents,
+        generate_content_config=config.generate_content_config,
+        mode="chat" if sub_agents or as_sub_agent else "single_turn",
+        output_key=(config.output_key or name) if not as_sub_agent else config.output_key,
+    )

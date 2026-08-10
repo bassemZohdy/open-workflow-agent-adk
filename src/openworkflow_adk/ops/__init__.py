@@ -1,1 +1,1 @@
-"""internal subpackage; public API is re-exported from the package root."""
+"""Operational services for workflow execution, history, and observability."""

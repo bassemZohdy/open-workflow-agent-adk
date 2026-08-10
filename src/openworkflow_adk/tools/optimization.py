@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from openworkflow_adk.tools.diagnostics import lint_workflow
 from openworkflow_adk.models import OpenWorkflowDocument
+from openworkflow_adk.tools.diagnostics import lint_workflow
 from openworkflow_adk.translator import task_kind
 
 
