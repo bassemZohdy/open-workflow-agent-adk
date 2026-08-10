@@ -160,26 +160,31 @@ def _run_builder(
                 raise NotImplementedError(f"unsupported script language: {language}")
         else:
             raise NotImplementedError("run handler supports shell and Python script")
+        default_timeout = float(os.environ.get("WORKFLOW_RUN_DEFAULT_TIMEOUT", "60"))
+        if default_timeout <= 0:
+            raise ValueError("WORKFLOW_RUN_DEFAULT_TIMEOUT must be greater than zero")
+        child_environment = {
+            key: value
+            for key, value in {**os.environ, **(process.get("environment") or {})}.items()
+            if not key.startswith("WORKFLOW_SECRET__")
+        }
         proc = await asyncio.create_subprocess_exec(
             *command,
             stdin=asyncio.subprocess.PIPE if process.get("stdin") is not None else None,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env={**os.environ, **(process.get("environment") or {})},
+            env=child_environment,
             preexec_fn=_sandbox_preexec(process.get("limits")) if os.name == "posix" else None,
         )
         stdin = process.get("stdin")
-        timeout = None
+        timeout = default_timeout
         if isinstance(task.timeout, dict) and task.timeout.get("after") is not None:
             timeout = duration_seconds(task.timeout["after"])
         elif isinstance(task.timeout, str):
             timeout = duration_seconds(task.timeout)
         communicate = proc.communicate(str(stdin).encode() if stdin is not None else None)
         try:
-            if timeout:
-                stdout, stderr = await asyncio.wait_for(communicate, float(timeout))
-            else:
-                stdout, stderr = await communicate
+            stdout, stderr = await asyncio.wait_for(communicate, float(timeout))
         except asyncio.TimeoutError as error:
             _kill_process_tree(proc)
             await proc.wait()

@@ -29,7 +29,10 @@ class CatalogFunctionRegistry:
         source = self._resolve_uri(uri, base_dir)
         if source.startswith(("http://", "https://")):
             validate_egress(source)
-            response = httpx.get(source, timeout=30)
+            # Do not follow redirects: every fetched URL must pass the egress
+            # policy independently, otherwise a public URL can redirect to a
+            # private address.
+            response = httpx.get(source, timeout=30, follow_redirects=False)
             response.raise_for_status()
             text = response.text
             cache_key = source
@@ -66,10 +69,23 @@ class CatalogFunctionRegistry:
         if parsed.scheme in {"http", "https"}:
             return uri
         if parsed.scheme == "file":
-            return unquote(parsed.path)
+            path = Path(unquote(parsed.path)).resolve()
+            root = Path(base_dir or Path.cwd()).resolve()
+            try:
+                path.relative_to(root)
+            except ValueError as exc:
+                raise ValueError(f"catalog file {uri!r} escapes the catalog root") from exc
+            return str(path)
         path = Path(uri)
         if not path.is_absolute() and base_dir is not None:
             path = Path(base_dir) / path
+        path = path.resolve()
+        if base_dir is not None:
+            root = Path(base_dir).resolve()
+            try:
+                path.relative_to(root)
+            except ValueError as exc:
+                raise ValueError(f"catalog file {uri!r} escapes the catalog root") from exc
         return str(path)
 
 

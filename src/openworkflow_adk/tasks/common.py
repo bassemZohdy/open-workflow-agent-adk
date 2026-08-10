@@ -16,7 +16,11 @@ NodeBuilder = Callable[[str, Task], Any]
 
 
 def _sandbox_preexec(limits: dict[str, Any] | None) -> None:
-    """Apply best-effort POSIX limits in a child before executing user code."""
+    """Apply best-effort POSIX limits before executing user code.
+
+    This is not a network sandbox: without a separate network namespace or
+    seccomp profile, sandboxed code may still open outbound sockets.
+    """
     if os.name != "posix":
         return
     import resource

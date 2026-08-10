@@ -5,9 +5,8 @@ Forward-looking task list. Reference material in [`docs/`](docs/): [architecture
 [task coverage](docs/reference/task-coverage.md), [flavors](docs/flavors.md); ADRs in [docs/decisions/](docs/decisions/).
 Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 
-**Status:** `v0.2.0` is tagged and pushed on the
-`agent/todo-complete-catalog-release` branch. Local and remote CI are suite-green; the draft PR
-targets `main`.
+**Status:** `v0.2.0` is tagged on `agent/todo-complete-catalog-release` (CI green), but **`main` is
+5 commits behind and there is no open PR** — the release has not landed on `main`. See **C9**.
 
 ---
 
@@ -87,37 +86,27 @@ or bad pull and they're gone.
 The runtime executes arbitrary code (`run: shell`/`script`) and, in catalog mode, fetches remote
 files. Real gaps found in code review:
 
-- [ ] **C6.1 Default timeout for code tasks.** `tasks/run.py` enforces a timeout only when
-      `task.timeout` is set — a `run: shell` without it runs unbounded. Add a configurable default
-      (`WORKFLOW_RUN_DEFAULT_TIMEOUT`, e.g. 60s).
-- [ ] **C6.2 Subprocess env sanitization.** `tasks/run.py` passes `env={**os.environ, …}` to the
-      child — it inherits `WORKFLOW_SECRET__*` and any credentials, so a hostile script can exfiltrate
-      them. Strip secret-prefixed vars before `create_subprocess_exec`.
-- [ ] **C6.3 Network sandbox gap.** `_sandbox_preexec` (`tasks/common.py`) sets rlimits + no-new-privs
-      but does no network isolation — sandboxed scripts can still open outbound sockets. Document the
-      resulting threat-model limit, or add seccomp / network-namespacing.
-- [ ] **C6.4 Catalog URI fetcher SSRF.** `resources/catalog.py` calls `validate_egress` pre-fetch,
-      but `httpx.get` follows redirects (302 → internal host bypasses the allowlist) and the `file://`
-      path has no traversal guard. Disable redirects + revalidate the final URL; constrain `file://`
-      to an allowlist root.
+- [x] **C6.1 Default timeout for code tasks.** `WORKFLOW_RUN_DEFAULT_TIMEOUT` defaults to 60 seconds
+      and applies when a task does not define its own timeout.
+- [x] **C6.2 Subprocess env sanitization.** `run.py` strips `WORKFLOW_SECRET__*` from the child
+      environment, including task-provided environment overrides.
+- [x] **C6.3 Network sandbox gap.** Documented in [security.md](docs/reference/security.md): the
+      best-effort sandbox does not isolate network access; deployment policy is required.
+- [x] **C6.4 Catalog URI fetcher SSRF.** Redirects are disabled and local catalog paths are constrained
+      to the workflow catalog base directory; regression tests cover redirect and traversal attempts.
 
 ### C7 — Docker posture
 
-- [ ] **C7.1 Run as non-root.** `Dockerfile` has no `USER` directive — the container executes
-      arbitrary `run: shell`/`script` code as root. Add a non-root user.
-- [ ] **C7.2 `.dockerignore`.** Missing — the build context drags in `docs/`, `.github/`, test
-      artifacts; bloats the image and leaks dev files into the context.
-- [ ] **C7.3 Don't ship `TODO.md`.** `COPY README.md TODO.md ./` puts a dev artifact in the runtime
-      image. Copy only what the runtime needs.
-- [ ] **C7.4 `HEALTHCHECK`.** Phase 12.4 delivered health/readiness, but the `Dockerfile` ships no
-      `HEALTHCHECK` directive.
-- [ ] **C7.5 `docker-compose.yml` hardening.** No `read_only`, `cap_drop: ALL`, or `security_opt` —
-      and the compose runs workflows that may exec code.
+- [x] **C7.1 Run as non-root.** The runtime image creates and selects the unprivileged `workflow` user.
+- [x] **C7.2 `.dockerignore`.** Build context excludes source-control, docs, tests, caches, and artifacts.
+- [x] **C7.3 Don't ship `TODO.md`.** The runtime image copies only `README.md` as project documentation.
+- [x] **C7.4 `HEALTHCHECK`.** The image checks the installed CLI version at regular intervals.
+- [x] **C7.5 `docker-compose.yml` hardening.** Services use read-only filesystems, drop all
+      capabilities, and enable `no-new-privileges`.
 
 ### C8 — Test & type discipline
 
-- [ ] **C8.1 Catalog-mode test coverage.** Only `tests/resources/test_catalog.py` covers a whole new
-      flavor (URI fetch, registry, restricted validation, e2e). Add: HTTP fetch (mocked), redirect-
-      SSRF attempt, `file://` traversal attempt, cross-workflow sharing, precedence-on-collision.
-- [ ] **C8.2 Type-discipline pass.** 103 `Any` / `type: ignore` sites in a `py.typed` package —
-      tighten where cheap, document where intentional. Defend the public-API boundary first.
+- [x] **C8.1 Catalog-mode test coverage.** Added mocked HTTP redirect protection, `file://` traversal,
+      registry sharing, and collision/precedence coverage alongside the existing catalog tests.
+- [x] **C8.2 Type-discipline pass.** Documented the intentional dynamic adapter boundaries and policy
+      for keeping public APIs model-typed in [type-discipline.md](docs/reference/type-discipline.md).

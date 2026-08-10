@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import httpx
 import pytest
 import respx
 from httpx import Response
@@ -45,12 +46,12 @@ def test_catalog_file_uri_and_invalid_function_shape(tmp_path: Path) -> None:
     source = tmp_path / "functions.json"
     source.write_text('{"functions": {"makeGreeting": {"set": {"greeting": "hello"}}}}')
 
-    functions = CatalogFunctionRegistry().load(source.as_uri())
+    functions = CatalogFunctionRegistry().load(source.as_uri(), base_dir=tmp_path)
 
     assert "makeGreeting" in functions
     source.write_text('{"functions": {"broken": "not a task"}}')
     with pytest.raises(ValueError, match="names and tasks"):
-        CatalogFunctionRegistry().load(source.as_uri())
+        CatalogFunctionRegistry().load(source.as_uri(), base_dir=tmp_path)
 
 
 def test_catalog_functions_merge_with_workflow_functions(tmp_path: Path) -> None:
@@ -137,3 +138,34 @@ def test_catalog_mode_rejects_agent_extension() -> None:
 
     with pytest.raises(WorkflowValidationError, match="does not allow"):
         load(source, mode="catalog")
+
+
+@respx.mock
+def test_catalog_http_fetch_does_not_follow_redirects() -> None:
+    route = respx.get("https://catalog.example.test/functions.yaml").mock(
+        return_value=Response(302, headers={"location": "http://127.0.0.1/private"})
+    )
+
+    with pytest.raises(httpx.HTTPStatusError):
+        CatalogFunctionRegistry().load("https://catalog.example.test/functions.yaml")
+    assert route.called
+
+
+def test_catalog_file_uri_traversal_is_rejected(tmp_path: Path) -> None:
+    outside = tmp_path.parent / "outside.yaml"
+    outside.write_text("functions: {}")
+
+    with pytest.raises(ValueError, match="escapes"):
+        CatalogFunctionRegistry().load(outside.as_uri(), base_dir=tmp_path)
+
+
+def test_catalog_registry_shares_cached_functions_across_workflows(tmp_path: Path) -> None:
+    source = tmp_path / "functions.yaml"
+    source.write_text("functions:\n  shared:\n    set:\n      value: '1'\n")
+    registry = CatalogFunctionRegistry()
+
+    first = registry.load(source.as_uri(), base_dir=tmp_path)
+    second = registry.load(source.as_uri(), base_dir=tmp_path)
+
+    assert first is second
+    assert "shared" in second
