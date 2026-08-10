@@ -5,7 +5,7 @@ Forward-looking task list. Reference material in [`docs/`](docs/): [architecture
 [task coverage](docs/reference/task-coverage.md), [flavors](docs/flavors.md); ADRs in [docs/decisions/](docs/decisions/).
 Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 
-**Status:** `v0.2.0` release candidate is committed and pushed on the
+**Status:** `v0.2.0` is tagged and pushed on the
 `agent/todo-complete-catalog-release` branch. Local and remote CI are suite-green; the draft PR
 targets `main`.
 
@@ -74,7 +74,7 @@ or bad pull and they're gone.
 - [x] **C4.1 Version bump `0.1.0` → `0.2.0`** (minor: catalog mode is an additive feature) in
       `pyproject.toml` + update the `owf-adk --version` string.
 - [x] **C4.2 `CHANGELOG.md`** entry for 0.2.0 (restructure + catalog mode).
-- [ ] **C4.3 Tag `v0.2.0`** once C1–C3 land and CI is green; push the tag.
+- [x] **C4.3 Tag `v0.2.0`** after C1–C3 landed and CI was green; pushed the tag.
 
 ### C5 — Standing items (low urgency)
 
