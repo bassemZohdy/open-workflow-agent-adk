@@ -1,0 +1,19 @@
+functions:
+  makeGreeting:
+    set:
+      greeting: '"hello from the shared catalog"'
+  summarize:
+    call: http
+    with:
+      method: post
+      endpoint:
+        uri: https://api.openai.com/v1/chat/completions
+        authentication:
+          bearer:
+            token:
+              use: OPENAI_KEY
+      body:
+        model: gpt-4o-mini
+        messages:
+          - role: user
+            content: '${ .text }'

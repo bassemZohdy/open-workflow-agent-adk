@@ -1,6 +1,6 @@
 [project]
 name = "open-workflow-agent-adk"
-version = "0.1.0"
+version = "0.2.0"
 description = "Translates OpenWorkflow Specification documents into runnable ADK agentic components"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -36,6 +36,7 @@ dev = [
     "google-adk[eval]==2.6.3",
     "pytest",
     "pytest-asyncio",
+    "pytest-cov",
     "pip-audit>=2.7",
     "opentelemetry-sdk>=1.30",
     "respx",
@@ -76,7 +77,7 @@ pythonpath = ["src"]
 source_paths = ["src/openworkflow_adk/expressions.py"]
 also_copy = ["src/openworkflow_adk"]
 pytest_add_cli_args_test_selection = [
-    "tests/test_expressions.py",
-    "tests/test_expression_safety.py",
-    "tests/test_expression_properties.py",
+    "tests/core/test_expressions.py",
+    "tests/security/test_expression_safety.py",
+    "tests/core/test_expression_properties.py",
 ]

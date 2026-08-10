@@ -1,0 +1,159 @@
+"""Builders for named functions and gRPC calls."""
+
+from __future__ import annotations
+
+import importlib
+import inspect
+import json
+import sys
+import tempfile
+from collections.abc import Callable
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+import httpx
+import yaml
+from google.adk.workflow._function_node import FunctionNode
+
+from openworkflow_adk.expressions import bind
+from openworkflow_adk.models import Task
+from openworkflow_adk.security.security import validate_egress
+
+from .simple import _dynamic
+
+if TYPE_CHECKING:
+    from openworkflow_adk.translator import NodeBuilderRegistry
+
+
+def _function_builder(
+    name: str,
+    task: Task,
+    functions: dict[str, Callable[..., Any]],
+    function_tasks: dict[str, Task] | None = None,
+    registry: NodeBuilderRegistry | None = None,
+) -> FunctionNode:
+    function = functions.get(task.call or "")
+    reusable = (function_tasks or {}).get(task.call or "")
+    if function is None and (reusable is None or registry is None):
+        raise KeyError(f"function {task.call!r} is not registered")
+
+    async def call_function(ctx: Any) -> Any:
+        arguments = bind(task.with_ or {}, ctx.state.to_dict())
+        cache = registry.memoization if registry is not None else None
+
+        async def compute() -> Any:
+            if function is None and reusable is not None and registry is not None:
+                node = _dynamic(registry.build(f"{name}__function", reusable))
+                return await ctx.run_node(node, node_input=arguments)
+            result = function(**arguments)
+            return await result if inspect.isawaitable(result) else result
+
+        if cache is not None:
+            return await cache.get_or_compute(cache.key(task.call or name, arguments), compute)
+        return await compute()
+
+    return _dynamic(FunctionNode(func=call_function, name=name))
+
+
+async def _read_resource(resource: Any) -> dict[str, Any]:
+    source = resource
+    if isinstance(source, dict):
+        source = source.get("uri") or source.get("endpoint")
+        if isinstance(source, dict):
+            source = source.get("uri")
+    if not isinstance(source, str):
+        raise ValueError("OpenAPI document requires a URI or local path")
+    if source.startswith(("http://", "https://")):
+        validate_egress(source)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(source)
+            response.raise_for_status()
+            return response.json()
+    path = Path(source)
+    text = path.read_text()
+    return json.loads(text) if path.suffix.lower() == ".json" else yaml.safe_load(text)
+
+
+async def _read_resource_bytes(resource: Any) -> bytes:
+    source = resource
+    if isinstance(source, dict):
+        source = source.get("uri") or source.get("endpoint")
+        if isinstance(source, dict):
+            source = source.get("uri")
+    if not isinstance(source, str):
+        raise ValueError("protocol resource requires an endpoint URI or local path")
+    if source.startswith(("http://", "https://")):
+        validate_egress(source)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(source)
+            response.raise_for_status()
+            return response.content
+    return Path(source).read_bytes()
+
+
+def _grpc_message_class(descriptor: Any) -> Any:
+    from google.protobuf.message_factory import GetMessageClass
+
+    return GetMessageClass(descriptor)
+
+
+def _compile_grpc_proto(proto: bytes, temporary_directory: str) -> tuple[Any, Any]:
+    from grpc_tools import protoc
+
+    path = Path(temporary_directory) / "workflow_call.proto"
+    path.write_bytes(proto)
+    result = protoc.main(
+        [
+            "grpc_tools.protoc",
+            f"-I{temporary_directory}",
+            f"--python_out={temporary_directory}",
+            f"--grpc_python_out={temporary_directory}",
+            str(path),
+        ]
+    )
+    if result != 0:
+        raise ValueError(f"could not compile gRPC proto resource (protoc exit {result})")
+    importlib.invalidate_caches()
+    return (
+        importlib.import_module("workflow_call_pb2"),
+        importlib.import_module("workflow_call_pb2_grpc"),
+    )
+
+
+def _grpc_builder(name: str, task: Task) -> FunctionNode:
+    async def call_grpc(ctx: Any) -> Any:
+        import grpc
+        from google.protobuf.json_format import MessageToDict, ParseDict
+
+        arguments = bind(task.with_ or {}, ctx.state.to_dict())
+        service = arguments.get("service") or {}
+        service_name = service.get("name")
+        method_name = arguments.get("method")
+        if not service_name or not method_name:
+            raise ValueError("gRPC call requires service.name and method")
+        proto = await _read_resource_bytes(arguments.get("proto"))
+        with tempfile.TemporaryDirectory(prefix="owf-grpc-") as directory:
+            sys.path.insert(0, directory)
+            try:
+                proto_module, service_module = _compile_grpc_proto(proto, directory)
+                descriptor = proto_module.DESCRIPTOR.services_by_name.get(service_name)
+                if descriptor is None:
+                    raise KeyError(f"gRPC service {service_name!r} was not found")
+                method = descriptor.methods_by_name.get(method_name)
+                if method is None:
+                    raise KeyError(f"gRPC method {method_name!r} was not found")
+                request_class = _grpc_message_class(method.input_type)
+                request = ParseDict(arguments.get("arguments") or {}, request_class())
+                host = service.get("host")
+                port = service.get("port", 443)
+                channel = grpc.aio.insecure_channel(f"{host}:{port}")
+                try:
+                    stub_class = getattr(service_module, f"{service_name}Stub")
+                    response = await getattr(stub_class(channel), method_name)(request)
+                finally:
+                    await channel.close()
+                return MessageToDict(response, preserving_proto_field_name=True)
+            finally:
+                sys.path.remove(directory)
+
+    return _dynamic(FunctionNode(func=call_grpc, name=name))

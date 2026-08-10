@@ -29,6 +29,14 @@ Typical uses include approval flows, retrieval-augmented generation, document
 processing, research and review pipelines, multi-agent collaboration, and
 event-driven automation.
 
+## Choose a workflow flavor
+
+Use **extended mode** when you want inline ADK agents, tools, memory, or teams
+through the `agent:` task extension. Use **catalog mode** when workflows must
+remain spec-pure and reusable functions should be shared from an external
+catalog. The CLI and Python API support explicit `extended`, `catalog`, or
+`auto` selection. See the [workflow flavors guide](docs/flavors.md).
+
 ## Quick start
 
 From a checkout of this repository, run the included deterministic example:
@@ -98,7 +106,7 @@ do:
 Agent model credentials are supplied by the deployment environment. Defaults
 can be configured with `WORKFLOW_` environment variables or a dotenv-style
 file passed to `--env`; task-level settings override project defaults. See the
-[configuration guide](docs/configuration.md).
+[configuration guide](docs/reference/configuration.md).
 
 ## Use it from Python
 
@@ -119,7 +127,7 @@ async def execute():
 
 For long-running workflows, configure persistent sessions and run history,
 then resume with `resume=True`. Workflows waiting for events or human input
-can suspend without keeping a worker busy. The [configuration guide](docs/configuration.md)
+can suspend without keeping a worker busy. The [configuration guide](docs/reference/configuration.md)
 covers SQLite, Vertex, memory backends, providers, credentials, and runtime
 options.
 
@@ -141,9 +149,9 @@ runs the workflow against JSON fixtures. Editor integrations can use
 ## Learn more
 
 - [Examples gallery](examples/README.md)
-- [Supported extensions](docs/extension-spec.md)
-- [Architecture overview](docs/architecture.md)
-- [Generation and integration tools](docs/generation.md)
+- [Supported extensions](docs/reference/extension-spec.md)
+- [Architecture overview](docs/reference/architecture.md)
+- [Generation and integration tools](docs/guides/generation.md)
 - [Project task list](TODO.md)
 
 ## Contributing

@@ -17,7 +17,14 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 COPY --from=builder /app/.venv /app/.venv
 COPY src ./src
-COPY README.md TODO.md ./
+COPY README.md ./
+
+RUN useradd --create-home --uid 10001 workflow \
+    && chown -R workflow:workflow /app
+USER workflow
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD ["owf-adk", "--version"]
 
 ENTRYPOINT ["owf-adk"]
 CMD ["--help"]

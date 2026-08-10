@@ -44,13 +44,14 @@ def _parse_source(source: str | Path | dict[str, Any]) -> dict[str, Any]:
 def _strip_agent(value: Any, parent: str | None = None) -> Any:
     if isinstance(value, dict):
         return {
-            key: _strip_agent(item, key)
+            key: _strip_agent(item, "catalog" if parent == "catalogs" else key)
             for key, item in value.items()
             if key not in {"agent", "self_heal"}
+            and not (parent == "catalog" and key == "functions")
             and not (parent == "use" and key in {"models", "providers", "memories"})
         }
     if isinstance(value, list):
-        return [_strip_agent(item, parent) for item in value]
+        return [_strip_agent(item, "catalog" if parent == "catalogs" else parent) for item in value]
     return value
 
 
@@ -130,9 +131,19 @@ def _extension_errors(value: Any, path: str = "$") -> list[dict[str, str]]:
     return errors
 
 
-def load(source: str | Path | dict[str, Any]) -> OpenWorkflowDocument:
+def load(source: str | Path | dict[str, Any], *, mode: str = "auto") -> OpenWorkflowDocument:
     """Load YAML/JSON text, a file, or a mapping into a typed document."""
+    if mode not in {"auto", "extended", "catalog"}:
+        raise ValueError("mode must be auto, extended, or catalog")
     raw = _parse_source(source)
+    has_agent = _contains_key(raw, "agent")
+    catalog_mode = mode == "catalog" or (
+        mode == "auto" and not has_agent and _catalog_has_functions(raw)
+    )
+    if catalog_mode and has_agent:
+        raise WorkflowValidationError(
+            [{"path": "$", "message": "catalog mode does not allow the agent extension"}]
+        )
     errors = _extension_errors(raw)
     model_registry = raw.get("use", {}).get("models", {})
     if isinstance(model_registry, dict):
@@ -188,3 +199,18 @@ def load(source: str | Path | dict[str, Any]) -> OpenWorkflowDocument:
                 for error in exc.errors()
             ]
         ) from exc
+
+
+def _contains_key(value: Any, key: str) -> bool:
+    if isinstance(value, dict):
+        return key in value or any(_contains_key(item, key) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_key(item, key) for item in value)
+    return False
+
+
+def _catalog_has_functions(value: Any) -> bool:
+    catalogs = value.get("use", {}).get("catalogs", {}) if isinstance(value, dict) else {}
+    return isinstance(catalogs, dict) and any(
+        isinstance(item, dict) and item.get("functions") for item in catalogs.values()
+    )

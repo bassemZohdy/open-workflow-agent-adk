@@ -42,7 +42,7 @@ class WorkflowHealth:
         self.ready = False
         try:
             await asyncio.wait_for(self._idle.wait(), timeout=timeout)
-        except TimeoutError:
+        except (TimeoutError, asyncio.TimeoutError):
             return False
         return True
 

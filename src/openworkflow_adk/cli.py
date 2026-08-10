@@ -6,21 +6,22 @@ import json
 import os
 from pathlib import Path
 
-from openworkflow_adk.tools.diagnostics import lint_workflow, workflow_mermaid, workflow_plan
-from openworkflow_adk.tools.diagnostics_server import serve_stdio
 from openworkflow_adk.loader import load
 from openworkflow_adk.runtime import run_workflow
+from openworkflow_adk.tools.diagnostics import lint_workflow, workflow_mermaid, workflow_plan
+from openworkflow_adk.tools.diagnostics_server import serve_stdio
 
 
 def main() -> int:
     """Run the command-line interface."""
     parser = argparse.ArgumentParser(prog="owf-adk")
-    parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
+    parser.add_argument("--version", action="version", version="%(prog)s 0.2.0")
     commands = parser.add_subparsers(dest="command")
     run_parser = commands.add_parser("run", help="run a workflow document")
     run_parser.add_argument("file", type=Path)
     run_parser.add_argument("--input", default="{}", help="JSON input object")
     run_parser.add_argument("--env", type=Path, help="dotenv-style environment file")
+    run_parser.add_argument("--mode", choices=("auto", "extended", "catalog"), default="auto")
     lint_parser = commands.add_parser("lint", help="lint a workflow document")
     lint_parser.add_argument("file", type=Path)
     plan_parser = commands.add_parser("plan", help="print the compiled workflow plan")
@@ -68,7 +69,14 @@ def main() -> int:
     input_data = json.loads(args.input)
     if not isinstance(input_data, dict):
         parser.error("--input must be a JSON object")
-    events = asyncio.run(run_workflow(load(args.file), input_data))
+    events = asyncio.run(
+        run_workflow(
+            load(args.file, mode=args.mode),
+            input_data,
+            mode=args.mode,
+            catalog_base_dir=args.file.parent,
+        )
+    )
     for event in events:
         if event.output is not None:
             print(json.dumps(event.output, default=str))

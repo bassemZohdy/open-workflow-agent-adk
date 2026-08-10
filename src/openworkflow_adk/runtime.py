@@ -13,17 +13,23 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
-from openworkflow_adk.resources.broker import Broker, InMemoryBroker
-from openworkflow_adk.ops.history import InMemoryRunHistory, SQLiteRunHistory
-from openworkflow_adk.resources.memory import create_memory_service
 from openworkflow_adk.models import OpenWorkflowDocument
-from openworkflow_adk.tools.registry import WorkflowRegistry
-from openworkflow_adk.ops.run_logging import JsonRunLogger
+from openworkflow_adk.ops import replay as _replay
+from openworkflow_adk.ops.history import InMemoryRunHistory, SQLiteRunHistory
+from openworkflow_adk.ops.logging import JsonRunLogger
 from openworkflow_adk.ops.schedule import trigger_events
-from openworkflow_adk.security.security import redact, resolve_secret
 from openworkflow_adk.ops.suspension import WorkflowSuspended
 from openworkflow_adk.ops.telemetry import WorkflowTelemetry
+from openworkflow_adk.resources.broker import Broker, InMemoryBroker
+from openworkflow_adk.resources.catalog import CatalogFunctionRegistry, with_catalog_functions
+from openworkflow_adk.resources.memory import create_memory_service
+from openworkflow_adk.security.security import redact, resolve_secret
+from openworkflow_adk.tools.registry import WorkflowRegistry
 from openworkflow_adk.translator import build_workflow
+
+replay_event_log = _replay.replay_event_log
+replay_from_task = _replay.replay_from_task
+verify_replay_determinism = _replay.verify_replay_determinism
 
 
 async def run_workflow(
@@ -52,6 +58,9 @@ async def run_workflow(
     memoization: Any = None,
     self_healer: Callable[[Exception, dict[str, Any]], Any] | None = None,
     region: str | None = None,
+    mode: str = "auto",
+    catalog_registry: CatalogFunctionRegistry | None = None,
+    catalog_base_dir: str | None = None,
 ) -> list[Any]:
     """Run a translated workflow using the selected ADK session backend."""
     if resume and history is None:
@@ -81,6 +90,17 @@ async def run_workflow(
                     break
             else:
                 raise KeyError(f"checkpoint task {prior.checkpoint_task!r} is not in workflow")
+    if mode not in {"auto", "extended", "catalog"}:
+        raise ValueError("mode must be auto, extended, or catalog")
+    catalog_mode = mode == "catalog" or (
+        mode == "auto" and any(item.functions for item in document.use.catalogs.values())
+    )
+    if catalog_mode:
+        document = with_catalog_functions(
+            document,
+            catalog_registry or CatalogFunctionRegistry(),
+            base_dir=catalog_base_dir,
+        )
     workflow = build_workflow(
         document,
         broker=broker or InMemoryBroker(),
@@ -304,69 +324,9 @@ def _event_log_entry(event: Any) -> dict[str, Any]:
     }
 
 
-def replay_event_log(
-    event_log: list[dict[str, Any]], initial_state: dict[str, Any] | None = None
-) -> tuple[dict[str, Any], Any]:
-    """Reconstruct final state and output from a persisted workflow event log.
-
-    Event logs intentionally contain state deltas rather than implementation
-    details, so replay is stable across process restarts and does not invoke
-    external handlers a second time.
-    """
-    state = dict(initial_state or {})
-    output: Any = None
-    for event in event_log:
-        delta = event.get("state_delta") or {}
-        if not isinstance(delta, dict):
-            raise ValueError("event log state_delta must be an object")
-        state.update(delta)
-        if event.get("output") is not None:
-            output = event["output"]
-        if event.get("error"):
-            raise RuntimeError(f"cannot replay failed event: {event['error']}")
-    return state, output
-
-
 async def run(document: OpenWorkflowDocument, input: dict[str, Any] | None = None) -> list[Any]:
     """Public library entrypoint for an in-memory workflow run."""
     return await run_workflow(document, input)
-
-
-async def replay_from_task(
-    document: OpenWorkflowDocument,
-    task_name: str,
-    checkpoint: dict[str, Any] | None = None,
-    **kwargs: Any,
-) -> list[Any]:
-    """Resume a workflow at a named top-level task using checkpointed state.
-
-    The caller supplies the checkpoint captured before the failed task. The
-    sliced document ensures preceding handlers are not invoked again.
-    """
-    for index, item in enumerate(document.do):
-        if item.name == task_name:
-            resumed = document.model_copy(update={"do": document.do[index:]})
-            return await run_workflow(resumed, checkpoint or {}, **kwargs)
-    raise KeyError(f"unknown replay task: {task_name}")
-
-
-async def verify_replay_determinism(
-    document: OpenWorkflowDocument, input: dict[str, Any] | None = None
-) -> bool:
-    """Compare two deterministic runs through their persisted event logs."""
-    first = InMemoryRunHistory()
-    second = InMemoryRunHistory()
-    await run_workflow(document, input, session_id="replay-1", history=first)
-    await run_workflow(document, input, session_id="replay-2", history=second)
-    first_record = first.get("replay-1")
-    second_record = second.get("replay-2")
-    first_replayed = replay_event_log(first_record.event_log, input)
-    second_replayed = replay_event_log(second_record.event_log, input)
-    return (
-        first_record.event_log == second_record.event_log
-        and first_replayed == second_replayed
-        and first_replayed == (first_record.state, first_record.output)
-    )
 
 
 def memory_service_for_document(document: OpenWorkflowDocument) -> BaseMemoryService | None:
