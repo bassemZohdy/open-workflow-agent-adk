@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import inspect
 import json
+import subprocess
 import sys
 import tempfile
 from collections.abc import Callable
@@ -98,25 +100,42 @@ def _grpc_message_class(descriptor: Any) -> Any:
 
 
 def _compile_grpc_proto(proto: bytes, temporary_directory: str) -> tuple[Any, Any]:
-    from grpc_tools import protoc
+    """Compile a gRPC proto resource and import the generated modules.
 
-    path = Path(temporary_directory) / "workflow_call.proto"
+    The proto bytes are treated as trusted input: they are written to disk and
+    executed indirectly via protoc-generated Python modules. Callers must
+    validate the source of proto bytes before invoking a gRPC call.
+    """
+    # Unique module name derived from the proto bytes avoids collisions under
+    # concurrent gRPC calls that share the same temporary directory namespace.
+    digest = hashlib.sha256(proto).hexdigest()
+    basename = f"owf_grpc_{digest[:16]}"
+    path = Path(temporary_directory) / f"{basename}.proto"
     path.write_bytes(proto)
-    result = protoc.main(
+    result = subprocess.run(
         [
+            sys.executable,
+            "-m",
             "grpc_tools.protoc",
             f"-I{temporary_directory}",
             f"--python_out={temporary_directory}",
             f"--grpc_python_out={temporary_directory}",
             str(path),
-        ]
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
     )
-    if result != 0:
-        raise ValueError(f"could not compile gRPC proto resource (protoc exit {result})")
+    if result.returncode != 0:
+        raise ValueError(
+            f"could not compile gRPC proto resource "
+            f"(protoc exit {result.returncode}): {result.stderr.strip()}"
+        )
     importlib.invalidate_caches()
     return (
-        importlib.import_module("workflow_call_pb2"),
-        importlib.import_module("workflow_call_pb2_grpc"),
+        importlib.import_module(f"{basename}_pb2"),
+        importlib.import_module(f"{basename}_pb2_grpc"),
     )
 
 

@@ -11,7 +11,7 @@ and the `Release` workflow (`on: push: tags: v*.*.*`) has never fired.
 C1–C8 below are kept as the historical record of the v0.2.0 work; new follow-ups from the
 whole-project review live in **C9–C16**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.14,
 C11.1–C11.4, C12.1–C12.10, C13.2–C13.3, and C14.1–C14.4 completed; catalog `file://` URI
-handling fixed on Windows.
+handling fixed on Windows; C10.5 gRPC proto compilation hardened.
 
 ---
 
@@ -159,11 +159,11 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
 - [x] **C10.4 (P1) `validate_egress` does not resolve DNS.** `security/security.py:84–92` resolves
       non-IP-literal hostnames via `socket.getaddrinfo` and checks all returned IP addresses.
       Regression tests cover hostname resolution and failure modes.
-- [ ] **C10.5 (P1) gRPC proto compilation imports generated code in-process.** `tasks/call.py:100–120`
-      writes attacker-controllable proto bytes, runs `protoc`, then `importlib.import_module`s the
-      generated `_pb2*.py`. Compiled output executes on import, and the fixed module name
-      `workflow_call_pb2` collides under concurrent gRPC calls. Document the trust requirement, use
-      unique module names (hash suffix), and prefer a subprocess with resource limits.
+- [x] **C10.5 (P1) gRPC proto compilation imports generated code in-process.** `tasks/call.py:100–140`
+      now derives unique module names from a SHA-256 hash of the proto bytes, runs `protoc` in a
+      subprocess with a 30-second timeout, and documents the trust requirement in the docstring.
+      Regression tests in `tests/resources/test_grpc.py` cover unique module names and protoc
+      error surfacing.
 - [x] **C10.6 (P1) Script `source` can read arbitrary local files.** `tasks/run.py` now resolves
       script sources against `WORKFLOW_SCRIPT_BASE_DIR` (defaulting to the current working dir) and
       rejects any path that escapes that directory via `..` or absolute traversal.
