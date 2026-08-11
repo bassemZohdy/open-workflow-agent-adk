@@ -7,9 +7,40 @@ import os
 from pathlib import Path
 
 from openworkflow_adk.loader import load
+from openworkflow_adk.models import OpenWorkflowDocument
+from openworkflow_adk.resources.catalog import CatalogFunctionRegistry, with_catalog_functions
 from openworkflow_adk.runtime import run_workflow
 from openworkflow_adk.tools.diagnostics import lint_workflow, workflow_mermaid, workflow_plan
 from openworkflow_adk.tools.diagnostics_server import serve_stdio
+
+
+def _add_file_and_mode_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("file", type=Path)
+    parser.add_argument("--mode", choices=("auto", "extended", "catalog"), default="auto")
+    parser.add_argument(
+        "--catalog-base-dir",
+        type=Path,
+        help="Base directory for resolving relative catalog function URIs",
+    )
+
+
+def _catalog_mode(document: OpenWorkflowDocument, mode: str) -> bool:
+    """Mirror the load-time detection from loader.py for runtime/catalog tooling."""
+    if mode == "catalog":
+        return True
+    if mode != "auto":
+        return False
+    return any(item.functions for item in document.use.catalogs.values())
+
+
+def _load_document(args: argparse.Namespace) -> OpenWorkflowDocument:
+    document = load(args.file, mode=args.mode)
+    base_dir = args.catalog_base_dir or args.file.parent
+    if _catalog_mode(document, args.mode):
+        document = with_catalog_functions(
+            document, CatalogFunctionRegistry(), base_dir=str(base_dir)
+        )
+    return document
 
 
 def main() -> int:
@@ -17,38 +48,51 @@ def main() -> int:
     parser = argparse.ArgumentParser(prog="owf-adk")
     parser.add_argument("--version", action="version", version="%(prog)s 0.2.0")
     commands = parser.add_subparsers(dest="command")
+
     run_parser = commands.add_parser("run", help="run a workflow document")
-    run_parser.add_argument("file", type=Path)
+    _add_file_and_mode_args(run_parser)
     run_parser.add_argument("--input", default="{}", help="JSON input object")
     run_parser.add_argument("--env", type=Path, help="dotenv-style environment file")
-    run_parser.add_argument("--mode", choices=("auto", "extended", "catalog"), default="auto")
+
     lint_parser = commands.add_parser("lint", help="lint a workflow document")
-    lint_parser.add_argument("file", type=Path)
+    _add_file_and_mode_args(lint_parser)
+
     plan_parser = commands.add_parser("plan", help="print the compiled workflow plan")
-    plan_parser.add_argument("file", type=Path)
+    _add_file_and_mode_args(plan_parser)
+
     graph_parser = commands.add_parser("graph", help="print the compiled workflow as Mermaid")
-    graph_parser.add_argument("file", type=Path)
+    _add_file_and_mode_args(graph_parser)
+
     test_parser = commands.add_parser("test", help="run workflow cases from fixture JSON")
-    test_parser.add_argument("file", type=Path)
+    _add_file_and_mode_args(test_parser)
     test_parser.add_argument("--fixtures", type=Path, required=True)
+
     commands.add_parser("diagnostics-server", help="serve editor diagnostics over stdio")
     args = parser.parse_args()
+
     if args.command == "lint":
-        diagnostics = lint_workflow(load(args.file))
+        diagnostics = lint_workflow(_load_document(args))
         print(json.dumps([item.as_dict() for item in diagnostics], indent=2))
         return 1 if any(item.severity == "error" for item in diagnostics) else 0
     if args.command == "plan":
-        print(json.dumps(workflow_plan(load(args.file)), indent=2))
+        print(json.dumps(workflow_plan(_load_document(args)), indent=2))
         return 0
     if args.command == "graph":
-        print(workflow_mermaid(load(args.file)), end="")
+        print(workflow_mermaid(_load_document(args)), end="")
         return 0
     if args.command == "test":
         cases = _load_test_cases(args.fixtures)
         reports = []
-        document = load(args.file)
+        document = load(args.file, mode=args.mode)
         for index, case in enumerate(cases):
-            events = asyncio.run(run_workflow(document, case.get("input", {})))
+            events = asyncio.run(
+                run_workflow(
+                    document,
+                    case.get("input", {}),
+                    mode=args.mode,
+                    catalog_base_dir=str(args.catalog_base_dir or args.file.parent),
+                )
+            )
             outputs = [event.output for event in events if event.output is not None]
             for event in events:
                 if event.actions:
@@ -74,7 +118,7 @@ def main() -> int:
             load(args.file, mode=args.mode),
             input_data,
             mode=args.mode,
-            catalog_base_dir=args.file.parent,
+            catalog_base_dir=str(args.catalog_base_dir or args.file.parent),
         )
     )
     for event in events:

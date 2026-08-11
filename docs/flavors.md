@@ -18,11 +18,84 @@ Catalog mode adds a reusable function-resolution step before the existing
 
 ## Selecting a flavor
 
-The CLI accepts `--mode auto|extended|catalog` on `owf-adk run`.
+The CLI and API accept `--mode auto|extended|catalog`.
 
 `auto` is the default. It selects extended mode when an `agent:` key is
 present, and catalog mode when a workflow references a catalog with a
 `functions` URI. Pass an explicit mode when a deployment wants a hard policy.
 
-See [ADR 0008](decisions/0008-workflow-flavors.md) and the
-[catalog reference](reference/catalogs.md).
+## Extended mode example
+
+Extended workflows use the `agent:` task extension to invoke an ADK agent
+inline. You can register reusable models, providers, and memories under
+`use`:
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: hello-agent
+  version: '1.0.0'
+use:
+  models:
+    flash:
+      provider: gemini
+      model: gemini-2.5-flash
+  providers:
+    gemini: {}
+do:
+  - greet:
+      agent:
+        model: flash
+        instruction: Greet the user by name.
+        output_key: greeting
+```
+
+Use extended mode when you need ADK agents, tools, memory, agent teams, or
+inline instruction authoring.
+
+## Catalog mode example
+
+Catalog workflows keep AI behavior in a separate, reusable `functions` file.
+The workflow itself is spec-pure OpenWorkflow:
+
+```yaml
+document:
+  dsl: '1.0.3'
+  namespace: examples
+  name: greeting
+  version: '1.0.0'
+use:
+  catalogs:
+    shared:
+      functions: functions.yaml
+do:
+  - greet:
+      call: makeGreeting
+```
+
+`functions.yaml` defines ordinary tasks under a top-level `functions` key:
+
+```yaml
+functions:
+  makeGreeting:
+    set:
+      greeting: '"hello"'
+```
+
+Use catalog mode when you want portable, spec-pure workflows or when multiple
+workflows share the same function library.
+
+## When to pick which
+
+- Choose **extended** for agent-centric workflows, rich tool use, ADK memory,
+  multi-agent teams, or when you want model/provider configuration inline.
+- Choose **catalog** when portability and shared reusable functions matter
+  more than ADK-specific agent features, or when you are integrating with an
+  existing OpenWorkflow function catalog.
+- Use **`auto`** to let the runtime decide from the document shape, or pass an
+  explicit `--mode` to enforce a policy.
+
+See [ADR 0008](decisions/0008-workflow-flavors.md), the
+[catalog reference](reference/catalogs.md), and the
+[extended reference](reference/extended.md).

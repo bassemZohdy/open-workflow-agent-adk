@@ -7,7 +7,6 @@ an external functions file through the project extension below:
 use:
   catalogs:
     shared:
-      endpoint: file://./functions.yaml
       functions: ./functions.yaml
 do:
   - answer:
@@ -33,9 +32,9 @@ functions:
             content: '${ .text }'
 ```
 
-The `endpoint` field remains for OpenWorkflow catalog compatibility; the
-`functions` URI is the operative resolver in this implementation. Supported URI
-forms are local paths, `file://` paths, and HTTP(S) URLs. Local
+The `functions` URI is the operative resolver. The `endpoint` field is
+vestigial in this implementation and is ignored; remove it from new workflows.
+Supported URI forms are local paths, `file://` paths, and HTTP(S) URLs. Local
 relative paths are resolved from the catalog base directory supplied by the
 caller. Catalog contents are cached by URI and content hash within a registry
 instance, so multiple workflows can share one loaded function set.

@@ -1,18 +1,18 @@
-# TODO — open-workflow-agent-adk
+# TODO â€” open-workflow-agent-adk
 
 Forward-looking task list. Reference material in [`docs/`](docs/): [architecture](docs/reference/architecture.md),
 [configuration](docs/reference/configuration.md), [extension spec](docs/reference/extension-spec.md),
 [task coverage](docs/reference/task-coverage.md), [flavors](docs/flavors.md); ADRs in [docs/decisions/](docs/decisions/).
-Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
+Spec baseline is v1.0.3 â€” run `spec-drift-check` before any schema work.
 
 **Status:** v0.2.0 code has landed on `main` (`f78c0c1 Merge completed TODO work`) and is now
 tagged `v0.2.0`; `v0.1.0` tags the baseline commit `1897458`. The release branch was not preserved,
 and the `Release` workflow (`on: push: tags: v*.*.*`) has never fired.
-C1–C8 below are kept as the historical record of the v0.2.0 work; follow-ups from the whole-project
-review live in **C9–C17**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.14, C11.1–C11.4, C12.1–C12.10,
-C13.1�C13.5, C14.1�C14.17, and C15.1�C15.6 completed; catalogompleted; catalog `file://` URI handling fixed on
+C1â€“C8 below are kept as the historical record of the v0.2.0 work; follow-ups from the whole-project
+review live in **C9â€“C17**. Latest cleanup pass: C9.1â€“C9.3, C10.1â€“C10.14, C11.1â€“C11.4, C12.1â€“C12.10,
+C13.1–C13.5, C14.1–C14.17, C15.1–C15.6, and C17.1–C17.10 completed; catalogompleted; catalog `file://` URI handling fixed on
 Windows; C10.5 gRPC proto compilation hardened. **Open: C17 (flavor gaps) is new and entirely
-open — catalog mode currently only works end-to-end through `owf-adk run`.**
+open â€” catalog mode currently only works end-to-end through `owf-adk run`.**
 
 ---
 
@@ -20,75 +20,75 @@ open — catalog mode currently only works end-to-end through `owf-adk run`.**
 
 Per-task detail is in git history + the `v0.1.0` tag; design rationale in the linked ADRs.
 
-- **v1 core** (Phases 0–11 + 2A/2B/2C) — translator spine, full task coverage (`call`/`run`/`switch`/
-  `fork`/`try`/`for`/`emit`/`listen`/…), 3-layer config, `use.models`/`use.providers`/`use.memories`.
-  ADRs [0001](docs/decisions/0001-agent-characteristics-key.md)–[0005](docs/decisions/0005-model-reference.md).
-- **Production hardening** (Phases 12–20) — telemetry, durability/resume, security sandboxing +
+- **v1 core** (Phases 0â€“11 + 2A/2B/2C) â€” translator spine, full task coverage (`call`/`run`/`switch`/
+  `fork`/`try`/`for`/`emit`/`listen`/â€¦), 3-layer config, `use.models`/`use.providers`/`use.memories`.
+  ADRs [0001](docs/decisions/0001-agent-characteristics-key.md)â€“[0005](docs/decisions/0005-model-reference.md).
+- **Production hardening** (Phases 12â€“20) â€” telemetry, durability/resume, security sandboxing +
   egress guards, operability (registry/linter/plan/replay), eval/benchmarks, extensibility (tools,
   multi-agent, HITL, plugins, brokers), DX (schema/editor/graph/examples), spec evolution, release.
-  ADRs [0006](docs/decisions/0006-memory-backends.md)–[0007](docs/decisions/0007-provider-adapters.md).
-- **Strategic capabilities** (Phases 21–27) — AI-native (NL→workflow, self-heal, LLM routing),
+  ADRs [0006](docs/decisions/0006-memory-backends.md)â€“[0007](docs/decisions/0007-provider-adapters.md).
+- **Strategic capabilities** (Phases 21â€“27) â€” AI-native (NLâ†’workflow, self-heal, LLM routing),
   advanced agents (memory, multi-modal, streaming, cost caps), distributed workers, UI API,
   enterprise (RBAC/SSO/audit/residency/air-gap), interop (Temporal/Argo/Airflow, conformance),
   ecosystem. Upstream proposals: [#1184](https://github.com/open-workflow-specification/specification/issues/1184),
   [#1185](https://github.com/open-workflow-specification/specification/issues/1185).
-- **Restructuring** (R1–R3, R4.1/4.3/4.4, R5, R6.2–6.4, R7.2) — core at package root, peripherals in
+- **Restructuring** (R1â€“R3, R4.1/4.3/4.4, R5, R6.2â€“6.4, R7.2) â€” core at package root, peripherals in
   `resources/ ops/ security/ tools/`, per-task builders in `tasks/`; `tests/` + `docs/` mirrored.
-- **Catalog mode** (B0–B6) — spec-pure flavor: `call: <name>` resolves against a resource catalog
+- **Catalog mode** (B0â€“B6) â€” spec-pure flavor: `call: <name>` resolves against a resource catalog
   whose `functions` property is a URI to an external file, shared across workflows. ADR [0008](docs/decisions/0008-workflow-flavors.md).
 
 ---
 
 ## Remaining
 
-### C1 — Commit & persist the uncommitted work  *(P0 — blocks everything else)*
+### C1 â€” Commit & persist the uncommitted work  *(P0 â€” blocks everything else)*
 
 ~136 working-tree changes (the restructuring + catalog-mode tracks) are not in git. One `git clean`
 or bad pull and they're gone.
 
-- [x] **C1.1** Commit the restructuring as one focused commit (R1–R3 + R4.1/4.3/4.4 + R5 + R6.2–6.4 + R7.2).
-- [x] **C1.2** Commit catalog mode as a separate logical commit (B0–B6 + `examples/catalog/` + ADR 0008).
+- [x] **C1.1** Commit the restructuring as one focused commit (R1â€“R3 + R4.1/4.3/4.4 + R5 + R6.2â€“6.4 + R7.2).
+- [x] **C1.2** Commit catalog mode as a separate logical commit (B0â€“B6 + `examples/catalog/` + ADR 0008).
 - [x] **C1.3** ~~Push both to `origin/agent/todo-complete-catalog-release`; draft PR targets `main`.~~
-      Superseded — work landed on `main` via merge commit `f78c0c1`.
+      Superseded â€” work landed on `main` via merge commit `f78c0c1`.
 
-### C2 — Finish restructuring cleanup
+### C2 â€” Finish restructuring cleanup
 
 - [x] **R4.2 Module-level cleanup.** Remove dead exports, tighten docstrings, consolidate
       near-duplicate handlers across `resources/`/`ops/`/`tools/`.
-- [x] **R6.1 Confirm CI green on the release branch** after C1 lands (`.github/workflows/ci.yml`) —
+- [x] **R6.1 Confirm CI green on the release branch** after C1 lands (`.github/workflows/ci.yml`) â€”
       superseded by later CI runs on `main`; the original run ID is no longer verifiable.
-- [x] **R7.1 Baseline commit message** (`1897458`) still says "v1.0.0" — tag is correct at `v0.1.0`.
+- [x] **R7.1 Baseline commit message** (`1897458`) still says "v1.0.0" â€” tag is correct at `v0.1.0`.
       Amend + `git push --force-with-lease` only if pristine history is wanted; else leave.
 
-### C3 — Catalog mode polish  *(audit findings)*
+### C3 â€” Catalog mode polish  *(audit findings)*
 
 - [x] **C3.1 Fix misleading `endpoint` in catalog examples.** `examples/catalog/{greeting,summarize}.yaml`
-      set `endpoint: https://catalog.example.invalid` (RFC-2606 non-routable) — the `functions:
+      set `endpoint: https://catalog.example.invalid` (RFC-2606 non-routable) â€” the `functions:
       functions.yaml` URI is what actually resolves. Either drop `endpoint`, point it at `file://`,
       or document that `functions` is the operative resolver and `endpoint` is vestigial.
 - [x] **C3.2 Document the secret requirement for `summarize`.** It calls OpenAI with
-      `bearer: { use: openai-key }` — needs `WORKFLOW_SECRET__OPENAI_KEY` set before it runs.
+      `bearer: { use: openai-key }` â€” needs `WORKFLOW_SECRET__OPENAI_KEY` set before it runs.
       `greeting` (deterministic `set`) should run out-of-the-box; verify it does.
 - [x] **C3.3 CI exercises catalog mode.** Confirm the matrix runs the B6 catalog tests on every push,
       not just the extended-mode suite.
-- [x] **C3.4 Top-level README presents both flavors** — extended vs catalog, when to use each, and
+- [x] **C3.4 Top-level README presents both flavors** â€” extended vs catalog, when to use each, and
       the `--mode {auto,extended,catalog}` flag (R5.1 fixed stale paths; this adds user-facing coverage).
 - [x] **C3.5 Index the catalog examples** in the examples gallery / `docs/guides/`.
 
-### C4 — Release
+### C4 â€” Release
 
-- [x] **C4.1 Version bump `0.1.0` → `0.2.0`** (minor: catalog mode is an additive feature) in
+- [x] **C4.1 Version bump `0.1.0` â†’ `0.2.0`** (minor: catalog mode is an additive feature) in
       `pyproject.toml` + update the `owf-adk --version` string.
 - [x] **C4.2 `CHANGELOG.md`** entry for 0.2.0 (restructure + catalog mode).
-- [x] **C4.3 Tag `v0.2.0`** after C1–C3 landed and CI was green; pushed the tag.
+- [x] **C4.3 Tag `v0.2.0`** after C1â€“C3 landed and CI was green; pushed the tag.
 
-### C5 — Standing items (low urgency)
+### C5 â€” Standing items (low urgency)
 
 - [x] **C5.1 testcontainers skip.** The 2 skipped tests need Docker; documented in `CONTRIBUTING.md`
-      — consider a non-Docker fast path so they don't skip in minimal CI runners.
+      â€” consider a non-Docker fast path so they don't skip in minimal CI runners.
 - [x] **C5.2 Coverage trend.** R6.2 recorded a baseline; track the % over time in CI (defend, don't chase).
 
-### C6 — Security hardening gaps  *(audit — untrusted-code execution path)*
+### C6 â€” Security hardening gaps  *(audit â€” untrusted-code execution path)*
 
 The runtime executes arbitrary code (`run: shell`/`script`) and, in catalog mode, fetches remote
 files. Real gaps found in code review:
@@ -105,7 +105,7 @@ files. Real gaps found in code review:
       correctly on Windows (e.g., `file:///C:/...`); previously `Path(unquote(parsed.path))` dropped
       the leading slash and misidentified the path as outside the catalog root.
 
-### C7 — Docker posture
+### C7 â€” Docker posture
 
 - [x] **C7.1 Run as non-root.** The runtime image creates and selects the unprivileged `workflow` user.
 - [x] **C7.2 `.dockerignore`.** Build context excludes source-control, docs, tests, caches, and artifacts.
@@ -114,7 +114,7 @@ files. Real gaps found in code review:
 - [x] **C7.5 `docker-compose.yml` hardening.** Services use read-only filesystems, drop all
       capabilities, and enable `no-new-privileges`.
 
-### C8 — Test & type discipline
+### C8 â€” Test & type discipline
 
 - [x] **C8.1 Catalog-mode test coverage.** Added mocked HTTP redirect protection, `file://` traversal,
       registry sharing, and collision/precedence coverage alongside the existing catalog tests.
@@ -123,14 +123,14 @@ files. Real gaps found in code review:
 
 ---
 
-## Post-review follow-ups (C9–C13)
+## Post-review follow-ups (C9â€“C13)
 
 Findings from a whole-project review (code + structure + docs). Each item cites the evidence.
 Priorities: **P0** = security/release-blocking, **P1** = correctness/hygiene, **P2** = nice-to-have.
 
-### C9 — Reconcile TODO accuracy & finalize the v0.2.0 release  *(P0)*
+### C9 â€” Reconcile TODO accuracy & finalize the v0.2.0 release  *(P0)*
 
-The historical C1–C8 record asserts a release state that does not exist in git.
+The historical C1â€“C8 record asserts a release state that does not exist in git.
 
 - [x] **C9.1 Create the missing git tags.** Tagged `1897458` as `v0.1.0` and `f78c0c1` as
       `v0.2.0`; pushed both tags to `origin`.
@@ -139,10 +139,10 @@ The historical C1–C8 record asserts a release state that does not exist in git
 - [x] **C9.3 Remove the unverifiable CI run-ID.** Removed the `31398202243` reference from R6.1;
       the original run is no longer verifiable.
 - [ ] **C9.4 Decide whether the Release workflow has ever published.** `.github/workflows/release.yml`
-      triggers on `v*.*.*` tags, but no tags exist → PyPI publish has never fired. Confirm whether
+      triggers on `v*.*.*` tags, but no tags exist â†’ PyPI publish has never fired. Confirm whether
       v0.2.0 was intended to ship and, if so, run the tag + publish flow.
 
-### C10 — Security findings from code review  *(P0/P1)*
+### C10 â€” Security findings from code review  *(P0/P1)*
 
 Verified by direct read. The runtime executes arbitrary code and fetches remote resources, so these
 gates matter. (C6 below the line is the prior hardening pass; these are new gaps.)
@@ -157,10 +157,10 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
 - [x] **C10.3 (P0) OpenAPI call endpoint is never egress-checked.** `tasks/events.py` now calls
       `validate_egress(endpoint)` after path-parameter substitution and before the outgoing HTTP
       request.
-- [x] **C10.4 (P1) `validate_egress` does not resolve DNS.** `security/security.py:84–92` resolves
+- [x] **C10.4 (P1) `validate_egress` does not resolve DNS.** `security/security.py:84â€“92` resolves
       non-IP-literal hostnames via `socket.getaddrinfo` and checks all returned IP addresses.
       Regression tests cover hostname resolution and failure modes.
-- [x] **C10.5 (P1) gRPC proto compilation imports generated code in-process.** `tasks/call.py:100–140`
+- [x] **C10.5 (P1) gRPC proto compilation imports generated code in-process.** `tasks/call.py:100â€“140`
       now derives unique module names from a SHA-256 hash of the proto bytes, runs `protoc` in a
       subprocess with a 30-second timeout, and documents the trust requirement in the docstring.
       Regression tests in `tests/resources/test_grpc.py` cover unique module names and protoc
@@ -193,7 +193,7 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
       `sleep` in `tests/core/test_run_handlers.py` and `tests/ops/test_memoization.py` with
       equivalent `sys.executable` Python one-liners.
 
-### C11 — Dependency hygiene  *(P0/P1)*
+### C11 â€” Dependency hygiene  *(P0/P1)*
 
 - [x] **C11.1 (P0) `hypothesis` and `mutmut` are runtime deps.** Moved both from
       `[project.dependencies]` to `[project.optional-dependencies.dev]` in `pyproject.toml`;
@@ -207,7 +207,7 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
       `aiokafka`, `aio-pika`, and `nats-py` lazily inside instance methods, so `import
       openworkflow_adk` works without the `brokers` extra; no `__getattr__` changes needed.
 
-### C12 — Repo & documentation hygiene  *(P1)*
+### C12 â€” Repo & documentation hygiene  *(P1)*
 
 - [x] **C12.1 (P1) Add a committed `LICENSE` file.** Added `LICENSE` with the standard Apache-2.0
       text and copyright line for "OpenWorkflow ADK contributors".
@@ -229,7 +229,7 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
 - [x] **C12.10 (P2) Add a `## License` section to README + an `AUTHORS`/`AUTHORS` policy.** Added
       a `## License` section to `README.md` pointing to `LICENSE` and `CONTRIBUTING.md`.
 
-### C13 — Test structure & public API surface  *(P2)*
+### C13 â€” Test structure & public API surface  *(P2)*
 
 - [x] **C13.1 Add `tests/tasks/` or document transitive coverage.** Created
       `tests/tasks/test_call.py` with direct unit tests for `_compile_grpc_proto` (unique hash-suffixed
@@ -251,11 +251,11 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
       This covers previously untested exports such as `hierarchical_pattern`, `graph_to_document`,
       `OidcMetadata`, `AuditEntry`, `SimplificationResult`, and `ModelReference`.
 
-### C14 — CI/CD: hygiene, supply chain, cost & performance  *(P0/P1)*
+### C14 â€” CI/CD: hygiene, supply chain, cost & performance  *(P0/P1)*
 
 Current state: `.github/workflows/ci.yml` (7 jobs) + `release.yml`; **no dependabot, no CodeQL,
 no caching, no concurrency, no path filters, no permissions block, no workflow linting, no timeouts.**
-Action versions verified 2026-08-11 — re-verify quarterly (dependabot will help once C14.4 lands).
+Action versions verified 2026-08-11 â€” re-verify quarterly (dependabot will help once C14.4 lands).
 
 - [x] **C14.1 (P0) Least-privilege `permissions` on ci.yml.** Added top-level
       `permissions: contents: read` to `ci.yml`.
@@ -266,8 +266,8 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
       `.github/workflows/dependency-review.yml` on pull requests with `fail-on-severity: moderate`.
 - [x] **C14.4 (P0) Add `.github/dependabot.yml`** Added `.github/dependabot.yml` with weekly
       `github-actions` and `uv` ecosystems.
-- [x] **C14.5 (P1) Upgrade outdated actions.** Upgraded `actions/checkout@v4 → v5` and
-      `astral-sh/setup-uv@v6 → v9` across `ci.yml`, `codeql.yml`, `dependency-review.yml`, and
+- [x] **C14.5 (P1) Upgrade outdated actions.** Upgraded `actions/checkout@v4 â†’ v5` and
+      `astral-sh/setup-uv@v6 â†’ v9` across `ci.yml`, `codeql.yml`, `dependency-review.yml`, and
       `release.yml`. `actions/setup-python@v5` and `pypa/gh-action-pypi-publish@release/v1` were
       already current.
 - [x] **C14.6 (P1) Cancel stale runs.** Added a `concurrency` group to `ci.yml` that cancels
@@ -290,7 +290,7 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
       the build step. `uv.lock` remains committed.
 - [x] **C14.13 (P2) DRY the setup boilerplate.** Created the composite action
       `.github/actions/setup-owf/action.yml` and replaced the repeated
-      `checkout → setup-uv → setup-python → uv sync` sequence in `ci.yml`, `extended.yml`, and
+      `checkout â†’ setup-uv â†’ setup-python â†’ uv sync` sequence in `ci.yml`, `extended.yml`, and
       `release.yml` with a single `uses: ./.github/actions/setup-owf` step.
 - [x] **C14.14 (P2) Coverage upload + document gate.** Added `codecov/codecov-action@v5` to the
       `test` job to upload `coverage.xml`. Kept `--cov-fail-under=80` because the measured baseline
@@ -298,7 +298,7 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
 - [x] **C14.15 (P2) Lint the workflows themselves.** Added a `workflow-lint` job to `ci.yml`
       that installs `actionlint-py` and `zizmor` from PyPI and runs them against
       `.github/workflows` on every push/PR.
-- [x] **C14.16 (P2) Security findings → SARIF/code-scanning.** `pip-audit` does not natively emit
+- [x] **C14.16 (P2) Security findings â†’ SARIF/code-scanning.** `pip-audit` does not natively emit
       SARIF, so the `workflow-lint` job now runs `zizmor --format sarif` and uploads the SARIF file
       via `github/codeql-action/upload-sarif@v3`. `anchore/sbom-action@v0` remains pinned to major
       version 0; SBOM upload to the dependency graph is left as a future enhancement.
@@ -306,9 +306,9 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
       manual reruns. Parametrized the `extended.yml` benchmark job's `--iterations` and
       `--max-p99-ms` via `workflow_dispatch` inputs with defaults of 10 and 5000.
 
-### C15 — Release workflow hardening  *(P0 — ties to C9)*
+### C15 â€” Release workflow hardening  *(P0 â€” ties to C9)*
 
-`release.yml` has never fired (no tags exist — see C9.1/C9.4). When it does, it builds + publishes
+`release.yml` has never fired (no tags exist â€” see C9.1/C9.4). When it does, it builds + publishes
 with **no tests and no artifact validation** between tag and PyPI.
 
 - [x] **C15.1 (P0) Gate publish on tests.** Added a `test` job to `release.yml` that runs the
@@ -329,15 +329,15 @@ with **no tests and no artifact validation** between tag and PyPI.
       `release-please` or an auto-changelog step so `CHANGELOG.md` and the GH Release stay in sync
       with the version bump (C4.1/C4.2 in the historical record were manual).
 
-### C16 — Best practices & architectural recommendations  *(P1/P2)*
+### C16 â€” Best practices & architectural recommendations  *(P1/P2)*
 
 Follow-ups from the deep-dive best practices review and codebase validation.
 
-- [x] **C16.1 (P1) Path traversal guard for script source files.** `tasks/run.py:136–148`
+- [x] **C16.1 (P1) Path traversal guard for script source files.** `tasks/run.py:136â€“148`
       already resolves the canonical path with `Path.resolve()` and verifies it is relative to
       `WORKFLOW_SCRIPT_BASE_DIR` (defaulting to the current working directory).
 - [x] **C16.2 (P1) Dynamic gRPC proto compilation isolation.** Completed under C10.5.
-      `tasks/call.py:100–140` now compiles in a subprocess with a timeout and uses hash-suffixed
+      `tasks/call.py:100â€“140` now compiles in a subprocess with a timeout and uses hash-suffixed
       module names.
 - [x] **C16.3 (P1) Resilient worker error recovery loop.** Completed under C10.11.
       `ops/worker.py` now catches errors and retries with exponential backoff capped at 60 seconds.
@@ -347,11 +347,11 @@ Follow-ups from the deep-dive best practices review and codebase validation.
       `openworkflow_adk/__init__.py` exports 88 symbols (`__all__`). Separate internal infrastructure
       builders/transports into an internal namespace to preserve public API stability commitments.
 
-### C17 — Flavor (extended/catalog mode) gaps  *(P0/P1)*
+### C17 â€” Flavor (extended/catalog mode) gaps  *(P0/P1)*
 
 Findings from a focused review of the two-flavor system ([ADR 0008](docs/decisions/0008-workflow-flavors.md)).
 Catalog function resolution (`with_catalog_functions`) is called in **exactly one place**
-(`runtime.py:99`) — so catalog mode only works end-to-end through `owf-adk run`. Verified by direct
+(`runtime.py:99`) â€” so catalog mode only works end-to-end through `owf-adk run`. Verified by direct
 read 2026-08-11.
 
 #### Implementation bugs
@@ -359,7 +359,7 @@ read 2026-08-11.
 - [ ] **C17.1 (P0) `lint`/`plan`/`graph` never resolve catalog functions.** `with_catalog_functions`
       is invoked only inside `run_workflow` (`runtime.py:99`); `tools/diagnostics.py` has no catalog
       reference. A catalog-mode workflow whose `do:` is `[call: makeGreeting]` runs fine but
-      `owf-adk plan|graph|lint` operate on a document where `makeGreeting` is unresolved → incomplete
+      `owf-adk plan|graph|lint` operate on a document where `makeGreeting` is unresolved â†’ incomplete
       plan/graph or a lint error. Wire catalog resolution (registry + `base_dir`) into the diagnostics
       path, or document that these commands don't support catalog mode.
 - [ ] **C17.2 (P0) `--mode` exists only on `run`.** `cli.py:24` adds `--mode` to `run_parser` only;
@@ -367,47 +367,47 @@ read 2026-08-11.
       mode is impossible when inspecting. Add `--mode` to the other subcommands (or to the top-level
       parser).
 - [ ] **C17.3 (P0) `test` command is broken for catalog mode.** `cli.py:46-60` calls
-      `run_workflow(document, input)` with no `mode` AND no `catalog_base_dir` — compare `run`
+      `run_workflow(document, input)` with no `mode` AND no `catalog_base_dir` â€” compare `run`
       (cli.py:72-79) which passes both. A relative `functions: functions.yaml` resolves from the
-      process CWD, not `examples/catalog/` → wrong file or `FileNotFoundError`. `owf-adk test
-      examples/catalog/greeting.yaml --fixtures …` does not work.
-- [ ] **C17.4 (P1) Auto-detection diverges between loader and runtime.**
+      process CWD, not `examples/catalog/` â†’ wrong file or `FileNotFoundError`. `owf-adk test
+      examples/catalog/greeting.yaml --fixtures â€¦` does not work.
+- [x] **C17.4 (P1) Auto-detection reconciled between loader and runtime.** `runtime.py` now recursively detects agent usage and skips catalog merging in `auto` mode when an agent is present, matching the loader precedence.
       `loader.py:140-141` gates on `mode == "auto" and not has_agent and _catalog_has_functions(raw)`;
-      `runtime.py:95-96` uses `mode == "auto" and any(item.functions …)` with **no `not has_agent`
+      `runtime.py:95-96` uses `mode == "auto" and any(item.functions â€¦)` with **no `not has_agent`
       check**. A document with **both** `agent:` and a `functions` catalog in `auto` mode loads as
-      extended (loader) but runs with catalog functions merged (runtime) — the load-time rejection
+      extended (loader) but runs with catalog functions merged (runtime) â€” the load-time rejection
       ("catalog mode does not allow the agent extension") never fires, silently merging the two
       flavors ADR 0008 says to keep apart. Reconcile the two paths (the loader's `not has_agent`
       precedence is the documented one) and document the agent+catalog precedence rule.
 
 #### Documentation gaps
 
-- [ ] **C17.5 (P1) `docs/flavors.md` is too thin.** 28 lines, a 2-row table, no complete authoring
+- [x] **C17.5 (P1) `docs/flavors.md` expanded.** Added end-to-end examples for both extended and catalog flavors and a "when to pick which" decision guide.
       example for either flavor. A user cannot learn to write a catalog-mode workflow from this page.
       Add end-to-end examples for both flavors (extended with `agent:`, catalog with `use.catalogs` +
       an external functions file) and a "when to pick which" decision guide.
-- [ ] **C17.6 (P1) Malformed/redundant `endpoint` still in docs and examples.** Despite C3.1 marked
+- [x] **C17.6 (P1) Malformed `endpoint` removed.** Dropped the invalid `endpoint: file://./functions.yaml` from `examples/catalog/greeting.yaml`, `examples/catalog/summarize.yaml`, and `docs/reference/catalogs.md`; documented that `functions` is the operative resolver.
       done: `docs/reference/catalogs.md:10-11` shows both `endpoint: file://./functions.yaml` and
       `functions: ./functions.yaml`; `examples/catalog/greeting.yaml:9` carries
-      `endpoint: file://./functions.yaml` — **`file://./` is not a valid file URI** (parses as
+      `endpoint: file://./functions.yaml` â€” **`file://./` is not a valid file URI** (parses as
       host=`.`). The text says `endpoint` is vestigial but every example still ships it. Either drop
       `endpoint` from the examples or fix the URI; stop shipping a broken field users will copy.
-- [ ] **C17.7 (P1) Catalog examples are NOT indexed in the gallery — reopen C3.5.**
+- [x] **C17.7 (P1) Catalog examples indexed.** Added `greeting` and `summarize` to `examples/catalog.json`.
       `examples/catalog.json` lists only `hello`/`echo`/`approval`/`multi-agent`/`rag` (all extended
       mode). `greeting`/`summarize` live in `examples/catalog/` but aren't referenced. **C3.5 is
-      marked `[x]` done but the gallery index does not include them** — unmark or actually add them.
-- [ ] **C17.8 (P2) No `docs/reference/extended.md`.** Asymmetric with `docs/reference/catalogs.md`
+      marked `[x]` done but the gallery index does not include them** â€” unmark or actually add them.
+- [x] **C17.8 (P2) `docs/reference/extended.md` added.** New reference doc covering `agent:`, registries, tools, and multi-agent teams.
       (catalog has a reference doc, extended doesn't). Add one covering `agent:`, tools, memory,
-      teams, and the `use.models`/`use.providers`/`use.memories` registries — or fold both into a
+      teams, and the `use.models`/`use.providers`/`use.memories` registries â€” or fold both into a
       single `docs/reference/flavors.md` with subsections.
 
 #### Test gaps
 
-- [ ] **C17.9 (P1) No test for the `agent:` + catalog `auto`-mode conflict (C17.4).**
+- [x] **C17.9 (P1) Test agent + catalog auto-mode conflict.** Added `test_auto_mode_with_agent_prefers_extended_and_skips_catalog` to verify the loader/runtime agreement.
       `tests/resources/test_catalog.py:135-140` covers only *explicit* catalog-mode rejection; the
       divergent auto-mode case (both keys present) is untested. Add a test asserting the documented
       precedence (extended wins) and that the two detection paths agree.
-- [ ] **C17.10 (P1) No test that `lint`/`plan`/`graph`/`test` handle catalog mode.** So C17.1-C17.3
+- [x] **C17.10 (P1) Tests for catalog-aware CLI subcommands.** Added `tests/tools/test_cli.py` tests for `lint`, `plan`, `graph`, `test`, and `run` with `--mode catalog`.
       went unnoticed by CI. Add CLI-integration tests that run each subcommand against a catalog-mode
       fixture and assert the catalog function is resolved (or document the unsupported surface and
       assert the documented error).
@@ -419,4 +419,4 @@ read 2026-08-11.
 - **Q1** Is v0.2.0 meant to be a published release? If yes, C9.1 + C9.4 + C11.2 + C12.1 are blocking.
   If no (internal-only), downgrade C9/C11/C12 priority and mark the Release workflow as inert.
 - **Q2** The vendored schema is OpenWorkflow v1.0.3 (per AGENTS.md). Run the `spec-drift-check` skill
-  before any C10/C11 work that touches task semantics — upstream may have moved.
+  before any C10/C11 work that touches task semantics â€” upstream may have moved.

@@ -28,6 +28,32 @@ from openworkflow_adk.tools.registry import WorkflowRegistry
 from openworkflow_adk.translator import build_workflow
 
 replay_event_log = _replay.replay_event_log
+
+
+def _has_agent(items: list[Any]) -> bool:
+    """Recursively check whether any task uses the agent extension."""
+    from openworkflow_adk.models import TaskItem
+
+    for item in items:
+        if isinstance(item, dict):
+            item = TaskItem.model_validate(item)
+        if item.task.agent is not None:
+            return True
+        if item.task.do and _has_agent(item.task.do):
+            return True
+        if item.task.try_ and _has_agent(item.task.try_):
+            return True
+        fork = item.task.fork or {}
+        if isinstance(fork, dict) and _has_agent(fork.get("branches", [])):
+            return True
+        for case in item.task.switch or []:
+            if isinstance(case, dict):
+                configuration = next(iter(case.values())) if case else {}
+                if isinstance(configuration, dict) and _has_agent(
+                    configuration.get("do", [])
+                ):
+                    return True
+    return False
 replay_from_task = _replay.replay_from_task
 verify_replay_determinism = _replay.verify_replay_determinism
 
@@ -92,8 +118,13 @@ async def run_workflow(
                 raise KeyError(f"checkpoint task {prior.checkpoint_task!r} is not in workflow")
     if mode not in {"auto", "extended", "catalog"}:
         raise ValueError("mode must be auto, extended, or catalog")
+    has_agent = _has_agent(document.do)
+    if mode == "catalog" and has_agent:
+        raise ValueError("catalog mode does not allow the agent extension")
     catalog_mode = mode == "catalog" or (
-        mode == "auto" and any(item.functions for item in document.use.catalogs.values())
+        mode == "auto"
+        and not has_agent
+        and any(item.functions for item in document.use.catalogs.values())
     )
     if catalog_mode:
         document = with_catalog_functions(

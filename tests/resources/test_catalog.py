@@ -140,6 +140,40 @@ def test_catalog_mode_rejects_agent_extension() -> None:
         load(source, mode="catalog")
 
 
+@pytest.mark.asyncio
+async def test_auto_mode_with_agent_prefers_extended_and_skips_catalog(tmp_path: Path) -> None:
+    """C17.4: loader and runtime must agree that agent+catalog in auto mode is extended."""
+    source = tmp_path / "functions.yaml"
+    source.write_text("functions:\n  makeGreeting:\n    set:\n      greeting: '\"hello\"'\n")
+    raw = _workflow(str(source))
+    raw["do"] = [
+        {
+            "agentTask": {
+                "wait": {"seconds": 0},
+                "agent": {"model": "gemini-2.5-flash", "instruction": "hi"},
+            }
+        }
+    ]
+    document = load(raw)
+
+    with pytest.MonkeyPatch().context() as mp:
+        calls = []
+
+        def _capture_with_catalog_functions(document, registry, *, base_dir=None):
+            calls.append(base_dir)
+            return document
+
+        mp.setattr(
+            "openworkflow_adk.runtime.with_catalog_functions",
+            _capture_with_catalog_functions,
+        )
+        # The agent model is invalid in tests; we only care that catalog merge was skipped.
+        with pytest.raises(Exception):
+            await run_workflow(document)
+
+    assert not calls, "catalog functions should not be merged when agent is present in auto mode"
+
+
 @respx.mock
 def test_catalog_http_fetch_does_not_follow_redirects() -> None:
     route = respx.get("https://catalog.example.test/functions.yaml").mock(
