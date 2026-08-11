@@ -9,16 +9,20 @@ def test_agent_memory_reference_selects_memory_service() -> None:
                 "namespace": "demo",
                 "name": "memory-agent",
                 "version": "1.0.0",
+                "metadata": {"adk": {"memories": {"local": {"type": "in-memory"}}}},
             },
-            "use": {"memories": {"local": {"type": "in-memory"}}},
             "do": [
                 {
                     "agent-task": {
                         "wait": {"seconds": 0},
-                        "agent": {
-                            "model": "stub",
-                            "instruction": "remember",
-                            "memory": {"use": "local"},
+                        "metadata": {
+                            "adk": {
+                                "agent": {
+                                    "model": "stub",
+                                    "instruction": "remember",
+                                    "memory": {"use": "local"},
+                                }
+                            }
                         },
                     }
                 }

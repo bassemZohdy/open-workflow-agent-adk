@@ -21,9 +21,9 @@ Catalog mode adds a reusable function-resolution step before the existing
 The CLI and API accept `--mode auto|extended|catalog`.
 
 `auto` is the default. It selects extended mode when an ADK agent is present
-(`task.metadata.adk.agent` or the legacy `agent:` key), and catalog mode when a
-workflow references a catalog with a `functions` URI. Pass an explicit mode when
-a deployment wants a hard policy.
+(`task.metadata.adk.agent`), and catalog mode when a workflow references a
+catalog with a `functions` URI. Pass an explicit mode when a deployment wants a
+hard policy.
 
 ## Extended mode example
 
@@ -61,9 +61,7 @@ do:
 ```
 
 This encoding is valid OpenWorkflow v1.0.3: other implementors can parse the
-same file and ignore the `metadata.adk` block. The legacy direct form (`agent:`,
-`use.models:`, `use.providers:`, `use.memories:`) remains accepted during a
-deprecation window.
+same file and ignore the `metadata.adk` block.
 
 Use extended mode when you need ADK agents, tools, memory, agent teams, or
 inline instruction authoring.

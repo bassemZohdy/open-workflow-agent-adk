@@ -36,7 +36,14 @@ def test_unknown_model_reference_is_a_structured_load_error() -> None:
                     "name": "unknown-model",
                     "version": "1.0.0",
                 },
-                "do": [{"agent": {"agent": {"model": {"use": "missing"}}}}],
+                "do": [
+                    {
+                        "agent": {
+                            "wait": {"seconds": 0},
+                            "metadata": {"adk": {"agent": {"model": {"use": "missing"}}}},
+                        }
+                    }
+                ],
             }
         )
 
@@ -49,20 +56,24 @@ def test_workflow_agent_uses_named_model_bundle() -> None:
                 "namespace": "demo",
                 "name": "model-bundle",
                 "version": "1.0.0",
-            },
-            "use": {
-                "models": {
-                    "fast": {
-                        "model": "resolved-model",
-                        "generate_content_config": {"temperature": 0.2},
+                "metadata": {
+                    "adk": {
+                        "models": {
+                            "fast": {
+                                "model": "resolved-model",
+                                "generate_content_config": {"temperature": 0.2},
+                            }
+                        }
                     }
-                }
+                },
             },
             "do": [
                 {
                     "answer": {
                         "wait": {"seconds": 0},
-                        "agent": {"model": {"use": "fast"}, "instruction": "Answer."},
+                        "metadata": {
+                            "adk": {"agent": {"model": {"use": "fast"}, "instruction": "Answer."}}
+                        },
                     }
                 }
             ],

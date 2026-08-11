@@ -40,7 +40,11 @@ async def test_agent_receives_native_multimodal_content() -> None:
                 {
                     "inspect": {
                         "wait": {"seconds": 0},
-                        "agent": {"model": "multimodal-model", "instruction": "Inspect."},
+                        "metadata": {
+                            "adk": {
+                                "agent": {"model": "multimodal-model", "instruction": "Inspect."}
+                            }
+                        },
                     }
                 }
             ],

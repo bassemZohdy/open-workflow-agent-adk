@@ -18,10 +18,14 @@ def test_agent_tool_name_resolves_from_function_registry() -> None:
                 {
                     "answer": {
                         "wait": {"seconds": 0},
-                        "agent": {
-                            "model": "stub",
-                            "instruction": "Answer.",
-                            "tools": ["lookup"],
+                        "metadata": {
+                            "adk": {
+                                "agent": {
+                                    "model": "stub",
+                                    "instruction": "Answer.",
+                                    "tools": ["lookup"],
+                                }
+                            }
                         },
                     }
                 }

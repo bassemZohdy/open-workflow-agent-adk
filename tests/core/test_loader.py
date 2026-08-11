@@ -15,15 +15,18 @@ def test_loads_yaml_task_list_and_agent_extension() -> None:
           - waitForIt:
               wait:
                 seconds: 1
-              agent:
-                model: gemini-2.5-flash
-                instruction: Say hello.
+              metadata:
+                adk:
+                  agent:
+                    model: gemini-2.5-flash
+                    instruction: Say hello.
         """
     )
 
     assert document.do[0].name == "waitForIt"
-    assert document.do[0].task.agent is not None
-    assert document.do[0].task.agent.model == "gemini-2.5-flash"
+    agent_config = document.do[0].task.effective_agent()
+    assert agent_config is not None
+    assert agent_config.model == "gemini-2.5-flash"
 
 
 def test_invalid_document_has_structured_path() -> None:
@@ -39,11 +42,18 @@ def test_invalid_agent_extension_has_task_path() -> None:
         load(
             {
                 "document": {"dsl": "1.0.3", "namespace": "demo", "name": "x", "version": "1.0.0"},
-                "do": [{"task": {"wait": {"seconds": 1}, "agent": {"unknown": True}}}],
+                "do": [
+                    {
+                        "task": {
+                            "wait": {"seconds": 1},
+                            "metadata": {"adk": {"agent": {"unknown": True}}},
+                        }
+                    }
+                ],
             }
         )
 
-    assert any("agent.unknown" in error["path"] for error in raised.value.errors)
+    assert any("metadata.adk.agent.unknown" in error["path"] for error in raised.value.errors)
 
 
 def test_loader_accepts_additive_patch_dsl_version() -> None:

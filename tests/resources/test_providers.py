@@ -79,19 +79,21 @@ async def test_openai_provider_runs_through_adk_runner(monkeypatch) -> None:
                     "namespace": "demo",
                     "name": "provider-runner",
                     "version": "1.0.0",
-                },
-                "use": {
-                    "providers": {
-                        "openai-prod": {
-                            "type": "openai",
-                            "base_url": "https://llm.example/v1",
-                            "credential": "openai-key",
-                        }
-                    },
-                    "models": {
-                        "gpt4o": {
-                            "model": "gpt-test",
-                            "provider": {"use": "openai-prod"},
+                    "metadata": {
+                        "adk": {
+                            "providers": {
+                                "openai-prod": {
+                                    "type": "openai",
+                                    "base_url": "https://llm.example/v1",
+                                    "credential": "openai-key",
+                                }
+                            },
+                            "models": {
+                                "gpt4o": {
+                                    "model": "gpt-test",
+                                    "provider": {"use": "openai-prod"},
+                                }
+                            },
                         }
                     },
                 },
@@ -99,9 +101,13 @@ async def test_openai_provider_runs_through_adk_runner(monkeypatch) -> None:
                     {
                         "answer": {
                             "wait": {"seconds": 0},
-                            "agent": {
-                                "model": {"use": "gpt4o"},
-                                "instruction": "Answer.",
+                            "metadata": {
+                                "adk": {
+                                    "agent": {
+                                        "model": {"use": "gpt4o"},
+                                        "instruction": "Answer.",
+                                    }
+                                }
                             },
                         }
                     }
@@ -146,22 +152,28 @@ def test_model_reference_resolves_provider_to_adk_model(monkeypatch) -> None:
                 "namespace": "demo",
                 "name": "provider-agent",
                 "version": "1.0.0",
-            },
-            "use": {
-                "providers": {
-                    "openai-prod": {
-                        "type": "openai",
-                        "base_url": "https://llm.example/v1",
-                        "credential": "openai-key",
+                "metadata": {
+                    "adk": {
+                        "providers": {
+                            "openai-prod": {
+                                "type": "openai",
+                                "base_url": "https://llm.example/v1",
+                                "credential": "openai-key",
+                            }
+                        },
+                        "models": {
+                            "gpt4o": {"model": "gpt-test", "provider": {"use": "openai-prod"}}
+                        },
                     }
                 },
-                "models": {"gpt4o": {"model": "gpt-test", "provider": {"use": "openai-prod"}}},
             },
             "do": [
                 {
                     "answer": {
                         "wait": {"seconds": 0},
-                        "agent": {"model": {"use": "gpt4o"}, "instruction": "Answer."},
+                        "metadata": {
+                            "adk": {"agent": {"model": {"use": "gpt4o"}, "instruction": "Answer."}}
+                        },
                     }
                 }
             ],

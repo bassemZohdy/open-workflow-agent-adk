@@ -454,29 +454,30 @@ added/interpreted by this translator only.
         at load time.
 - [x] **C18.3 Update Pydantic models to accept the new encoding.** Added
       `AdkMetadata` and `effective_*` helpers on `TaskBase` and
-      `OpenWorkflowDocument`. Legacy direct-property forms remain accepted.
-- [x] **C18.4 Update loader validation.** `_strip_agent` now preserves the
-      `metadata.adk` subtree; `_effective_registries` merges legacy `use.*`
-      with `document.metadata.adk.*` for reference resolution; model/provider/
-      memory references are validated against the merged registries.
-- [x] **C18.5 Update the ADK translator.** All consumers now read via
+      `OpenWorkflowDocument`.
+- [x] **C18.4 Update loader validation.** Validates the ADK payload with
+      Pydantic, strips catalog `functions` URIs before upstream schema
+      validation, and resolves model/provider/memory references from
+      `document.metadata.adk`.
+- [x] **C18.5 Update the ADK translator.** All consumers read via
       `effective_agent()`, `effective_self_heal()`, `effective_models()`,
       `effective_providers()`, and `effective_memories()`.
-- [ ] **C18.6 Update examples to use the interoperable encoding.** Rewrite
-      `examples/multi-agent.yaml` and any other extended-mode examples to put
-      ADK config in `metadata.adk` / `document.metadata.adk`.
-- [ ] **C18.7 Add round-trip tests.** Load a document with `metadata.adk`,
-      validate it against the vendored OpenWorkflow schema, translate it to an
-      ADK workflow, and run it end-to-end.
-- [ ] **C18.8 Add cross-platform parse tests.** Verify that documents authored
-      without ADK metadata (pure OpenWorkflow) load without error, and that
-      documents with ADK metadata still pass upstream schema validation after
-      stripping.
-- [ ] **C18.9 Update documentation.** Rewrite `docs/reference/extension-spec.md`
-      and `docs/reference/extended.md` to describe the `metadata.adk` encoding,
-      the backward-compat fallback, and the interoperability guarantee.
+- [x] **C18.6 Update examples to use the interoperable encoding.** Rewrote
+      `examples/multi-agent.yaml` and `examples/rag.yaml` to use
+      `metadata.adk` / `document.metadata.adk`.
+- [x] **C18.7 Add round-trip tests.** Added `tests/core/test_interop.py`:
+      loads `metadata.adk` documents, validates against the vendored schema,
+      translates, and runs end-to-end.
+- [x] **C18.8 Add cross-platform parse tests.** Verified pure OpenWorkflow
+      loads and `metadata.adk` documents pass upstream schema validation.
+- [x] **C18.9 Update documentation.** Rewrote `docs/reference/extension-spec.md`,
+      `docs/reference/extended.md`, and related docs for the `metadata.adk`
+      encoding.
 - [x] **C18.10 Add an export/lint helper.** Added `owf-adk export
-      --format openworkflow` and `owf-adk lint --strict`. `export` strips all
-      ADK extensions (including `metadata.adk`) and emits pure OpenWorkflow
-      YAML; `lint --strict` rejects any document that still contains ADK
+      --format openworkflow` and `owf-adk lint --strict`. `export` strips
+      `metadata.adk` and catalog `functions`; `lint --strict` rejects ADK
       extensions.
+- [x] **C18.11 Remove legacy ADK-extension support.** Removed the deprecated
+      direct-property forms (`agent:`, `self_heal:`, `use.models:`,
+      `use.providers:`, `use.memories:`) and updated all tests and docs to the
+      `metadata.adk` encoding only.

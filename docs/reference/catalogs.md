@@ -39,6 +39,6 @@ relative paths are resolved from the catalog base directory supplied by the
 caller. Catalog contents are cached by URI and content hash within a registry
 instance, so multiple workflows can share one loaded function set.
 
-Catalog mode rejects the agent extension (`task.metadata.adk.agent` or the
-legacy `agent:` key). Use extended mode when inline ADK agent configuration,
-ADK tools, memory, or agent teams are required.
+Catalog mode rejects the agent extension (`task.metadata.adk.agent`). Use
+extended mode when inline ADK agent configuration, ADK tools, memory, or agent
+teams are required.

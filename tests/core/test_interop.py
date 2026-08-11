@@ -10,7 +10,6 @@ from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
 from openworkflow_adk import load, run_workflow
-from openworkflow_adk.loader import _strip_agent
 from openworkflow_adk.schema import load_schema
 
 
@@ -28,7 +27,7 @@ class StubLlm(BaseLlm):
 
 
 async def test_metadata_adk_encoding_runs_end_to_end() -> None:
-    """C18.7: metadata.adk registries + task metadata.adk.agent translate and run."""
+    """metadata.adk registries + task metadata.adk.agent translate and run."""
     document = load(
         {
             "document": {
@@ -77,36 +76,8 @@ async def test_metadata_adk_encoding_runs_end_to_end() -> None:
     )
 
 
-def test_legacy_direct_property_encoding_still_accepted() -> None:
-    """Backward compatibility: legacy task agent and use.models remain valid."""
-    document = load(
-        {
-            "document": {
-                "dsl": "1.0.3",
-                "namespace": "demo",
-                "name": "legacy-compat",
-                "version": "1.0.0",
-            },
-            "use": {
-                "models": {"stub": {"model": "stub-model"}},
-            },
-            "do": [
-                {
-                    "answer": {
-                        "wait": {"seconds": 0},
-                        "agent": {"model": {"use": "stub"}, "instruction": "Answer."},
-                    }
-                }
-            ],
-        }
-    )
-
-    assert document.effective_models()["stub"].model == "stub-model"
-    assert document.do[0].task.effective_agent() is not None
-
-
 def test_pure_openworkflow_loads_without_adk_metadata() -> None:
-    """C18.8: a document without any ADK extension loads as pure OpenWorkflow."""
+    """A document without any ADK extension loads as pure OpenWorkflow."""
     document = load(
         {
             "document": {
@@ -124,13 +95,13 @@ def test_pure_openworkflow_loads_without_adk_metadata() -> None:
     assert document.adk_metadata() is None
 
 
-def test_adk_metadata_survives_schema_validation_after_strip() -> None:
-    """C18.8: stripping legacy ADK properties leaves a schema-valid OpenWorkflow doc."""
+def test_adk_metadata_passes_openworkflow_schema() -> None:
+    """A document with metadata.adk validates against the vendored upstream schema."""
     raw = {
         "document": {
             "dsl": "1.0.3",
             "namespace": "demo",
-            "name": "strip",
+            "name": "schema-valid",
             "version": "1.0.0",
             "metadata": {
                 "adk": {
@@ -149,9 +120,7 @@ def test_adk_metadata_survives_schema_validation_after_strip() -> None:
         ],
     }
 
-    schema = load_schema()
-    stripped = _strip_agent(raw)
-
     import jsonschema
 
-    jsonschema.Draft202012Validator(schema).validate(stripped)
+    schema = load_schema()
+    jsonschema.Draft202012Validator(schema).validate(raw)

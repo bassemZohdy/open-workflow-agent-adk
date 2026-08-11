@@ -32,4 +32,4 @@ def test_debate_fragment_builds_a_coordinator_tree() -> None:
             "do": [fragment],
         }
     )
-    assert document.do[0].task.agent.sub_agents[0].name == "critic"
+    assert document.do[0].task.effective_agent().sub_agents[0].name == "critic"

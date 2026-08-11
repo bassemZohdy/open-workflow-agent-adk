@@ -49,12 +49,16 @@ async def test_agent_can_suspend_for_external_input_and_resume() -> None:
             "do": [
                 {
                     "approve": {
-                        "agent": {
-                            "model": "approval-model",
-                            "instruction": "Ask for approval.",
-                            "request_input": {"question": "Approve?"},
-                        },
                         "wait": {"seconds": 0},
+                        "metadata": {
+                            "adk": {
+                                "agent": {
+                                    "model": "approval-model",
+                                    "instruction": "Ask for approval.",
+                                    "request_input": {"question": "Approve?"},
+                                }
+                            }
+                        },
                     }
                 }
             ],

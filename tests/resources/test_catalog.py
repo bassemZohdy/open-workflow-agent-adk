@@ -134,7 +134,14 @@ async def test_catalog_llm_wrapping_http_function_produces_output(tmp_path: Path
 
 def test_catalog_mode_rejects_agent_extension() -> None:
     source = _workflow("functions.yaml")
-    source["do"] = [{"agent": {"agent": {"model": "gemini-2.5-flash"}}}]
+    source["do"] = [
+        {
+            "agent": {
+                "wait": {"seconds": 0},
+                "metadata": {"adk": {"agent": {"model": "gemini-2.5-flash"}}},
+            }
+        }
+    ]
 
     with pytest.raises(WorkflowValidationError, match="does not allow"):
         load(source, mode="catalog")
@@ -150,7 +157,7 @@ async def test_auto_mode_with_agent_prefers_extended_and_skips_catalog(tmp_path:
         {
             "agentTask": {
                 "wait": {"seconds": 0},
-                "agent": {"model": "gemini-2.5-flash", "instruction": "hi"},
+                "metadata": {"adk": {"agent": {"model": "gemini-2.5-flash", "instruction": "hi"}}},
             }
         }
     ]

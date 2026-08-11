@@ -64,34 +64,12 @@ do:
 extension is enabled, the translator creates an `LlmAgent` with `mode:
 single_turn` and persists its result under `output_key` (default: task name).
 
-Configuration is resolved in this order:
+Configuration is resolved in this order, with later entries overriding earlier
+ones:
 
-1. `WORKFLOW_` environment variables
-2. task-level ADK values (`task.metadata.adk`)
-3. project defaults
-
-## Backward-compatibility fallback
-
-For existing documents, the legacy direct-property form remains accepted during
-a deprecation window:
-
-```yaml
-- answer:
-    wait:
-      seconds: 0
-    agent:
-      model: gemini-2.5-flash
-      instruction: Answer.
-
-use:
-  models:
-    flash:
-      model: gemini-2.5-flash
-```
-
-The loader normalizes the legacy form and validates it with the same Pydantic
-models. New documents should prefer the `metadata.adk` encoding so that the
-same file is also pure OpenWorkflow v1.0.3.
+1. project defaults
+2. task-level ADK values (`task.metadata.adk.agent`)
+3. `WORKFLOW_` environment variables
 
 ## Validation
 
@@ -99,11 +77,10 @@ The loader applies two-stage validation:
 
 1. Validate the ADK payload with Pydantic (`AdkMetadata`, `AgentCharacteristics`,
    `ModelSpec`, `ProviderConfig`, `MemoryConfig`).
-2. Strip legacy direct ADK properties (`agent`, `self_heal`, `use.models`,
-   `use.providers`, `use.memories`) and validate the remainder against the
-   vendored OpenWorkflow v1.0.3 JSON Schema. The `metadata.adk` subtree is left
-   intact because the upstream schema permits additional properties under
-   `task.metadata` and `document.metadata`.
+2. Strip catalog `functions` references (not ADK properties) before validating
+   the remainder against the vendored OpenWorkflow v1.0.3 JSON Schema. The
+   `metadata.adk` subtree is left intact because the upstream schema permits
+   additional properties under `task.metadata` and `document.metadata`.
 
 This keeps upstream validation strict while allowing ADK extensions to coexist
 in the same document.
@@ -119,8 +96,7 @@ metadata:
       max_attempts: 3
 ```
 
-The legacy `self_heal:` task property is still accepted during the deprecation
-window.
+
 
 ## Registries
 

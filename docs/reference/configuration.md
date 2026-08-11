@@ -3,7 +3,7 @@
 Agent values use three layers, with later entries overriding earlier ones:
 
 ```text
-project defaults < task.metadata.adk.agent (or legacy task.agent) < environment
+project defaults < task.metadata.adk.agent < environment
 ```
 
 Environment variables use the `WORKFLOW_` prefix and `__` for nesting:
@@ -20,8 +20,7 @@ Defaults may be supplied as a mapping or YAML/JSON file to
 The CLI supports dotenv-style files with `--env`; values are loaded into the
 process environment before the document is translated.
 
-Named model providers live in `document.metadata.adk.providers` (preferred) or
-the legacy `use.providers`:
+Named model providers live in `document.metadata.adk.providers`:
 
 ```yaml
 document:
@@ -44,7 +43,7 @@ OpenAI-compatible adapters currently cover OpenAI, Azure, Ollama, and vLLM;
 Gemini and Anthropic continue through ADK's native model resolution.
 
 Semantic memory uses the same named-registry pattern under
-`document.metadata.adk.memories` (preferred) or legacy `use.memories`:
+`document.metadata.adk.memories`:
 
 ```yaml
 document:
@@ -63,9 +62,6 @@ Vertex additionally requires ADK's GCP extra and an agent engine ID.
 File, Redis, Postgres, and Vertex services can be reused across run instances;
 completed ADK sessions are added to the configured memory service after a run,
 and the agent's `load_memory` tool can recall matching prior context.
-
-The legacy `agent:`, `self_heal:`, `use.models:`, `use.providers:`, and
-`use.memories:` forms remain accepted during a deprecation window.
 
 Multimodal agent input can be passed through with
 `run_workflow(..., message=google.genai.types.Content(...))`; image and audio

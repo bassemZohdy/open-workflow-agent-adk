@@ -33,13 +33,21 @@ def debate_pattern(
     return {
         name: {
             "wait": {"seconds": 0},
-            "agent": {
-                "model": model,
-                "instruction": instruction,
-                "sub_agents": [
-                    {"name": member["name"], "model": model, "instruction": member["instruction"]}
-                    for member in members
-                ],
+            "metadata": {
+                "adk": {
+                    "agent": {
+                        "model": model,
+                        "instruction": instruction,
+                        "sub_agents": [
+                            {
+                                "name": member["name"],
+                                "model": model,
+                                "instruction": member["instruction"],
+                            }
+                            for member in members
+                        ],
+                    }
+                }
             },
         }
     }

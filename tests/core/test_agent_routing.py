@@ -53,7 +53,11 @@ async def test_agent_can_select_a_switch_route() -> None:
                             {"approve": {"then": "approved"}},
                             {"default": {"then": "rejected"}},
                         ],
-                        "agent": {"model": "route-model", "instruction": "Choose a route."},
+                        "metadata": {
+                            "adk": {
+                                "agent": {"model": "route-model", "instruction": "Choose a route."}
+                            }
+                        },
                     }
                 },
                 {"approved": {"set": {"result": '"approved"'}}},

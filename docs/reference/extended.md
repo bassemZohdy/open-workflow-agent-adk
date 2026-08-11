@@ -6,9 +6,6 @@ same YAML file is still valid OpenWorkflow v1.0.3 for other implementors.
 
 - Task-level ADK config lives in `task.metadata.adk`.
 - Project-level registries live in `document.metadata.adk`.
-- The legacy direct form (`agent:`, `self_heal:`, `use.models:`,
-  `use.providers:`, `use.memories:`) remains accepted during a deprecation
-  window.
 
 ## `metadata.adk.agent` task extension
 
@@ -56,27 +53,6 @@ do:
 An agent task can also include `wait` (e.g. `wait: {seconds: 0}`) so that the
 task has a deterministic kind alongside the ADK extension.
 
-### Legacy form
-
-Existing documents may still use the direct `agent:` property:
-
-```yaml
-use:
-  models:
-    flash:
-      model: gemini-2.5-flash
-      provider: gemini
-  providers:
-    gemini: {}
-do:
-  - draft:
-      agent:
-        model: flash
-        instruction: Draft a concise response.
-```
-
-New documents should prefer `metadata.adk.agent` for interoperability.
-
 ## Registries
 
 `document.metadata.adk` supports three registries that agents can reference by
@@ -107,9 +83,7 @@ document:
           type: in-memory
 ```
 
-The legacy `use.models`, `use.providers`, and `use.memories` registries are
-still accepted and merged with `document.metadata.adk.*`; the metadata encoding
-wins on key collisions.
+
 
 ## Tools
 
@@ -155,8 +129,7 @@ a team where the parent agent can delegate work.
 ## Self-heal
 
 Task-level self-healing configuration lives in
-`task.metadata.adk.self_heal`. The legacy `self_heal:` task property is still
-accepted.
+`task.metadata.adk.self_heal`.
 
 ```yaml
   - risky:

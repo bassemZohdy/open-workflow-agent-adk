@@ -12,16 +12,20 @@ def test_memory_reference_adds_adk_load_memory_tool() -> None:
                 "namespace": "demo",
                 "name": "memory-tool",
                 "version": "1.0.0",
+                "metadata": {"adk": {"memories": {"local": {"type": "in-memory"}}}},
             },
-            "use": {"memories": {"local": {"type": "in-memory"}}},
             "do": [
                 {
                     "answer": {
                         "wait": {"seconds": 0},
-                        "agent": {
-                            "model": "stub",
-                            "instruction": "Answer.",
-                            "memory": {"use": "local"},
+                        "metadata": {
+                            "adk": {
+                                "agent": {
+                                    "model": "stub",
+                                    "instruction": "Answer.",
+                                    "memory": {"use": "local"},
+                                }
+                            }
                         },
                     }
                 }

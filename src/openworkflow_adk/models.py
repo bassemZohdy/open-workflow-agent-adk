@@ -65,7 +65,7 @@ class CatalogConfig(BaseModel):
 
 
 class ModelReference(BaseModel):
-    """Reference to a named model bundle in ``use.models``."""
+    """Reference to a named model bundle in ``document.metadata.adk.models``."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -142,17 +142,10 @@ class UseDefinition(BaseModel):
     errors: dict[str, Any] = Field(default_factory=dict)
     extensions: list[dict[str, Any]] = Field(default_factory=list)
     functions: dict[str, Any] = Field(default_factory=dict)
-    models: dict[str, ModelSpec] = Field(default_factory=dict)
-    providers: dict[str, ProviderConfig] = Field(default_factory=dict)
-    memories: dict[str, MemoryConfig] = Field(default_factory=dict)
     retries: dict[str, Any] = Field(default_factory=dict)
     secrets: list[str] = Field(default_factory=list)
     timeouts: dict[str, Any] = Field(default_factory=dict)
     catalogs: dict[str, CatalogConfig] = Field(default_factory=dict)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Provide mapping-style access for runtime registries."""
-        return getattr(self, key, default)
 
 
 class TaskBase(BaseModel):
@@ -167,8 +160,6 @@ class TaskBase(BaseModel):
     timeout: Any = None
     then: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-    self_heal: dict[str, Any] | None = None
-    agent: AgentCharacteristics | None = None
 
     def adk_metadata(self) -> AdkMetadata | None:
         """Return validated ADK metadata if the task carries it."""
@@ -178,12 +169,14 @@ class TaskBase(BaseModel):
         return None
 
     def effective_agent(self) -> AgentCharacteristics | None:
-        """ADK agent config, preferring metadata.adk over the legacy task field."""
-        return (self.adk_metadata().agent if self.adk_metadata() else None) or self.agent
+        """ADK agent config read from ``metadata.adk.agent``."""
+        adk = self.adk_metadata()
+        return adk.agent if adk else None
 
     def effective_self_heal(self) -> dict[str, Any] | None:
-        """Self-heal config, preferring metadata.adk over the legacy task field."""
-        return (self.adk_metadata().self_heal if self.adk_metadata() else None) or self.self_heal
+        """Self-heal config read from ``metadata.adk.self_heal``."""
+        adk = self.adk_metadata()
+        return adk.self_heal if adk else None
 
 
 TASK_KEYS = (
@@ -278,15 +271,16 @@ class OpenWorkflowDocument(BaseModel):
         return None
 
     def effective_models(self) -> dict[str, ModelSpec]:
-        """Model registry, preferring document.metadata.adk over legacy use.models."""
-        return (self.adk_metadata().models if self.adk_metadata() else None) or self.use.models
+        """Model registry read from ``document.metadata.adk.models``."""
+        adk = self.adk_metadata()
+        return adk.models if adk else {}
 
     def effective_providers(self) -> dict[str, ProviderConfig]:
-        """Provider registry, preferring document.metadata.adk over legacy use.providers."""
-        return (
-            self.adk_metadata().providers if self.adk_metadata() else None
-        ) or self.use.providers
+        """Provider registry read from ``document.metadata.adk.providers``."""
+        adk = self.adk_metadata()
+        return adk.providers if adk else {}
 
     def effective_memories(self) -> dict[str, MemoryConfig]:
-        """Memory registry, preferring document.metadata.adk over legacy use.memories."""
-        return (self.adk_metadata().memories if self.adk_metadata() else None) or self.use.memories
+        """Memory registry read from ``document.metadata.adk.memories``."""
+        adk = self.adk_metadata()
+        return adk.memories if adk else {}

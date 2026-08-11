@@ -33,8 +33,10 @@ async def test_agent_task_runs_with_injected_stub_model() -> None:
             "do": [
                 {
                     "answer": {
-                        "agent": {"model": "stub-model", "instruction": "Answer."},
                         "wait": {"seconds": 0},
+                        "metadata": {
+                            "adk": {"agent": {"model": "stub-model", "instruction": "Answer."}}
+                        },
                     }
                 }
             ],
@@ -58,8 +60,10 @@ async def test_agent_events_can_be_streamed_to_an_async_sink() -> None:
             "do": [
                 {
                     "answer": {
-                        "agent": {"model": "stub-model", "instruction": "Answer."},
                         "wait": {"seconds": 0},
+                        "metadata": {
+                            "adk": {"agent": {"model": "stub-model", "instruction": "Answer."}}
+                        },
                     }
                 }
             ],

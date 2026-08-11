@@ -16,18 +16,22 @@ def test_provider_and_memory_registries_parse_and_environment_overrides() -> Non
                 "namespace": "demo",
                 "name": "registries",
                 "version": "1.0.0",
-            },
-            "use": {
-                "providers": {"openai-prod": {"type": "openai", "base_url": "https://one.example"}},
-                "memories": {"local": {"type": "file", "connection": "/tmp/memory"}},
+                "metadata": {
+                    "adk": {
+                        "providers": {
+                            "openai-prod": {"type": "openai", "base_url": "https://one.example"}
+                        },
+                        "memories": {"local": {"type": "file", "connection": "/tmp/memory"}},
+                    }
+                },
             },
             "do": [{"save": {"set": {"value": "1"}}}],
         }
     )
     environ = {"WORKFLOW_PROVIDERS__OPENAI-PROD__BASE_URL": "https://two.example"}
 
-    provider = resolve_provider_config("openai-prod", document.use.providers, environ)
-    memory = resolve_memory_config("local", document.use.memories)
+    provider = resolve_provider_config("openai-prod", document.effective_providers(), environ)
+    memory = resolve_memory_config("local", document.effective_memories())
 
     assert provider.base_url == "https://two.example"
     assert memory.type == "file"
@@ -42,8 +46,8 @@ def test_unknown_provider_type_and_reference_are_structured() -> None:
                     "namespace": "demo",
                     "name": "bad",
                     "version": "1.0.0",
+                    "metadata": {"adk": {"providers": {"bad": {"type": "unknown"}}}},
                 },
-                "use": {"providers": {"bad": {"type": "unknown"}}},
                 "do": [{"save": {"set": {"value": "1"}}}],
             }
         )
@@ -60,7 +64,12 @@ def test_unknown_provider_type_and_reference_are_structured() -> None:
                 },
                 "do": [
                     {
-                        "agent": {"memory": {"use": "missing"}, "instruction": "x"},
+                        "agent": {
+                            "wait": {"seconds": 0},
+                            "metadata": {
+                                "adk": {"agent": {"memory": {"use": "missing"}, "instruction": "x"}}
+                            },
+                        }
                     }
                 ],
             }

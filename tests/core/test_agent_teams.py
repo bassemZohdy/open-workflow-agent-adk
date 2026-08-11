@@ -55,16 +55,20 @@ async def test_team_agent_transfers_to_sub_agent() -> None:
                 {
                     "coordinate": {
                         "wait": {"seconds": 0},
-                        "agent": {
-                            "model": "team-model",
-                            "instruction": "Delegate.",
-                            "sub_agents": [
-                                {
-                                    "name": "researcher",
+                        "metadata": {
+                            "adk": {
+                                "agent": {
                                     "model": "team-model",
-                                    "instruction": "Research.",
+                                    "instruction": "Delegate.",
+                                    "sub_agents": [
+                                        {
+                                            "name": "researcher",
+                                            "model": "team-model",
+                                            "instruction": "Research.",
+                                        }
+                                    ],
                                 }
-                            ],
+                            }
                         },
                     }
                 }

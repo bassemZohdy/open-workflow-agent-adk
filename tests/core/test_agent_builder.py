@@ -12,7 +12,9 @@ def test_agent_task_builds_single_turn_llm_agent() -> None:
                 {
                     "summarize": {
                         "wait": {"seconds": 0},
-                        "agent": {"model": "stub-model", "instruction": "Summarize."},
+                        "metadata": {
+                            "adk": {"agent": {"model": "stub-model", "instruction": "Summarize."}}
+                        },
                     }
                 }
             ],

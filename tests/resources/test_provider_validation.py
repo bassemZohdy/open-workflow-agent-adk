@@ -12,13 +12,19 @@ def test_unknown_model_provider_reference_is_structured() -> None:
                     "namespace": "demo",
                     "name": "bad-provider",
                     "version": "1.0.0",
+                    "metadata": {
+                        "adk": {
+                            "models": {"model": {"model": "gpt", "provider": {"use": "missing"}}}
+                        }
+                    },
                 },
-                "use": {"models": {"model": {"model": "gpt", "provider": {"use": "missing"}}}},
                 "do": [
                     {
                         "answer": {
                             "wait": {"seconds": 0},
-                            "agent": {"model": {"use": "model"}, "instruction": "x"},
+                            "metadata": {
+                                "adk": {"agent": {"model": {"use": "model"}, "instruction": "x"}}
+                            },
                         }
                     }
                 ],

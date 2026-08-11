@@ -29,7 +29,7 @@ async def test_self_healer_patches_state_and_retries_flaky_call() -> None:
                     "guard": {
                         "try": [{"call_flaky": {"call": "flaky", "with": {"value": ".value"}}}],
                         "catch": {"do": []},
-                        "self_heal": {"max_attempts": 2},
+                        "metadata": {"adk": {"self_heal": {"max_attempts": 2}}},
                     }
                 },
             ],
