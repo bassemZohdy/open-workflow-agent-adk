@@ -230,9 +230,10 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
 
 ### C13 — Test structure & public API surface  *(P2)*
 
-- [ ] **C13.1 Add `tests/tasks/` or document transitive coverage.** 7 modules under
-      `src/openworkflow_adk/tasks/` (including the security-sensitive `events.py`, `call.py`,
-      `run.py`) have no direct unit tests — they're exercised only via translator tests.
+- [x] **C13.1 Add `tests/tasks/` or document transitive coverage.** Created
+      `tests/tasks/test_call.py` with direct unit tests for `_compile_grpc_proto` (unique hash-suffixed
+      module names and protoc error surfacing). The remaining task modules continue to be covered
+      via translator/integration tests.
 - [x] **C13.2 Remove the empty `tests/conftest.py`** (docstring only) or add the shared fixtures it
       promises. Removed the empty `tests/conftest.py`.
 - [x] **C13.3 Move `tests/eval_agent.py`** out of the tests root (breaks the `tests/<category>/`
@@ -327,9 +328,9 @@ with **no tests and no artifact validation** between tag and PyPI.
 
 Follow-ups from the deep-dive best practices review and codebase validation.
 
-- [ ] **C16.1 (P1) Path traversal guard for script source files.** `tasks/run.py:148–151` verifies
-      `source` string starts with `/` or `.`, but does not resolve canonical path against a workspace root.
-      Restrain file reads strictly using `Path.resolve().is_relative_to(base_dir)` to prevent relative traversal.
+- [x] **C16.1 (P1) Path traversal guard for script source files.** `tasks/run.py:136–148`
+      already resolves the canonical path with `Path.resolve()` and verifies it is relative to
+      `WORKFLOW_SCRIPT_BASE_DIR` (defaulting to the current working directory).
 - [x] **C16.2 (P1) Dynamic gRPC proto compilation isolation.** Completed under C10.5.
       `tasks/call.py:100–140` now compiles in a subprocess with a timeout and uses hash-suffixed
       module names.
