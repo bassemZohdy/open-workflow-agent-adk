@@ -138,7 +138,7 @@ The historical C1â€“C8 record asserts a release state that does not exist i
       from the status line and marked the C1.3 and R6.1 references as superseded.
 - [x] **C9.3 Remove the unverifiable CI run-ID.** Removed the `31398202243` reference from R6.1;
       the original run is no longer verifiable.
-- [ ] **C9.4 Decide whether the Release workflow has ever published.** `.github/workflows/release.yml`
+- [ ] **C9.4 Decide whether the Release workflow has ever published.** Confirmed: no `v*.*.*` tags existed before this cleanup pass, so the workflow has never fired and PyPI publish has never run. Whether v0.2.0 (or a new v0.3.0) should be published is a project decision; the workflow is now hardened (C15) and ready when a tag is pushed.
       triggers on `v*.*.*` tags, but no tags exist â†’ PyPI publish has never fired. Confirm whether
       v0.2.0 was intended to ship and, if so, run the tag + publish flow.
 
@@ -318,14 +318,14 @@ with **no tests and no artifact validation** between tag and PyPI.
 - [x] **C15.3 (P1) Smoke-test the built artifact.** Added a smoke-test step in `release.yml` that
       installs the built wheel into a fresh venv and verifies `owf-adk --version` and
       `import openworkflow_adk`.
-- [ ] **C15.4 (P1) Validate trusted-publishing end-to-end.** Requires PyPI-side configuration and a
+- [ ] **C15.4 (P1) Validate trusted-publishing end-to-end.** Requires PyPI-side trusted-publisher registration for this repository/workflow/environment and a live tag push. The workflow configuration is correct; actual end-to-end validation can only happen during the first release.
       live tag push; cannot be verified statically. The workflow expects the `release` GitHub
       Environment and the `pypa/gh-action-pypi-publish@release/v1` action.
 - [x] **C15.5 (P1) Auto-create the GitHub Release.** Added a `release-notes` job that runs after
       successful publish and uses `softprops/action-gh-release@v2` with auto-generated notes.
 - [x] **C15.6 (P2) `attestations: true` is now the default** in current
       `pypa/gh-action-pypi-publish`; removed the redundant explicit line from `release.yml`.
-- [ ] **C15.7 (P2) Wire CHANGELOG to release notes.** AGENTS.md says Conventional Commits; consider
+- [x] **C15.7 (P2) Wire CHANGELOG to release notes.** The `release-notes` job now extracts the CHANGELOG section matching the pushed tag and uses it as the GitHub Release body, falling back to auto-generated notes when no matching section exists.
       `release-please` or an auto-changelog step so `CHANGELOG.md` and the GH Release stay in sync
       with the version bump (C4.1/C4.2 in the historical record were manual).
 
