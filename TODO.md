@@ -10,8 +10,8 @@ Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 and the `Release` workflow (`on: push: tags: v*.*.*`) has never fired.
 C1–C8 below are kept as the historical record of the v0.2.0 work; new follow-ups from the
 whole-project review live in **C9–C16**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.14,
-C11.1–C11.4, C12.1–C12.10, and C13.2–C13.3 completed; catalog `file://` URI handling fixed on
-Windows.
+C11.1–C11.4, C12.1–C12.10, C13.2–C13.3, and C14.1–C14.4 completed; catalog `file://` URI
+handling fixed on Windows.
 
 ---
 
@@ -254,18 +254,15 @@ Current state: `.github/workflows/ci.yml` (7 jobs) + `release.yml`; **no dependa
 no caching, no concurrency, no path filters, no permissions block, no workflow linting, no timeouts.**
 Action versions verified 2026-08-11 — re-verify quarterly (dependabot will help once C14.4 lands).
 
-- [ ] **C14.1 (P0) Least-privilege `permissions` on ci.yml.** Only `release.yml` has a `permissions`
-      block. Add top-level `permissions: contents: read` to ci.yml; escalate per-job only where
-      needed (e.g. `security-events: write` for CodeQL/SARIF upload).
-- [ ] **C14.2 (P0) Add CodeQL for Python.** No security-scanning workflow exists. Add
-      `github/codeql-action/init@v3` + `analyze@v3` (Python needs no `autobuild` — it's interpreted),
-      on push/PR to `main` + weekly cron. `permissions: security-events: write`.
-- [ ] **C14.3 (P0) Add `actions/dependency-review-action@v5`** on PRs (`fail-on-severity: moderate`)
-      to block new vulnerable dependencies before merge.
-- [ ] **C14.4 (P0) Add `.github/dependabot.yml`** with two ecosystems: `github-actions` (bump action
-      versions) and the new **`uv`** ecosystem (handles `pyproject.toml` + `uv.lock` natively; the
-      legacy `pip` ecosystem does not). Weekly. Note: `uv` ecosystem is new — watch astral-sh/uv#2512
-      for edge cases.
+- [x] **C14.1 (P0) Least-privilege `permissions` on ci.yml.** Added top-level
+      `permissions: contents: read` to `ci.yml`.
+- [x] **C14.2 (P0) Add CodeQL for Python.** Added `.github/workflows/codeql.yml` running
+      `github/codeql-action/init@v3` + `analyze@v3` on push/PR to `main` and weekly cron with
+      `permissions: security-events: write`.
+- [x] **C14.3 (P0) Add `actions/dependency-review-action@v5`** Added
+      `.github/workflows/dependency-review.yml` on pull requests with `fail-on-severity: moderate`.
+- [x] **C14.4 (P0) Add `.github/dependabot.yml`** Added `.github/dependabot.yml` with weekly
+      `github-actions` and `uv` ecosystems.
 - [ ] **C14.5 (P1) Upgrade outdated actions.** `actions/checkout@v4 → v5`, `astral-sh/setup-uv@v6 → v9`
       (setup-python@v5, pypi-publish@release/v1 are current). Once C14.4 lands, consider SHA-pinning
       supply-chain-critical actions (checkout, setup-uv, pypi-publish) and letting dependabot maintain
