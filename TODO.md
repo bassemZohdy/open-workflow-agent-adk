@@ -267,10 +267,8 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
       `astral-sh/setup-uv@v6 → v9` across `ci.yml`, `codeql.yml`, `dependency-review.yml`, and
       `release.yml`. `actions/setup-python@v5` and `pypa/gh-action-pypi-publish@release/v1` were
       already current.
-- [ ] **C14.6 (P1) Cancel stale runs.** Add a `concurrency` group to ci.yml
-      (`group: ${{ github.workflow }}-${{ github.ref }}`,
-      `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`). Currently every force-push
-      to a PR burns a full matrix + mutation run.
+- [x] **C14.6 (P1) Cancel stale runs.** Added a `concurrency` group to `ci.yml` that cancels
+      in-progress runs for pull requests on the same ref.
 - [ ] **C14.7 (P1) Enable uv caching.** Add `enable-cache: true` + `cache-dependency-glob: |
       uv.lock \n pyproject.toml` to every `setup-uv` step. Biggest single speedup; the install step
       is repeated in 7 jobs.
