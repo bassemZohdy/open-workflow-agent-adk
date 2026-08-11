@@ -17,9 +17,11 @@ message PingReply { string message = 1; }
 def test_compile_grpc_proto_uses_unique_hash_suffixed_modules(tmp_path) -> None:
     """Regression: each distinct proto compiles into a uniquely-named module pair."""
     proto_a = PROTO.encode()
-    proto_b = PROTO.replace("Echo", "EchoTwo").replace(
-        'syntax = "proto3";', 'syntax = "proto3";\npackage beta;'
-    ).encode()
+    proto_b = (
+        PROTO.replace("Echo", "EchoTwo")
+        .replace('syntax = "proto3";', 'syntax = "proto3";\npackage beta;')
+        .encode()
+    )
 
     sys.path.insert(0, str(tmp_path))
     try:
