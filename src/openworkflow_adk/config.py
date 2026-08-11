@@ -198,8 +198,6 @@ def resolve_agent_characteristics(
         else dict(task or {})
     )
     default_values = load_defaults(defaults)
-    if "agent" in default_values and isinstance(default_values["agent"], Mapping):
-        default_values = dict(default_values["agent"])
     model = task_values.get("model")
     if isinstance(model, Mapping) and "use" in model:
         spec = resolve_model_spec(ModelReference.model_validate(model), models, environ)

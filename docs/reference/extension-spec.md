@@ -60,7 +60,7 @@ do:
             output_key: draft
 ```
 
-`agent` omitted, or `agent: false`, produces a deterministic ADK node. When the
+Omitting `metadata.adk.agent` produces a deterministic ADK node. When the
 extension is enabled, the translator creates an `LlmAgent` with `mode:
 single_turn` and persists its result under `output_key` (default: task name).
 

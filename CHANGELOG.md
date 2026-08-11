@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **Breaking**: ADK extensions now live in OpenWorkflow-compatible metadata
+  containers. Task-level config goes in `task.metadata.adk` (`agent`,
+  `self_heal`); project-level registries go in `document.metadata.adk`
+  (`models`, `providers`, `memories`). The legacy direct forms (`agent:`,
+  `self_heal:`, `use.models:`, `use.providers:`, `use.memories:`) are removed.
+- Added `owf-adk export --format openworkflow` and `owf-adk lint --strict`
+  helpers for interoperable pure-OpenWorkflow output.
+
 ## 0.2.0 — 2026-08-10
 
 - Added catalog mode for spec-pure workflows with reusable external function

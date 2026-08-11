@@ -9,7 +9,7 @@ from pathlib import Path
 from openworkflow_adk.loader import _contains_adk_extension, _to_pure_openworkflow, load, load_raw
 from openworkflow_adk.models import OpenWorkflowDocument
 from openworkflow_adk.resources.catalog import CatalogFunctionRegistry, with_catalog_functions
-from openworkflow_adk.runtime import run_workflow
+from openworkflow_adk.runtime import _has_agent, run_workflow
 from openworkflow_adk.tools.diagnostics import (
     Diagnostic,
     lint_workflow,
@@ -30,12 +30,14 @@ def _add_file_and_mode_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _catalog_mode(document: OpenWorkflowDocument, mode: str) -> bool:
-    """Mirror the load-time detection from loader.py for runtime/catalog tooling."""
+    """Mirror load-time and runtime catalog detection."""
     if mode == "catalog":
         return True
     if mode != "auto":
         return False
-    return any(item.functions for item in document.use.catalogs.values())
+    return not _has_agent(document.do) and any(
+        item.functions for item in document.use.catalogs.values()
+    )
 
 
 def _load_document(args: argparse.Namespace) -> OpenWorkflowDocument:

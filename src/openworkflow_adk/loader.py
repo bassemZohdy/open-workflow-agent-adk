@@ -172,6 +172,59 @@ def _to_pure_openworkflow(value: Any, parent: str | None = None) -> Any:
     return value
 
 
+def _legacy_extension_errors(value: Any, path: str = "$") -> list[dict[str, str]]:
+    """Detect removed legacy ADK-extension keys and emit clear migration errors.
+
+    The new encoding places ADK config inside ``metadata.adk``; this function
+    ignores keys under that container so it does not flag valid new-form
+    documents.
+    """
+    errors: list[dict[str, str]] = []
+    if isinstance(value, dict):
+        if path.endswith(".metadata.adk") or path.endswith("metadata.adk"):
+            return errors
+        for key in ("agent", "self_heal"):
+            if key in value and path.startswith("$.do"):
+                errors.append(
+                    {
+                        "path": f"{path}.{key}",
+                        "message": (
+                            f"legacy '{key}' task extension removed; "
+                            f"move it to task.metadata.adk.{key}"
+                        ),
+                    }
+                )
+        if path == "$.use":
+            for key in ("models", "providers", "memories"):
+                if key in value:
+                    errors.append(
+                        {
+                            "path": f"{path}.{key}",
+                            "message": (
+                                f"legacy 'use.{key}' registry removed; "
+                                f"move it to document.metadata.adk.{key}"
+                            ),
+                        }
+                    )
+        for key, item in value.items():
+            child_path = f"{path}.{key}"
+            if path == "$" and key == "do" and isinstance(item, list):
+                for index, child in enumerate(item):
+                    task_path = f"{path}.do[{index}]"
+                    errors.extend(_legacy_extension_errors(child, task_path))
+                    if isinstance(child, dict):
+                        for task_name, task in child.items():
+                            errors.extend(
+                                _legacy_extension_errors(task, f"{task_path}.{task_name}")
+                            )
+            else:
+                errors.extend(_legacy_extension_errors(item, child_path))
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            errors.extend(_legacy_extension_errors(item, f"{path}[{index}]"))
+    return errors
+
+
 def _extension_errors(value: Any, path: str = "$") -> list[dict[str, str]]:
     errors: list[dict[str, str]] = []
     if isinstance(value, dict):
@@ -204,6 +257,7 @@ def load(source: str | Path | dict[str, Any], *, mode: str = "auto") -> OpenWork
     if mode not in {"auto", "extended", "catalog"}:
         raise ValueError("mode must be auto, extended, or catalog")
     raw = _parse_source(source)
+    errors = _legacy_extension_errors(raw)
     has_agent = _adk_agent_present(raw)
     catalog_mode = mode == "catalog" or (
         mode == "auto" and not has_agent and _catalog_has_functions(raw)
@@ -212,7 +266,7 @@ def load(source: str | Path | dict[str, Any], *, mode: str = "auto") -> OpenWork
         raise WorkflowValidationError(
             [{"path": "$", "message": "catalog mode does not allow the agent extension"}]
         )
-    errors = _extension_errors(raw)
+    errors.extend(_extension_errors(raw))
     model_registry, provider_registry, memory_registry = _registries(raw)
     errors.extend(_model_reference_errors(raw, set(model_registry)))
     errors.extend(_registry_reference_errors(raw, provider_registry, memory_registry))

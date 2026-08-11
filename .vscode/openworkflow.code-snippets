@@ -2,10 +2,12 @@
   "Agent task": {
     "prefix": "owf-agent",
     "body": [
-      "agent:",
-      "  model: ${1:gemini-2.5-flash}",
-      "  instruction: ${2:Describe the task}",
-      "  output_key: ${3:result}"
+      "metadata:",
+      "  adk:",
+      "    agent:",
+      "      model: ${1:gemini-2.5-flash}",
+      "      instruction: ${2:Describe the task}",
+      "      output_key: ${3:result}"
     ],
     "description": "OpenWorkflow ADK agent-characteristics extension"
   },

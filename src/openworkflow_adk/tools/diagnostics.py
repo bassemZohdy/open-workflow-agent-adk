@@ -44,12 +44,12 @@ def lint_workflow(document: OpenWorkflowDocument) -> list[Diagnostic]:
                 )
             )
         agent_config = item.task.effective_agent()
-        if agent_config is not None and agent_config.agent and not agent_config.instruction:
+        if agent_config is not None and not agent_config.instruction:
             diagnostics.append(
                 Diagnostic(
                     "agent-instruction",
                     f"agent task {item.name!r} has no instruction",
-                    f"do[{index}].agent.instruction",
+                    f"do[{index}].metadata.adk.agent.instruction",
                     severity="warning",
                 )
             )

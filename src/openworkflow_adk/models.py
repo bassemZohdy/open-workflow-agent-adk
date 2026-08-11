@@ -95,7 +95,6 @@ class AgentCharacteristics(BaseModel):
     description: str | None = None
     instruction: str | None = None
     tools: list[Any] = Field(default_factory=list)
-    agent: bool = True
     generate_content_config: dict[str, Any] | None = None
     output_key: str | None = None
     memory: ProviderReference | None = None

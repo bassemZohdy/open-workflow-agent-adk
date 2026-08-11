@@ -109,7 +109,7 @@ class NodeBuilderRegistry:
 
     def build(self, name: str, task: Task) -> Any:
         agent_config = task.effective_agent()
-        if agent_config is not None and agent_config.agent:
+        if agent_config is not None:
             agent = _agent_builder(
                 name,
                 task,

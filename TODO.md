@@ -481,3 +481,87 @@ added/interpreted by this translator only.
       direct-property forms (`agent:`, `self_heal:`, `use.models:`,
       `use.providers:`, `use.memories:`) and updated all tests and docs to the
       `metadata.adk` encoding only.
+
+---
+
+### C19 — Post-migration cleanup and bug fixes  *(P1)*
+
+Follow-ups from the legacy-encoding removal audit. These close inconsistencies
+and remove dead code exposed by the migration to `metadata.adk`.
+
+#### Code fixes
+
+- [x] **C19.1 Fix diagnostic path for missing agent instruction.**
+      `tools/diagnostics.py:52` now reports `do[{index}].metadata.adk.agent.instruction`.
+- [x] **C19.2 Remove redundant `AgentCharacteristics.agent` boolean.** The field
+      was removed; presence of `metadata.adk.agent` is now the sole signal.
+- [ ] **C19.3 Resolve/validate sub-agent model references.** Sub-agents inherit
+      `AgentCharacteristics` but their `model: {use: name}` references are not
+      resolved in `tasks/agent.py` or validated in `loader.py`.
+- [ ] **C19.4 Make memory-service discovery recursive.**
+      `runtime.memory_service_for_document` only scans top-level `document.do`;
+      nested agents in `do`, `try`, `fork`, or `switch` are missed.
+- [ ] **C19.5 Make state-schema derivation recursive and cover switch cases.**
+      `state.py` only adds top-level agent `output_key` values; nested agents and
+      switch branches are skipped.
+- [ ] **C19.6 Make diagnostics recursive.** `tools/diagnostics.py` only lints
+      top-level tasks; nested tasks are not checked.
+- [ ] **C19.7 Scope `metadata.adk` contents by location.** Task-level
+      `metadata.adk` should only allow `agent`/`self_heal`; document-level
+      `metadata.adk` should only allow `models`/`providers`/`memories`. Either
+      split `AdkMetadata` or add location-aware validation.
+- [x] **C19.8 Add legacy-encoding rejection with a helpful error.**
+      `_legacy_extension_errors` detects top-level task keys `agent`/`self_heal`
+      and `use.models`/`use.providers`/`use.memories` and emits a migration hint.
+- [x] **C19.9 Remove dead defaults unwrapping in `config.py`.** Removed the
+      branch that unwrapped a top-level `agent:` key from defaults files.
+- [ ] **C19.10 Harden metadata access in loader validators.** The chained
+      `value.get("metadata", {}).get("adk", {}).get("agent")` guards assume
+      `metadata` is a dict; non-dict values crash with `AttributeError`.
+- [x] **C19.11 Reconcile CLI `_catalog_mode()` with loader/runtime precedence.**
+      `cli.py:_catalog_mode()` now uses `_has_agent(document.do)` to mirror the
+      loader/runtime agent detection.
+
+#### Tests
+
+- [x] **C19.20 Add rejection tests for legacy keys.** Added loader tests for
+      legacy `agent:` and `use.models:` rejection with migration hints.
+- [x] **C19.21 Add tests for `metadata.adk.agent: {agent: false}` behavior.**
+      The inner `agent` boolean was removed; presence of `metadata.adk.agent`
+      now always enables the agent.
+- [ ] **C19.22 Add tests for sub-agent model reference resolution/validation.**
+- [ ] **C19.23 Add tests for nested agent memory and state-schema coverage.**
+
+---
+
+### C20 — Documentation and schema hygiene  *(P1)*
+
+Docs, editor integration, changelog, and public API cleanup.
+
+- [x] **C20.1 Update VS Code snippet to emit `metadata.adk.agent`.**
+      `.vscode/openworkflow.code-snippets` now emits `metadata.adk.agent`.
+- [ ] **C20.2 Rewrite or remove stale JSON extension schema.**
+      `docs/schema/agent-characteristics.json` describes the old direct-task
+      `agent` object and is referenced by `.vscode/settings.json` and
+      `docs/guides/editor-integration.md`.
+- [ ] **C20.3 Update ADR 0001.** `docs/decisions/0001-agent-characteristics-key.md`
+      prescribes the removed `agent:` task key; mark it superseded and describe
+      `metadata.adk.agent`.
+- [ ] **C20.4 Update ADR 0005.** `docs/decisions/0005-model-reference.md`
+      references the removed `use.models` registry.
+- [ ] **C20.5 Update ADR 0008.** `docs/decisions/0008-workflow-flavors.md`
+      describes flavor selection based on the `agent:` key.
+- [ ] **C20.6 Update upstream proposal.**
+      `docs/proposals/0001-agent-characteristics-upstream.md` still uses the
+      legacy encoding.
+- [x] **C20.7 Update `.env.example` comments.** Named registries now refer to
+      `document.metadata.adk.models`/`providers`/`memories`.
+- [x] **C20.8 Fix incomplete sentence in configuration doc.** Fixed the dangling
+      broker-backed listen sentence.
+- [ ] **C20.9 Mention `metadata.adk` in `CLAUDE.md`.** The architectural baseline
+      refers to per-task agent config without naming the container.
+- [x] **C20.10 Add CHANGELOG entry for C18/C19.** Added an Unreleased section
+      documenting the encoding break and the `metadata.adk` container.
+- [ ] **C20.11 Export `AdkMetadata` or make `adk_metadata()` private.**
+      `TaskBase.adk_metadata()` and `OpenWorkflowDocument.adk_metadata()` return
+      `AdkMetadata`, which is not in `openworkflow_adk.__all__`.

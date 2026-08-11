@@ -70,3 +70,28 @@ def test_loader_accepts_additive_patch_dsl_version() -> None:
     )
 
     assert document.document.dsl == "1.0.4"
+
+
+def test_legacy_agent_task_key_is_rejected_with_migration_hint() -> None:
+    with pytest.raises(WorkflowValidationError) as raised:
+        load(
+            {
+                "document": {"dsl": "1.0.3", "namespace": "demo", "name": "x", "version": "1.0.0"},
+                "do": [{"task": {"wait": {"seconds": 1}, "agent": {"model": "x"}}}],
+            }
+        )
+
+    assert any("legacy 'agent'" in error["message"] for error in raised.value.errors)
+
+
+def test_legacy_use_models_registry_is_rejected_with_migration_hint() -> None:
+    with pytest.raises(WorkflowValidationError) as raised:
+        load(
+            {
+                "document": {"dsl": "1.0.3", "namespace": "demo", "name": "x", "version": "1.0.0"},
+                "use": {"models": {"fast": {"model": "x"}}},
+                "do": [{"finish": {"set": {"value": 1}}}],
+            }
+        )
+
+    assert any("legacy 'use.models'" in error["message"] for error in raised.value.errors)

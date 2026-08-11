@@ -73,7 +73,7 @@ existing return value remains the complete event list.
 
 Set `token_budget` on `run_workflow` to enforce a run-level usage ceiling from
 ADK `total_token_count` metadata. Agent tasks continue to select models and
-providers independently through their `agent.model`/`provider` configuration.
+providers independently through their `metadata.adk.agent.model`/`provider` configuration.
 Session/state persistence is a separate concern and uses ADK's `InMemory`,
 database, or Vertex session services configured through
 `WORKFLOW_SESSION_BACKEND`.
@@ -99,11 +99,11 @@ When a persistent history backend is supplied, timer waits can be suspended
 instead of keeping a task alive. `run_workflow` records `status: suspended`,
 the wait task, and `resume_at`; a later `resume=True` call continues after the
 timer. The threshold defaults to one hour and can be changed with
-`WORKFLOW_SUSPEND_WAIT_SECONDS` or the `suspend_after` argument. Broker-backed
+`WORKFLOW_SUSPEND_WAIT_SECONDS` or the `suspend_after` argument.
 With persistent history, broker-backed `listen` tasks also suspend without
 holding a consumer task. The matching event is consumed when the run is
 resumed, so the broker must retain it between suspension and resume.
 
 Agent tasks can request external approval/input with
-`agent.request_input: {question: ...}`. The runtime records a `human_input`
+`metadata.adk.agent.request_input: {question: ...}`. The runtime records a `human_input`
 suspension and resumes it with `resume=True` plus `resume_input=<value>`.
