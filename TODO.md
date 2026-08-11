@@ -282,9 +282,9 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
 - [x] **C14.11 (P1) Remove redundant catalog pytest.** Removed the duplicate
       `pytest tests/resources/test_catalog.py` run from the `test` job; the prior full pytest run
       already covers it.
-- [ ] **C14.12 (P1) Standardize `uv sync` flags.** CI test jobs currently use `--locked`; the
-      recommended strict mode is `uv sync --frozen --all-extras` (faster, asserts lockfile).
-      Release builds should use `--frozen --no-dev`. Verify `uv.lock` is committed (it is).
+- [x] **C14.12 (P1) Standardize `uv sync` flags.** Changed CI test jobs to
+      `uv sync --frozen --all-extras` and added `uv sync --frozen --no-dev` to `release.yml` before
+      the build step. `uv.lock` remains committed.
 - [ ] **C14.13 (P2) DRY the setup boilerplate.** The `checkout → setup-uv → setup-python → uv sync`
       sequence is repeated 7× in ci.yml. Extract a reusable workflow
       (`.github/workflows/_setup.yml`) or a composite action.

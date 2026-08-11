@@ -29,7 +29,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: uv sync --extra dev --frozen
+      - run: uv sync --frozen --all-extras
       - run: uv run python -m openworkflow_adk.tools.benchmark --iterations 10 --max-p99-ms 5000
 
   mutation:
@@ -46,6 +46,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: uv sync --extra dev --frozen
+      - run: uv sync --frozen --all-extras
       - run: uv run mutmut run --max-children 2 > /tmp/owf-mutmut.log 2>&1
       - run: uv run python scripts/check_mutation_score.py /tmp/owf-mutmut.log

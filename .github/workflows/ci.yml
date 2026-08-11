@@ -37,7 +37,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv sync --extra dev
+      - run: uv sync --frozen --all-extras
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       # Current local baseline is 83%; keep a small margin for platform variance.
@@ -62,7 +62,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv sync --extra dev --locked
+      - run: uv sync --frozen --all-extras
       - run: uv run python -c "import importlib.metadata as m; assert m.version('google-adk') == '${{ matrix.adk-version }}'"
       - run: uv run pytest
 
@@ -80,7 +80,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: uv sync --extra dev --locked
+      - run: uv sync --frozen --all-extras
       - run: uv export --no-dev --no-emit-project --format requirements-txt > /tmp/owf-requirements.txt
       - run: uv run pip-audit -r /tmp/owf-requirements.txt --no-deps --disable-pip --strict
       - uses: anchore/sbom-action@v0
@@ -102,7 +102,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: uv sync --extra dev --locked
+      - run: uv sync --frozen --all-extras
       - run: uv run pytest tests/resources/test_memory_integration.py
         env:
           WORKFLOW_RUN_INTEGRATION_TESTS: "1"
