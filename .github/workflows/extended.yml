@@ -26,7 +26,7 @@ jobs:
           cache-dependency-glob: |
             uv.lock
             pyproject.toml
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: uv sync --frozen --all-extras
@@ -43,7 +43,7 @@ jobs:
           cache-dependency-glob: |
             uv.lock
             pyproject.toml
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: uv sync --frozen --all-extras
