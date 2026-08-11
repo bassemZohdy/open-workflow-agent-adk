@@ -28,6 +28,7 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-owf
         with:
           python-version: ${{ matrix.python-version }}
@@ -49,6 +50,7 @@ jobs:
         adk-version: ["2.6.3"]
         spec-version: ["1.0.3"]
     steps:
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-owf
         with:
           python-version: ${{ matrix.python-version }}
@@ -59,6 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-owf
         with:
           python-version: "3.12"
@@ -73,6 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-owf
         with:
           python-version: "3.12"
@@ -88,7 +92,7 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install actionlint-py zizmor

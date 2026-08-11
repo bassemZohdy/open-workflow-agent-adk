@@ -49,11 +49,11 @@ def _has_agent(items: list[Any]) -> bool:
         for case in item.task.switch or []:
             if isinstance(case, dict):
                 configuration = next(iter(case.values())) if case else {}
-                if isinstance(configuration, dict) and _has_agent(
-                    configuration.get("do", [])
-                ):
+                if isinstance(configuration, dict) and _has_agent(configuration.get("do", [])):
                     return True
     return False
+
+
 replay_from_task = _replay.replay_from_task
 verify_replay_determinism = _replay.verify_replay_determinism
 

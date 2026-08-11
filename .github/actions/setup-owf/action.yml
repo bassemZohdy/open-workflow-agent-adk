@@ -1,7 +1,7 @@
 name: Setup OWF environment
 
 description: |
-  Check out the repository, install uv and Python, and sync dependencies.
+  Install uv and Python, and sync dependencies after the caller checks out the repository.
 
 inputs:
   python-version:
@@ -15,14 +15,14 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v5
-    - uses: astral-sh/setup-uv@v9
+    # setup-uv publishes v9.0.0 without a moving v9 tag.
+    - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       with:
         enable-cache: true
         cache-dependency-glob: |
           uv.lock
           pyproject.toml
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v7
       with:
         python-version: ${{ inputs.python-version }}
     - run: uv sync ${{ inputs.sync-args }}

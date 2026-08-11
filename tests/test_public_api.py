@@ -13,9 +13,9 @@ def test_all_root_exports_are_importable() -> None:
 def test_all_internal_exports_are_importable() -> None:
     """Every name advertised in openworkflow_adk.internal.__all__ can be imported."""
     for name in openworkflow_adk.internal.__all__:
-        assert hasattr(
-            openworkflow_adk.internal, name
-        ), f"{name!r} missing from openworkflow_adk.internal"
+        assert hasattr(openworkflow_adk.internal, name), (
+            f"{name!r} missing from openworkflow_adk.internal"
+        )
 
 
 def test_internal_module_is_stable() -> None:

@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-owf
         with:
           python-version: "3.12"
@@ -25,7 +26,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v9
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
           cache-dependency-glob: |
@@ -46,6 +47,7 @@ jobs:
     timeout-minutes: 15
     environment: release
     steps:
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-owf
         with:
           python-version: "3.12"
@@ -74,9 +76,11 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           SECTION=$(awk '/^## /{if (found) exit; if ($2 == "'"$VERSION"' —" || $2 == "'"$VERSION"'") found=1} found' CHANGELOG.md)
           EOF=$(openssl rand -hex 12)
-          echo "body<<$EOF" >> "$GITHUB_OUTPUT"
-          echo "$SECTION" >> "$GITHUB_OUTPUT"
-          echo "$EOF" >> "$GITHUB_OUTPUT"
+          {
+            echo "body<<$EOF"
+            echo "$SECTION"
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
