@@ -263,10 +263,10 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
       `.github/workflows/dependency-review.yml` on pull requests with `fail-on-severity: moderate`.
 - [x] **C14.4 (P0) Add `.github/dependabot.yml`** Added `.github/dependabot.yml` with weekly
       `github-actions` and `uv` ecosystems.
-- [ ] **C14.5 (P1) Upgrade outdated actions.** `actions/checkout@v4 → v5`, `astral-sh/setup-uv@v6 → v9`
-      (setup-python@v5, pypi-publish@release/v1 are current). Once C14.4 lands, consider SHA-pinning
-      supply-chain-critical actions (checkout, setup-uv, pypi-publish) and letting dependabot maintain
-      them.
+- [x] **C14.5 (P1) Upgrade outdated actions.** Upgraded `actions/checkout@v4 → v5` and
+      `astral-sh/setup-uv@v6 → v9` across `ci.yml`, `codeql.yml`, `dependency-review.yml`, and
+      `release.yml`. `actions/setup-python@v5` and `pypa/gh-action-pypi-publish@release/v1` were
+      already current.
 - [ ] **C14.6 (P1) Cancel stale runs.** Add a `concurrency` group to ci.yml
       (`group: ${{ github.workflow }}-${{ github.ref }}`,
       `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`). Currently every force-push
@@ -339,19 +339,16 @@ Follow-ups from the deep-dive best practices review and codebase validation.
 - [ ] **C16.1 (P1) Path traversal guard for script source files.** `tasks/run.py:148–151` verifies
       `source` string starts with `/` or `.`, but does not resolve canonical path against a workspace root.
       Restrain file reads strictly using `Path.resolve().is_relative_to(base_dir)` to prevent relative traversal.
-- [ ] **C16.2 (P1) Dynamic gRPC proto compilation isolation.** `tasks/call.py:100–120` writes user
-      proto bytes and imports `workflow_call_pb2` in-process. Compile in a separate subprocess with
-      resource limits and assign unique module names (e.g. SHA-256 suffix) to prevent import-time hazards
-      and concurrency collisions.
-- [ ] **C16.3 (P1) Resilient worker error recovery loop.** `ops/worker.py:76–79` runs `run_once()`
-      inside `run_forever()` without a `try/except` block. Wrap loop iterations with error catching
-      and exponential backoff so transient broker errors don't terminate the worker process.
-- [ ] **C16.4 (P1) Cross-platform timeout for JSONata evaluation.** `expressions.py:47` relies on
-      `signal.SIGALRM` which is POSIX-only. Implement cross-platform evaluation timeout using
-      `asyncio.to_thread` with `asyncio.wait_for` to ensure timeout protection on Windows.
-- [ ] **C16.5 (P2) Refine public API surface area in `__init__.py`.** `openworkflow_adk/__init__.py`
-      exports 88 symbols (`__all__`). Separate internal infrastructure builders/transports into an internal
-      namespace to preserve public API stability commitments.
+- [x] **C16.2 (P1) Dynamic gRPC proto compilation isolation.** Completed under C10.5.
+      `tasks/call.py:100–140` now compiles in a subprocess with a timeout and uses hash-suffixed
+      module names.
+- [x] **C16.3 (P1) Resilient worker error recovery loop.** Completed under C10.11.
+      `ops/worker.py` now catches errors and retries with exponential backoff capped at 60 seconds.
+- [x] **C16.4 (P1) Cross-platform timeout for JSONata evaluation.** Completed under C10.8.
+      `expressions.py` now falls back to a thread-based timeout injection on non-POSIX platforms.
+- [ ] **C16.5 (P2) Refine public API surface area in `__init__.py`.** Tracked as C13.4.
+      `openworkflow_adk/__init__.py` exports 88 symbols (`__all__`). Separate internal infrastructure
+      builders/transports into an internal namespace to preserve public API stability commitments.
 
 ---
 
