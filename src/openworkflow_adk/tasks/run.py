@@ -79,10 +79,20 @@ def _container_builder(name: str, task: Task) -> FunctionNode:
             command = [*shlex.split(command), *arguments]
         elif arguments:
             command = arguments
-        volumes = {
-            host: {"bind": target, "mode": "rw"}
-            for host, target in (process.get("volumes") or {}).items()
-        }
+        raw_allowlist = os.environ.get("WORKFLOW_CONTAINER_VOLUME_ALLOWLIST", "")
+        volume_allowlist = [
+            Path(item.strip()).resolve() for item in raw_allowlist.split(",") if item.strip()
+        ]
+        volumes: dict[str, dict[str, Any]] = {}
+        for host, target in (process.get("volumes") or {}).items():
+            resolved_host = str(_resolve_container_volume(host, volume_allowlist))
+            if isinstance(target, dict):
+                bind = target["bind"]
+                mode = target.get("mode", "ro")
+            else:
+                bind = target
+                mode = "ro"
+            volumes[resolved_host] = {"bind": bind, "mode": mode}
         client_ports = {
             container_port: host_port
             for container_port, host_port in (process.get("ports") or {}).items()
@@ -136,6 +146,23 @@ def _resolve_script_source(source: str, base_dir: Path) -> Path:
             f"script source {source!r} escapes the configured script base directory"
         ) from exc
     return path
+
+
+def _resolve_container_volume(host: str, allowlist: list[Path]) -> Path:
+    """Resolve a container host volume path and ensure it is within the allowlist."""
+    path = Path(host).resolve()
+    if not allowlist:
+        return path
+    for root in allowlist:
+        try:
+            path.relative_to(root)
+            return path
+        except ValueError:
+            continue
+    raise ValueError(
+        f"container volume host path {host!r} is not under any allowed root: "
+        f"{[str(root) for root in allowlist]}"
+    )
 
 
 def _run_builder(

@@ -9,9 +9,9 @@ Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
  tagged `v0.2.0`; `v0.1.0` tags the baseline commit `1897458`. The release branch was not preserved,
 and the `Release` workflow (`on: push: tags: v*.*.*`) has never fired.
 C1–C8 below are kept as the historical record of the v0.2.0 work; new follow-ups from the
-whole-project review live in **C9–C16**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.4/C10.6/
-C10.8/C10.9/C10.10/C10.11/C10.12/C10.13/C10.14, C11.1–C11.4, and C12.1–C12.10 completed;
-catalog `file://` URI handling fixed on Windows.
+whole-project review live in **C9–C16**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.14,
+C11.1–C11.4, C12.1–C12.10, and C13.2–C13.3 completed; catalog `file://` URI handling fixed on
+Windows.
 
 ---
 
@@ -167,10 +167,10 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
 - [x] **C10.6 (P1) Script `source` can read arbitrary local files.** `tasks/run.py` now resolves
       script sources against `WORKFLOW_SCRIPT_BASE_DIR` (defaulting to the current working dir) and
       rejects any path that escapes that directory via `..` or absolute traversal.
-- [ ] **C10.7 (P1) Container task mounts are unrestricted.** `tasks/run.py:63,82–85` calls
-      `docker.from_env()` and defaults bind mode to `"rw"` with no host-path validation. In a CI/CD
-      context with socket access this enables host escape. Default to `"ro"`, validate host paths
-      against an allowlist, and consider making the Docker feature an opt-in extra.
+- [x] **C10.7 (P1) Container task mounts are unrestricted.** `tasks/run.py` now defaults bind
+      mode to `"ro"`, validates host paths against `WORKFLOW_CONTAINER_VOLUME_ALLOWLIST`, and rejects
+      paths outside the allowed roots. Opting into `"rw"` requires a dict volume spec with
+      `mode: rw`.
 - [x] **C10.8 (P1) `_evaluation_budget` is a no-op on Windows.** `expressions.py` now uses a
       thread-based `TimeoutError` injection fallback on non-POSIX platforms and non-main threads,
       so JSONata expressions are bounded everywhere.
@@ -233,10 +233,12 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
 - [ ] **C13.1 Add `tests/tasks/` or document transitive coverage.** 7 modules under
       `src/openworkflow_adk/tasks/` (including the security-sensitive `events.py`, `call.py`,
       `run.py`) have no direct unit tests — they're exercised only via translator tests.
-- [ ] **C13.2 Remove the empty `tests/conftest.py`** (docstring only) or add the shared fixtures it
-      promises.
-- [ ] **C13.3 Move `tests/eval_agent.py`** out of the tests root (breaks the `tests/<category>/`
-      mirror; referenced as `tests.eval_agent` from `tests/core/test_adk_evaluation.py`).
+- [x] **C13.2 Remove the empty `tests/conftest.py`** (docstring only) or add the shared fixtures it
+      promises. Removed the empty `tests/conftest.py`.
+- [x] **C13.3 Move `tests/eval_agent.py`** out of the tests root (breaks the `tests/<category>/`
+      mirror; referenced as `tests.eval_agent` from `tests/core/test_adk_evaluation.py`). Moved to
+      `tests/eval/eval_agent.py`; updated `tests/core/test_adk_evaluation.py` to reference
+      `tests.eval.eval_agent`.
 - [ ] **C13.4 Audit `__init__.py` `__all__` (88 names).** Split infrastructure classes
       (`NodeBuilderRegistry`, `BackpressureController`, broker transports, `JsonRunLogger`,
       `WorkflowTelemetry`) into a provisional/internal namespace; keep only user-facing types at the
