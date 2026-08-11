@@ -269,9 +269,8 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
       already current.
 - [x] **C14.6 (P1) Cancel stale runs.** Added a `concurrency` group to `ci.yml` that cancels
       in-progress runs for pull requests on the same ref.
-- [ ] **C14.7 (P1) Enable uv caching.** Add `enable-cache: true` + `cache-dependency-glob: |
-      uv.lock \n pyproject.toml` to every `setup-uv` step. Biggest single speedup; the install step
-      is repeated in 7 jobs.
+- [x] **C14.7 (P1) Enable uv caching.** Added `enable-cache: true` and
+      `cache-dependency-glob: uv.lock / pyproject.toml` to every `setup-uv` step in `ci.yml`.
 - [ ] **C14.8 (P1) Path filtering.** Doc/example/`*.md`-only changes currently trigger the full
       matrix + mutation + benchmark. Add `paths-ignore` or a `dorny/paths-filter` skip job.
 - [ ] **C14.9 (P1) Pull mutation + benchmark off per-push.** `mutmut run` re-executes the suite many
