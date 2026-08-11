@@ -300,8 +300,9 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
       SARIF, so the `workflow-lint` job now runs `zizmor --format sarif` and uploads the SARIF file
       via `github/codeql-action/upload-sarif@v3`. `anchore/sbom-action@v0` remains pinned to major
       version 0; SBOM upload to the dependency graph is left as a future enhancement.
-- [ ] **C14.17 (P2) `workflow_dispatch` on ci.yml** for manual reruns, and parametrize the benchmark
-      job's `--iterations`/`--max-p99-ms` via inputs.
+- [x] **C14.17 (P2) `workflow_dispatch` on ci.yml.** Added `workflow_dispatch` to `ci.yml` for
+      manual reruns. Parametrized the `extended.yml` benchmark job's `--iterations` and
+      `--max-p99-ms` via `workflow_dispatch` inputs with defaults of 10 and 5000.
 
 ### C15 — Release workflow hardening  *(P0 — ties to C9)*
 

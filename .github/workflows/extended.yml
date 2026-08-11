@@ -4,6 +4,17 @@ on:
   schedule:
     - cron: "17 3 * * *"
   workflow_dispatch:
+    inputs:
+      benchmark-iterations:
+        description: Number of benchmark iterations
+        required: false
+        default: "10"
+        type: string
+      benchmark-max-p99-ms:
+        description: Maximum allowed p99 latency in milliseconds
+        required: false
+        default: "5000"
+        type: string
   push:
     tags: ["v*.*.*"]
 
@@ -22,7 +33,7 @@ jobs:
       - uses: ./.github/actions/setup-owf
         with:
           python-version: "3.12"
-      - run: uv run python -m openworkflow_adk.tools.benchmark --iterations 10 --max-p99-ms 5000
+      - run: uv run python -m openworkflow_adk.tools.benchmark --iterations ${{ inputs.benchmark-iterations }} --max-p99-ms ${{ inputs.benchmark-max-p99-ms }}
 
   mutation:
     runs-on: ubuntu-latest
