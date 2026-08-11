@@ -35,9 +35,7 @@ def test_cli_lint_supports_catalog_mode(tmp_path: Path, monkeypatch, capsys) -> 
     functions.write_text("functions:\n  makeGreeting:\n    set:\n      greeting: '\"hello\"'\n")
     workflow = tmp_path / "workflow.yaml"
     workflow.write_text(json.dumps(_catalog_workflow(str(functions))))
-    monkeypatch.setattr(
-        "sys.argv", ["owf-adk", "lint", "--mode", "catalog", str(workflow)]
-    )
+    monkeypatch.setattr("sys.argv", ["owf-adk", "lint", "--mode", "catalog", str(workflow)])
     assert main() == 0
     output = json.loads(capsys.readouterr().out)
     assert isinstance(output, list)
@@ -48,9 +46,7 @@ def test_cli_plan_supports_catalog_mode(tmp_path: Path, monkeypatch, capsys) -> 
     functions.write_text("functions:\n  makeGreeting:\n    set:\n      greeting: '\"hello\"'\n")
     workflow = tmp_path / "workflow.yaml"
     workflow.write_text(json.dumps(_catalog_workflow(str(functions))))
-    monkeypatch.setattr(
-        "sys.argv", ["owf-adk", "plan", "--mode", "catalog", str(workflow)]
-    )
+    monkeypatch.setattr("sys.argv", ["owf-adk", "plan", "--mode", "catalog", str(workflow)])
     assert main() == 0
 
 
@@ -59,9 +55,7 @@ def test_cli_graph_supports_catalog_mode(tmp_path: Path, monkeypatch, capsys) ->
     functions.write_text("functions:\n  makeGreeting:\n    set:\n      greeting: '\"hello\"'\n")
     workflow = tmp_path / "workflow.yaml"
     workflow.write_text(json.dumps(_catalog_workflow(str(functions))))
-    monkeypatch.setattr(
-        "sys.argv", ["owf-adk", "graph", "--mode", "catalog", str(workflow)]
-    )
+    monkeypatch.setattr("sys.argv", ["owf-adk", "graph", "--mode", "catalog", str(workflow)])
     assert main() == 0
     assert "graph" in capsys.readouterr().out.lower() or True
 
