@@ -5,12 +5,12 @@ Forward-looking task list. Reference material in [`docs/`](docs/): [architecture
 [task coverage](docs/reference/task-coverage.md), [flavors](docs/flavors.md); ADRs in [docs/decisions/](docs/decisions/).
 Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 
-**Status:** v0.2.0 code has landed on `main` (`f78c0c1 Merge completed TODO work`), but the release
-was never finalized — **no `v0.1.0` or `v0.2.0` git tag exists**, the `agent/todo-complete-catalog-release`
+**Status:** v0.2.0 code has landed on `main` (`f78c0c1 Merge completed TODO work`) and is now
+ tagged `v0.2.0`; `v0.1.0` tags the baseline commit `1897458`. The `agent/todo-complete-catalog-release`
 branch was not preserved, and the `Release` workflow (`on: push: tags: v*.*.*`) has never fired.
 C1–C8 below are kept as the historical record of the v0.2.0 work; new follow-ups from the
-whole-project review live in **C9–C13**. Latest cleanup pass: C10.1–C10.3/C10.13 and C11.1–C11.2
-completed; catalog `file://` URI handling fixed on Windows.
+whole-project review live in **C9–C15**. Latest cleanup pass: C9.1, C10.1–C10.3/C10.13,
+C11.1–C11.2, and C12.1–C12.4 completed; catalog `file://` URI handling fixed on Windows.
 
 ---
 
@@ -129,9 +129,8 @@ Priorities: **P0** = security/release-blocking, **P1** = correctness/hygiene, **
 
 The historical C1–C8 record asserts a release state that does not exist in git.
 
-- [ ] **C9.1 Create the missing git tags.** `git tag` is empty — neither `v0.1.0` (referenced at
-      L15, L53) nor `v0.2.0` (C4.3) exists. Tag `1897458` as `v0.1.0` and `f78c0c1` as `v0.2.0`
-      (or decide the project history starts at v0.2.0 and document that).
+- [x] **C9.1 Create the missing git tags.** Tagged `1897458` as `v0.1.0` and `f78c0c1` as
+      `v0.2.0`; pushed both tags to `origin`.
 - [ ] **C9.2 Drop the `agent/todo-complete-catalog-release` citations.** C1.3 (L45) and R6.1 (L52)
       reference a branch that does not exist locally or on `origin`. Mark superseded — work landed
       via merge commit `f78c0c1`.
@@ -211,15 +210,13 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
 
 ### C12 — Repo & documentation hygiene  *(P1)*
 
-- [ ] **C12.1 (P1) Add a committed `LICENSE` file.** `pyproject.toml:6,9` declares Apache-2.0 but no
-      `LICENSE`/`COPYING` is tracked. (`pip check`/PyPI validators flag this.)
-- [ ] **C12.2 (P1) Fix `.env.example:5` doc path.** Points at `docs/configuration.md`; the real file
-      is `docs/reference/configuration.md`.
-- [ ] **C12.3 (P1) Bump `AGENTS.md` status line.** Still reads "v0.1.0 delivered"; `pyproject.toml`
-      and `cli.py` are at 0.2.0.
-- [ ] **C12.4 (P1) Align `.env.example` secret name with the catalog example.** `examples/catalog/`
-      documents `WORKFLOW_SECRET__OPENAI_KEY`, but `.env.example:24` demos `WORKFLOW_SECRET__MY_API_KEY`
-      — the catalog `summarize` example won't run end-to-end from the documented setup.
+- [x] **C12.1 (P1) Add a committed `LICENSE` file.** Added `LICENSE` with the standard Apache-2.0
+      text and copyright line for "OpenWorkflow ADK contributors".
+- [x] **C12.2 (P1) Fix `.env.example:5` doc path.** Updated the comment to point to
+      `docs/reference/configuration.md`.
+- [x] **C12.3 (P1) Bump `AGENTS.md` status line.** Updated to "v0.2.0 delivered".
+- [x] **C12.4 (P1) Align `.env.example` secret name with the catalog example.** Changed
+      `.env.example:24` to `WORKFLOW_SECRET__OPENAI_KEY` to match `examples/catalog/summarize.yaml`.
 - [ ] **C12.5 (P1) Document example prerequisites.** `examples/echo.yaml` needs `docker compose up
       --wait` (hostname `http://echo:8080`); `rag.yaml` hits the non-routable `retriever.example`;
       `approval.yaml` blocks on `listen` with no producer. Add a one-line prereq per example in
@@ -256,6 +253,93 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
       `graph_to_document` (`tools/visual.py`), and several result/type classes
       (`OidcMetadata`, `AuditEntry`, `SimplificationResult`, `ModelReference`, …) have no test
       references — either add importability/behavior tests or drop from `__all__`.
+
+### C14 — CI/CD: hygiene, supply chain, cost & performance  *(P0/P1)*
+
+Current state: `.github/workflows/ci.yml` (7 jobs) + `release.yml`; **no dependabot, no CodeQL,
+no caching, no concurrency, no path filters, no permissions block, no workflow linting, no timeouts.**
+Action versions verified 2026-08-11 — re-verify quarterly (dependabot will help once C14.4 lands).
+
+- [ ] **C14.1 (P0) Least-privilege `permissions` on ci.yml.** Only `release.yml` has a `permissions`
+      block. Add top-level `permissions: contents: read` to ci.yml; escalate per-job only where
+      needed (e.g. `security-events: write` for CodeQL/SARIF upload).
+- [ ] **C14.2 (P0) Add CodeQL for Python.** No security-scanning workflow exists. Add
+      `github/codeql-action/init@v3` + `analyze@v3` (Python needs no `autobuild` — it's interpreted),
+      on push/PR to `main` + weekly cron. `permissions: security-events: write`.
+- [ ] **C14.3 (P0) Add `actions/dependency-review-action@v5`** on PRs (`fail-on-severity: moderate`)
+      to block new vulnerable dependencies before merge.
+- [ ] **C14.4 (P0) Add `.github/dependabot.yml`** with two ecosystems: `github-actions` (bump action
+      versions) and the new **`uv`** ecosystem (handles `pyproject.toml` + `uv.lock` natively; the
+      legacy `pip` ecosystem does not). Weekly. Note: `uv` ecosystem is new — watch astral-sh/uv#2512
+      for edge cases.
+- [ ] **C14.5 (P1) Upgrade outdated actions.** `actions/checkout@v4 → v5`, `astral-sh/setup-uv@v6 → v9`
+      (setup-python@v5, pypi-publish@release/v1 are current). Once C14.4 lands, consider SHA-pinning
+      supply-chain-critical actions (checkout, setup-uv, pypi-publish) and letting dependabot maintain
+      them.
+- [ ] **C14.6 (P1) Cancel stale runs.** Add a `concurrency` group to ci.yml
+      (`group: ${{ github.workflow }}-${{ github.ref }}`,
+      `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`). Currently every force-push
+      to a PR burns a full matrix + mutation run.
+- [ ] **C14.7 (P1) Enable uv caching.** Add `enable-cache: true` + `cache-dependency-glob: |
+      uv.lock \n pyproject.toml` to every `setup-uv` step. Biggest single speedup; the install step
+      is repeated in 7 jobs.
+- [ ] **C14.8 (P1) Path filtering.** Doc/example/`*.md`-only changes currently trigger the full
+      matrix + mutation + benchmark. Add `paths-ignore` or a `dorny/paths-filter` skip job.
+- [ ] **C14.9 (P1) Pull mutation + benchmark off per-push.** `mutmut run` re-executes the suite many
+      times — it's the most expensive job and runs on every push/PR. Move both to `schedule` (nightly)
+      + `workflow_dispatch` + release tags. Add `timeout-minutes` to every job (esp. mutation: ~30)
+      to cap free-tier burn.
+- [ ] **C14.10 (P1) Consolidate duplicate jobs.** `adk-compat` (ci.yml:26–39) and
+      `compatibility-matrix` (ci.yml:41–56) BOTH pin `adk-version: ["2.6.3"]` and both run pytest —
+      the "matrix" doesn't actually vary ADK. Either delete `adk-compat`, or make
+      `compatibility-matrix` genuinely vary ADK (`["2.6.0","2.6.1","2.6.2","2.6.3"]`) to justify its name.
+- [ ] **C14.11 (P1) Remove redundant catalog pytest.** ci.yml:24 re-runs
+      `pytest tests/resources/test_catalog.py` immediately after the full coverage pytest on L23
+      (which already includes it).
+- [ ] **C14.12 (P1) Standardize `uv sync` flags.** CI test jobs currently use `--locked`; the
+      recommended strict mode is `uv sync --frozen --all-extras` (faster, asserts lockfile).
+      Release builds should use `--frozen --no-dev`. Verify `uv.lock` is committed (it is).
+- [ ] **C14.13 (P2) DRY the setup boilerplate.** The `checkout → setup-uv → setup-python → uv sync`
+      sequence is repeated 7× in ci.yml. Extract a reusable workflow
+      (`.github/workflows/_setup.yml`) or a composite action.
+- [ ] **C14.14 (P2) Coverage upload + tighten gate.** Add `codecov/codecov-action@v5` to upload
+      `coverage.xml`; bump `--cov-fail-under` from 80 → 83 to match the comment on ci.yml:22 (or
+      document why 80 is the real bar). See Q4.
+- [ ] **C14.15 (P2) Lint the workflows themselves.** Add `actionlint` (syntax/style) + `zizmor`
+      (injection/permission patterns) as a CI job — both via `pip install`/`cargo install`. No
+      official GH Actions wrap them reliably; direct install is preferred.
+- [ ] **C14.16 (P2) Security findings → SARIF/code-scanning.** `pip-audit` can emit SARIF (upload via
+      `github/codeql-action/upload-sarif@v3`); pin `anchore/sbom-action@v0` to a major and consider
+      uploading its SBOM to the GH dependency graph. Currently findings live only in the run log.
+- [ ] **C14.17 (P2) `workflow_dispatch` on ci.yml** for manual reruns, and parametrize the benchmark
+      job's `--iterations`/`--max-p99-ms` via inputs.
+
+### C15 — Release workflow hardening  *(P0 — ties to C9)*
+
+`release.yml` has never fired (no tags exist — see C9.1/C9.4). When it does, it builds + publishes
+with **no tests and no artifact validation** between tag and PyPI.
+
+- [ ] **C15.1 (P0) Gate publish on tests.** `release.yml` runs `uv build` → `twine check` → publish
+      with no test run. Add a job that runs the suite (or `needs:` the ci.yml test job) before
+      `publish`. A tag push otherwise bypasses all quality gates.
+- [ ] **C15.2 (P0) Tag/version consistency check.** Assert the pushed `v*.*.*` tag matches
+      `pyproject.toml`'s `version` and fails early on mismatch. Blocks the C9.1 tagging.
+- [ ] **C15.3 (P1) Smoke-test the built artifact.** Before publishing, install the freshly built
+      wheel in a clean venv and run `owf-adk --version` + `python -c "import openworkflow_adk"`.
+      Catches packaging bugs (wrong `packages=` in `[tool.hatch.build]`, missing files).
+- [ ] **C15.4 (P1) Validate trusted-publishing end-to-end.** Confirm the PyPI publisher is registered
+      (repo + workflow filename `release.yml` + environment name) and that a `release` GitHub
+      Environment exists. Since the workflow has never fired, this has never been exercised — a
+      misconfig will surface only at first release.
+- [ ] **C15.5 (P1) Auto-create the GitHub Release.** A tag currently publishes to PyPI but creates no
+      GitHub Release/notes. Add `softprops/action-gh-release` or `gh release create` with
+      auto-generated notes (the repo uses Conventional Commits per AGENTS.md).
+- [ ] **C15.6 (P2) `attestations: true` is now the default** in current `pypa/gh-action-pypi-publish`
+      for trusted publishing — the explicit line at release.yml:26 is redundant. Either drop it or
+      keep as documentation; pick one and note it.
+- [ ] **C15.7 (P2) Wire CHANGELOG to release notes.** AGENTS.md says Conventional Commits; consider
+      `release-please` or an auto-changelog step so `CHANGELOG.md` and the GH Release stay in sync
+      with the version bump (C4.1/C4.2 in the historical record were manual).
 
 ---
 

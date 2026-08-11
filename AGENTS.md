@@ -4,7 +4,7 @@ Guidance for AI coding agents. `CLAUDE.md` holds the architectural baseline
 (spec version, ADK mapping, config-layering precedence, stack) — read it first;
 this file only adds what it doesn't already cover.
 
-## Status: v0.1.0 delivered; restructuring and cleanup in progress
+## Status: v0.2.0 delivered; restructuring and cleanup in progress
 
 The v1 workflow runtime, production hardening, tests, Docker support, CI, and
 release packaging are implemented. The active cleanup backlog is tracked in
