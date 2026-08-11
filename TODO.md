@@ -277,10 +277,8 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
       jobs to a new `.github/workflows/extended.yml` triggered nightly (`cron: 17 3 * * *`),
       `workflow_dispatch`, and release tags. Added `timeout-minutes` to every job in `ci.yml`,
       `extended.yml`, `codeql.yml`, and `dependency-review.yml`.
-- [ ] **C14.10 (P1) Consolidate duplicate jobs.** `adk-compat` (ci.yml:26–39) and
-      `compatibility-matrix` (ci.yml:41–56) BOTH pin `adk-version: ["2.6.3"]` and both run pytest —
-      the "matrix" doesn't actually vary ADK. Either delete `adk-compat`, or make
-      `compatibility-matrix` genuinely vary ADK (`["2.6.0","2.6.1","2.6.2","2.6.3"]`) to justify its name.
+- [x] **C14.10 (P1) Consolidate duplicate jobs.** Removed the redundant `adk-compat` job; the
+      `compatibility-matrix` job already covers the pinned ADK version across Python versions.
 - [ ] **C14.11 (P1) Remove redundant catalog pytest.** ci.yml:24 re-runs
       `pytest tests/resources/test_catalog.py` immediately after the full coverage pytest on L23
       (which already includes it).

@@ -44,27 +44,6 @@ jobs:
       - run: uv run pytest --cov=openworkflow_adk --cov-report=term-missing --cov-fail-under=80
       - run: uv run pytest tests/resources/test_catalog.py
 
-  adk-compat:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      matrix:
-        adk-version: ["2.6.3"]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v9
-        with:
-          enable-cache: true
-          cache-dependency-glob: |
-            uv.lock
-            pyproject.toml
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: uv sync --extra dev --locked
-      - run: uv run python -c "import importlib.metadata as m; assert m.version('google-adk') == '${{ matrix.adk-version }}'"
-      - run: uv run pytest
-
   compatibility-matrix:
     runs-on: ubuntu-latest
     timeout-minutes: 15
