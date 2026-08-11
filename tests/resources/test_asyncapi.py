@@ -1,6 +1,7 @@
 import respx
 
-from openworkflow_adk import InMemoryBroker, load, run_workflow
+from openworkflow_adk import load, run_workflow
+from openworkflow_adk.internal import InMemoryBroker
 
 
 def _document(task):

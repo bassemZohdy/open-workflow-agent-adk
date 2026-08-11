@@ -4,8 +4,9 @@ import pytest
 import respx
 from httpx import Response
 
-from openworkflow_adk import InMemoryBroker, WorkflowRegistry, load, run_workflow
+from openworkflow_adk import WorkflowRegistry, load, run_workflow
 from openworkflow_adk.errors import OpenWorkflowError
+from openworkflow_adk.internal import InMemoryBroker
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

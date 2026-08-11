@@ -1,6 +1,7 @@
 import io
 
-from openworkflow_adk import JsonRunLogger, load, run_workflow
+from openworkflow_adk import load, run_workflow
+from openworkflow_adk.internal import JsonRunLogger
 from openworkflow_adk.security.security import redact
 
 

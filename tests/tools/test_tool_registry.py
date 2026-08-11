@@ -1,4 +1,5 @@
-from openworkflow_adk import NodeBuilderRegistry, load
+from openworkflow_adk import load
+from openworkflow_adk.internal import NodeBuilderRegistry
 
 
 def test_agent_tool_name_resolves_from_function_registry() -> None:

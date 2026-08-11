@@ -1,12 +1,7 @@
 import pytest
 
-from openworkflow_adk import (
-    InMemoryBroker,
-    InMemoryRunHistory,
-    WorkflowRegistry,
-    WorkflowWorker,
-    load,
-)
+from openworkflow_adk import InMemoryRunHistory, WorkflowRegistry, WorkflowWorker, load
+from openworkflow_adk.internal import InMemoryBroker
 
 
 async def test_worker_dispatches_registered_workflow_job() -> None:

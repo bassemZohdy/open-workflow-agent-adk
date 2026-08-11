@@ -6,12 +6,13 @@ Forward-looking task list. Reference material in [`docs/`](docs/): [architecture
 Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 
 **Status:** v0.2.0 code has landed on `main` (`f78c0c1 Merge completed TODO work`) and is now
- tagged `v0.2.0`; `v0.1.0` tags the baseline commit `1897458`. The release branch was not preserved,
+tagged `v0.2.0`; `v0.1.0` tags the baseline commit `1897458`. The release branch was not preserved,
 and the `Release` workflow (`on: push: tags: v*.*.*`) has never fired.
-C1–C8 below are kept as the historical record of the v0.2.0 work; new follow-ups from the
-whole-project review live in **C9–C16**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.14,
-C11.1–C11.4, C12.1–C12.10, C13.2–C13.3, C14.1–C14.12, and C15.1–C15.6 completed; catalog
-`file://` URI handling fixed on Windows; C10.5 gRPC proto compilation hardened.
+C1–C8 below are kept as the historical record of the v0.2.0 work; follow-ups from the whole-project
+review live in **C9–C17**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.14, C11.1–C11.4, C12.1–C12.10,
+C13.1�C13.5, C14.1�C14.17, and C15.1�C15.6 completed; catalogompleted; catalog `file://` URI handling fixed on
+Windows; C10.5 gRPC proto compilation hardened. **Open: C17 (flavor gaps) is new and entirely
+open — catalog mode currently only works end-to-end through `owf-adk run`.**
 
 ---
 
@@ -240,14 +241,15 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
       mirror; referenced as `tests.eval_agent` from `tests/core/test_adk_evaluation.py`). Moved to
       `tests/eval/eval_agent.py`; updated `tests/core/test_adk_evaluation.py` to reference
       `tests.eval.eval_agent`.
-- [ ] **C13.4 Audit `__init__.py` `__all__` (88 names).** Split infrastructure classes
-      (`NodeBuilderRegistry`, `BackpressureController`, broker transports, `JsonRunLogger`,
-      `WorkflowTelemetry`) into a provisional/internal namespace; keep only user-facing types at the
-      root. Every exported name is a stability commitment at v0.2.0.
-- [ ] **C13.5 Test or drop untested exports.** `hierarchical_pattern` (`tools/patterns.py:48`),
-      `graph_to_document` (`tools/visual.py`), and several result/type classes
-      (`OidcMetadata`, `AuditEntry`, `SimplificationResult`, `ModelReference`, …) have no test
-      references — either add importability/behavior tests or drop from `__all__`.
+- [x] **C13.4 Audit `__init__.py` `__all__`.** Split the infrastructure classes listed in C13.4
+      into a new provisional namespace at `openworkflow_adk.internal`. Reduced `__all__` in
+      `openworkflow_adk/__init__.py` to user-facing types; existing code can still import the moved
+      names from root for backward compatibility, but they are no longer advertised as stable public
+      API. Updated test imports to prefer `openworkflow_adk.internal`.
+- [x] **C13.5 Test or drop untested exports.** Added `tests/test_public_api.py` with importability
+      tests for every name in `openworkflow_adk.__all__` and `openworkflow_adk.internal.__all__`.
+      This covers previously untested exports such as `hierarchical_pattern`, `graph_to_document`,
+      `OidcMetadata`, `AuditEntry`, `SimplificationResult`, and `ModelReference`.
 
 ### C14 — CI/CD: hygiene, supply chain, cost & performance  *(P0/P1)*
 
@@ -344,6 +346,71 @@ Follow-ups from the deep-dive best practices review and codebase validation.
 - [ ] **C16.5 (P2) Refine public API surface area in `__init__.py`.** Tracked as C13.4.
       `openworkflow_adk/__init__.py` exports 88 symbols (`__all__`). Separate internal infrastructure
       builders/transports into an internal namespace to preserve public API stability commitments.
+
+### C17 — Flavor (extended/catalog mode) gaps  *(P0/P1)*
+
+Findings from a focused review of the two-flavor system ([ADR 0008](docs/decisions/0008-workflow-flavors.md)).
+Catalog function resolution (`with_catalog_functions`) is called in **exactly one place**
+(`runtime.py:99`) — so catalog mode only works end-to-end through `owf-adk run`. Verified by direct
+read 2026-08-11.
+
+#### Implementation bugs
+
+- [ ] **C17.1 (P0) `lint`/`plan`/`graph` never resolve catalog functions.** `with_catalog_functions`
+      is invoked only inside `run_workflow` (`runtime.py:99`); `tools/diagnostics.py` has no catalog
+      reference. A catalog-mode workflow whose `do:` is `[call: makeGreeting]` runs fine but
+      `owf-adk plan|graph|lint` operate on a document where `makeGreeting` is unresolved → incomplete
+      plan/graph or a lint error. Wire catalog resolution (registry + `base_dir`) into the diagnostics
+      path, or document that these commands don't support catalog mode.
+- [ ] **C17.2 (P0) `--mode` exists only on `run`.** `cli.py:24` adds `--mode` to `run_parser` only;
+      `lint`/`plan`/`graph`/`test` call `load(args.file)` with no mode (cli.py:37/41/44/49). Hard policy
+      mode is impossible when inspecting. Add `--mode` to the other subcommands (or to the top-level
+      parser).
+- [ ] **C17.3 (P0) `test` command is broken for catalog mode.** `cli.py:46-60` calls
+      `run_workflow(document, input)` with no `mode` AND no `catalog_base_dir` — compare `run`
+      (cli.py:72-79) which passes both. A relative `functions: functions.yaml` resolves from the
+      process CWD, not `examples/catalog/` → wrong file or `FileNotFoundError`. `owf-adk test
+      examples/catalog/greeting.yaml --fixtures …` does not work.
+- [ ] **C17.4 (P1) Auto-detection diverges between loader and runtime.**
+      `loader.py:140-141` gates on `mode == "auto" and not has_agent and _catalog_has_functions(raw)`;
+      `runtime.py:95-96` uses `mode == "auto" and any(item.functions …)` with **no `not has_agent`
+      check**. A document with **both** `agent:` and a `functions` catalog in `auto` mode loads as
+      extended (loader) but runs with catalog functions merged (runtime) — the load-time rejection
+      ("catalog mode does not allow the agent extension") never fires, silently merging the two
+      flavors ADR 0008 says to keep apart. Reconcile the two paths (the loader's `not has_agent`
+      precedence is the documented one) and document the agent+catalog precedence rule.
+
+#### Documentation gaps
+
+- [ ] **C17.5 (P1) `docs/flavors.md` is too thin.** 28 lines, a 2-row table, no complete authoring
+      example for either flavor. A user cannot learn to write a catalog-mode workflow from this page.
+      Add end-to-end examples for both flavors (extended with `agent:`, catalog with `use.catalogs` +
+      an external functions file) and a "when to pick which" decision guide.
+- [ ] **C17.6 (P1) Malformed/redundant `endpoint` still in docs and examples.** Despite C3.1 marked
+      done: `docs/reference/catalogs.md:10-11` shows both `endpoint: file://./functions.yaml` and
+      `functions: ./functions.yaml`; `examples/catalog/greeting.yaml:9` carries
+      `endpoint: file://./functions.yaml` — **`file://./` is not a valid file URI** (parses as
+      host=`.`). The text says `endpoint` is vestigial but every example still ships it. Either drop
+      `endpoint` from the examples or fix the URI; stop shipping a broken field users will copy.
+- [ ] **C17.7 (P1) Catalog examples are NOT indexed in the gallery — reopen C3.5.**
+      `examples/catalog.json` lists only `hello`/`echo`/`approval`/`multi-agent`/`rag` (all extended
+      mode). `greeting`/`summarize` live in `examples/catalog/` but aren't referenced. **C3.5 is
+      marked `[x]` done but the gallery index does not include them** — unmark or actually add them.
+- [ ] **C17.8 (P2) No `docs/reference/extended.md`.** Asymmetric with `docs/reference/catalogs.md`
+      (catalog has a reference doc, extended doesn't). Add one covering `agent:`, tools, memory,
+      teams, and the `use.models`/`use.providers`/`use.memories` registries — or fold both into a
+      single `docs/reference/flavors.md` with subsections.
+
+#### Test gaps
+
+- [ ] **C17.9 (P1) No test for the `agent:` + catalog `auto`-mode conflict (C17.4).**
+      `tests/resources/test_catalog.py:135-140` covers only *explicit* catalog-mode rejection; the
+      divergent auto-mode case (both keys present) is untested. Add a test asserting the documented
+      precedence (extended wins) and that the two detection paths agree.
+- [ ] **C17.10 (P1) No test that `lint`/`plan`/`graph`/`test` handle catalog mode.** So C17.1-C17.3
+      went unnoticed by CI. Add CLI-integration tests that run each subcommand against a catalog-mode
+      fixture and assert the catalog function is resolved (or document the unsupported surface and
+      assert the documented error).
 
 ---
 

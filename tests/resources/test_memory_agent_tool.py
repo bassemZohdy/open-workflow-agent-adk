@@ -1,6 +1,7 @@
 from google.adk.tools import load_memory
 
-from openworkflow_adk import NodeBuilderRegistry, load
+from openworkflow_adk import load
+from openworkflow_adk.internal import NodeBuilderRegistry
 
 
 def test_memory_reference_adds_adk_load_memory_tool() -> None:

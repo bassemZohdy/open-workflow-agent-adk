@@ -3,7 +3,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from openworkflow_adk import WorkflowTelemetry, load, run_workflow
+from openworkflow_adk import load, run_workflow
+from openworkflow_adk.internal import WorkflowTelemetry
 
 
 async def test_workflow_telemetry_records_run_and_task_spans() -> None:

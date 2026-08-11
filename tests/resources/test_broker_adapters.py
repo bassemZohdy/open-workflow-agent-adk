@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from openworkflow_adk import (
+from openworkflow_adk.internal import (
     KafkaBroker,
     NatsBroker,
     RabbitMQBroker,

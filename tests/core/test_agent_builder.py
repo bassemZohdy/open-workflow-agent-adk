@@ -1,6 +1,7 @@
 from google.adk.agents import LlmAgent
 
-from openworkflow_adk import NodeBuilderRegistry, load
+from openworkflow_adk import load
+from openworkflow_adk.internal import NodeBuilderRegistry
 
 
 def test_agent_task_builds_single_turn_llm_agent() -> None:

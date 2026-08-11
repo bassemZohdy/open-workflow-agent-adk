@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from openworkflow_adk import BackpressureController
+from openworkflow_adk.internal import BackpressureController
 
 
 async def test_backpressure_hysteresis_blocks_until_low_watermark() -> None:

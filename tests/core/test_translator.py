@@ -1,4 +1,5 @@
-from openworkflow_adk import NodeBuilderRegistry, build_workflow, load
+from openworkflow_adk import build_workflow, load
+from openworkflow_adk.internal import NodeBuilderRegistry
 
 
 def test_registry_has_all_task_kinds() -> None:

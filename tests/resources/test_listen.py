@@ -1,4 +1,5 @@
-from openworkflow_adk import InMemoryBroker, load, run_workflow
+from openworkflow_adk import load, run_workflow
+from openworkflow_adk.internal import InMemoryBroker
 
 
 async def test_listen_reads_matching_event_data() -> None:
