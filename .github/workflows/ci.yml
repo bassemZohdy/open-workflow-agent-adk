@@ -32,8 +32,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      # Current local baseline is 83%; keep a small margin for platform variance.
-      - run: uv run pytest --cov=openworkflow_adk --cov-report=term-missing --cov-fail-under=80
+      # Measured coverage is ~82%; keep a small margin for platform variance.
+      - run: uv run pytest --cov=openworkflow_adk --cov-report=term-missing --cov-report=xml --cov-fail-under=80
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
 
   compatibility-matrix:
     runs-on: ubuntu-latest
