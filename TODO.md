@@ -428,16 +428,30 @@ by this ADK translator and should also be safe for other implementors (e.g.,
 SonataFlow) to parse and ignore without error. ADK-specific configuration is
 added/interpreted by this translator only.
 
-- [ ] **C18.1 Audit ADK extensions against the vendored OpenWorkflow schema.**
-      Document every field that currently violates `unevaluatedProperties: false`
-      on tasks or `use` (`agent`, `use.models`, `use.providers`, `use.memories`,
-      `self_heal`, `output_key`, `request_input`, `generate_content_config`,
-      `sub_agents`) and map each to an OpenWorkflow-compatible container.
-- [ ] **C18.2 Design an OpenWorkflow-compatible encoding for ADK extensions.**
-      Place task-level ADK config under `metadata.adk` and project-level
-      registries under `document.metadata.adk`. Both `task.metadata` and
-      `document.metadata` allow `additionalProperties: true` in the upstream
-      schema, so other implementors will parse and ignore them.
+- [x] **C18.1 Audit ADK extensions against the vendored OpenWorkflow schema.**
+      Audit findings:
+      - Task-level: `agent`, `self_heal` violate `unevaluatedProperties: false` on
+        `$defs/task` and task-kind subschemas.
+      - Project-level: `use.models`, `use.providers`, `use.memories` violate
+        `unevaluatedProperties: false` on `properties/use`.
+      - The fields nested inside `agent` (`output_key`, `request_input`,
+        `generate_content_config`, `sub_agents`, `tools`, `memory`, `provider`)
+        are invalid only because their parent `agent` object is invalid; they can
+        move as a group.
+      - OpenWorkflow-compatible containers: `task.metadata` and
+        `document.metadata` both declare `additionalProperties: true` in the
+        upstream schema, so other implementors will parse and ignore ADK config
+        placed there. Project registries can also live in `use.extensions`, but
+        `document.metadata.adk` is simpler and does not require an extension name.
+- [x] **C18.2 Design an OpenWorkflow-compatible encoding for ADK extensions.**
+      Encoding:
+      - Task-level ADK config moves to `task.metadata.adk` as an object with keys
+        `agent`, `self_heal`, and any future ADK directives.
+      - Project-level registries move to `document.metadata.adk` as
+        `{models, providers, memories}`.
+      - The legacy direct form (`agent:`, `self_heal:`, `use.models:`) remains
+        accepted during a deprecation window and is normalized to the new encoding
+        at load time.
 - [ ] **C18.3 Update Pydantic models to accept the new encoding.** Keep backward
       compatibility for the legacy direct-property form (`agent:`, `use.models:`)
       during a deprecation window.
