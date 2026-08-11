@@ -82,6 +82,9 @@ jobs:
   workflow-lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
@@ -89,4 +92,7 @@ jobs:
           python-version: "3.12"
       - run: pip install actionlint-py zizmor
       - run: actionlint
-      - run: zizmor .github/workflows
+      - run: zizmor --format sarif .github/workflows > zizmor-results.sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: zizmor-results.sarif

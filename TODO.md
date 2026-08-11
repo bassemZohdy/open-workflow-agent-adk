@@ -296,9 +296,10 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
 - [x] **C14.15 (P2) Lint the workflows themselves.** Added a `workflow-lint` job to `ci.yml`
       that installs `actionlint-py` and `zizmor` from PyPI and runs them against
       `.github/workflows` on every push/PR.
-- [ ] **C14.16 (P2) Security findings → SARIF/code-scanning.** `pip-audit` can emit SARIF (upload via
-      `github/codeql-action/upload-sarif@v3`); pin `anchore/sbom-action@v0` to a major and consider
-      uploading its SBOM to the GH dependency graph. Currently findings live only in the run log.
+- [x] **C14.16 (P2) Security findings → SARIF/code-scanning.** `pip-audit` does not natively emit
+      SARIF, so the `workflow-lint` job now runs `zizmor --format sarif` and uploads the SARIF file
+      via `github/codeql-action/upload-sarif@v3`. `anchore/sbom-action@v0` remains pinned to major
+      version 0; SBOM upload to the dependency graph is left as a future enhancement.
 - [ ] **C14.17 (P2) `workflow_dispatch` on ci.yml** for manual reruns, and parametrize the benchmark
       job's `--iterations`/`--max-p99-ms` via inputs.
 
