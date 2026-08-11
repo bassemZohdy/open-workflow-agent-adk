@@ -42,7 +42,6 @@ jobs:
       - run: uv run ruff format --check .
       # Current local baseline is 83%; keep a small margin for platform variance.
       - run: uv run pytest --cov=openworkflow_adk --cov-report=term-missing --cov-fail-under=80
-      - run: uv run pytest tests/resources/test_catalog.py
 
   compatibility-matrix:
     runs-on: ubuntu-latest

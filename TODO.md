@@ -279,9 +279,9 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
       `extended.yml`, `codeql.yml`, and `dependency-review.yml`.
 - [x] **C14.10 (P1) Consolidate duplicate jobs.** Removed the redundant `adk-compat` job; the
       `compatibility-matrix` job already covers the pinned ADK version across Python versions.
-- [ ] **C14.11 (P1) Remove redundant catalog pytest.** ci.yml:24 re-runs
-      `pytest tests/resources/test_catalog.py` immediately after the full coverage pytest on L23
-      (which already includes it).
+- [x] **C14.11 (P1) Remove redundant catalog pytest.** Removed the duplicate
+      `pytest tests/resources/test_catalog.py` run from the `test` job; the prior full pytest run
+      already covers it.
 - [ ] **C14.12 (P1) Standardize `uv sync` flags.** CI test jobs currently use `--locked`; the
       recommended strict mode is `uv sync --frozen --all-extras` (faster, asserts lockfile).
       Release builds should use `--frozen --no-dev`. Verify `uv.lock` is committed (it is).
