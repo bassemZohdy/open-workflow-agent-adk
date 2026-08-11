@@ -10,7 +10,7 @@ Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 and the `Release` workflow (`on: push: tags: v*.*.*`) has never fired.
 C1–C8 below are kept as the historical record of the v0.2.0 work; new follow-ups from the
 whole-project review live in **C9–C16**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.4/C10.6/
-C10.8/C10.9/C10.10/C10.11/C10.13/C10.14, C11.1–C11.2, and C12.1–C12.10 completed;
+C10.8/C10.9/C10.10/C10.11/C10.12/C10.13/C10.14, C11.1–C11.4, and C12.1–C12.10 completed;
 catalog `file://` URI handling fixed on Windows.
 
 ---
@@ -181,9 +181,10 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
 - [x] **C10.11 (P1) `WorkflowWorker.run_forever` has no error recovery.** `ops/worker.py` now
       wraps each `run_once()` call in `try/except`, logs the failure, and sleeps with exponential
       backoff capped at 60 seconds before retrying.
-- [ ] **C10.12 (Low) AuditLog hash-chain cannot detect deletion.** `security/audit.py:47–63`
-      verifies content + chaining but not gaps; an attacker with storage access can drop entries.
-      Document, or add a stored count/root-hash check.
+- [x] **C10.12 (Low) AuditLog hash-chain cannot detect deletion.** `security/audit.py` now
+      includes a monotonic `index` in each entry's hashed payload and `verify()` checks that indices
+      are sequential; deleting any entry (including the last) breaks verification. Regression test
+      added.
 - [x] **C10.13 (Low) HTTP-client redirect consistency.** `tasks/call.py` and `tasks/events.py`
       now instantiate `httpx.AsyncClient(follow_redirects=False)` explicitly everywhere for
       defense-in-depth.
@@ -198,13 +199,12 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
       `uv.lock` regenerated.
 - [x] **C11.2 (P1) Add `[project.urls]`.** Added `Repository`, `Documentation`, `Changelog`, and
       `Issues` URLs to `pyproject.toml`.
-- [ ] **C11.3 (P1) Verify `import openworkflow_adk` works with no optional extras.** `__init__.py`
-      imports broker/provider/memory classes whose deps (`aiokafka`, `aio-pika`, `nats-py`,
-      `asyncpg`, `boto3`, `docker`, `grpcio`) live in `dependencies`/`brokers`. Confirm the import
-      succeeds in a minimal venv or add a smoke test.
-- [ ] **C11.4 (P2) Consider lazy broker imports.** `KafkaBroker`/`RabbitMQBroker`/`NatsBroker` are
-      exported from the root but need the `brokers` extra. Use `__getattr__` lazy import so
-      `import openworkflow_adk` doesn't pull the heavy optional deps until a broker is used.
+- [x] **C11.3 (P1) Verify `import openworkflow_adk` works with no optional extras.** Verified in
+      a clean venv with only runtime dependencies (`uv venv` + `uv pip install -e .`); import
+      succeeds without the `brokers` or `dev` extras.
+- [x] **C11.4 (P2) Consider lazy broker imports.** `resources/broker.py` already imports
+      `aiokafka`, `aio-pika`, and `nats-py` lazily inside instance methods, so `import
+      openworkflow_adk` works without the `brokers` extra; no `__getattr__` changes needed.
 
 ### C12 — Repo & documentation hygiene  *(P1)*
 

@@ -20,3 +20,11 @@ def test_audit_log_hash_chain_detects_tampering() -> None:
         **{**audit.entries[0].__dict__, "action": "workflow.delete"}
     )
     assert not audit.verify()
+
+
+def test_audit_log_hash_chain_detects_deletion() -> None:
+    audit = AuditLog()
+    audit.append("alice", "workflow.run", "demo/job")
+    audit.append("alice", "run.inspect", "run-1")
+    del audit.entries[1]
+    assert not audit.verify()
