@@ -22,6 +22,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
@@ -45,6 +46,7 @@ jobs:
 
   adk-compat:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         adk-version: ["2.6.3"]
@@ -65,6 +67,7 @@ jobs:
 
   compatibility-matrix:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
@@ -87,6 +90,7 @@ jobs:
 
   security:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v9
@@ -106,41 +110,9 @@ jobs:
           path: .
           artifact-name: owf-adk-sbom.spdx.json
 
-  benchmark:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v9
-        with:
-          enable-cache: true
-          cache-dependency-glob: |
-            uv.lock
-            pyproject.toml
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: uv sync --extra dev --locked
-      - run: uv run python -m openworkflow_adk.tools.benchmark --iterations 10 --max-p99-ms 5000
-
-  mutation:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v9
-        with:
-          enable-cache: true
-          cache-dependency-glob: |
-            uv.lock
-            pyproject.toml
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: uv sync --extra dev --locked
-      - run: uv run mutmut run --max-children 2 > /tmp/owf-mutmut.log 2>&1
-      - run: uv run python scripts/check_mutation_score.py /tmp/owf-mutmut.log
-
   memory-integration:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v9

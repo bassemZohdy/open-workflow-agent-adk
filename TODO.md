@@ -273,10 +273,10 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
       `cache-dependency-glob: uv.lock / pyproject.toml` to every `setup-uv` step in `ci.yml`.
 - [x] **C14.8 (P1) Path filtering.** Added `paths-ignore` for `**.md`, `docs/**`, and
       `examples/**` to `ci.yml` push and pull_request triggers.
-- [ ] **C14.9 (P1) Pull mutation + benchmark off per-push.** `mutmut run` re-executes the suite many
-      times — it's the most expensive job and runs on every push/PR. Move both to `schedule` (nightly)
-      + `workflow_dispatch` + release tags. Add `timeout-minutes` to every job (esp. mutation: ~30)
-      to cap free-tier burn.
+- [x] **C14.9 (P1) Pull mutation + benchmark off per-push.** Moved `benchmark` and `mutation`
+      jobs to a new `.github/workflows/extended.yml` triggered nightly (`cron: 17 3 * * *`),
+      `workflow_dispatch`, and release tags. Added `timeout-minutes` to every job in `ci.yml`,
+      `extended.yml`, `codeql.yml`, and `dependency-review.yml`.
 - [ ] **C14.10 (P1) Consolidate duplicate jobs.** `adk-compat` (ci.yml:26–39) and
       `compatibility-matrix` (ci.yml:41–56) BOTH pin `adk-version: ["2.6.3"]` and both run pytest —
       the "matrix" doesn't actually vary ADK. Either delete `adk-compat`, or make
