@@ -22,6 +22,10 @@ documentation without changing the public behavior.
 
 Ruff config (`pyproject.toml`): line-length 100, target py310, rules `E,F,I,UP`.
 
+The hook is written for a Unix shell (`jq`, `tr`, `case…esac`); on Windows it must
+run through Git Bash or WSL. If the hook is silent or `ruff` is not found, verify
+that the shell environment exposes those utilities.
+
 ## Tooling
 
 `uv`/`uvx` is the expected runner (the format hook depends on it). Use the

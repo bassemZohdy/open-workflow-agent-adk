@@ -9,9 +9,9 @@ Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
  tagged `v0.2.0`; `v0.1.0` tags the baseline commit `1897458`. The release branch was not preserved,
 and the `Release` workflow (`on: push: tags: v*.*.*`) has never fired.
 C1–C8 below are kept as the historical record of the v0.2.0 work; new follow-ups from the
-whole-project review live in **C9–C15**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.4/C10.6/
-C10.8/C10.9/C10.11/C10.13, C11.1–C11.2, and C12.1–C12.8 completed; catalog `file://` URI
-handling fixed on Windows.
+whole-project review live in **C9–C16**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.4/C10.6/
+C10.8/C10.9/C10.10/C10.11/C10.13/C10.14, C11.1–C11.2, and C12.1–C12.10 completed;
+catalog `file://` URI handling fixed on Windows.
 
 ---
 
@@ -176,10 +176,8 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
       so JSONata expressions are bounded everywhere.
 - [x] **C10.9 (P1) Unbounded agent sub-agent recursion.** `tasks/agent.py` now tracks recursion
       depth and raises `ValueError` when `WORKFLOW_MAX_SUB_AGENT_DEPTH` (default 10) is exceeded.
-- [ ] **C10.10 (P1) SQLiteRunHistory is not thread-safe.** `ops/history.py:104` uses the default
-      `check_same_thread=True` and has no internal lock; the class is exported as public API and a
-      caller using `asyncio.to_thread`/`run_in_executor` will crash. Add `check_same_thread=False`
-      + a lock, switch to `aiosqlite`, or document as single-thread-only.
+- [x] **C10.10 (P1) SQLiteRunHistory is not thread-safe.** `ops/history.py` now opens the SQLite
+      connection with `check_same_thread=False` and protects every operation with a `threading.Lock`.
 - [x] **C10.11 (P1) `WorkflowWorker.run_forever` has no error recovery.** `ops/worker.py` now
       wraps each `run_once()` call in `try/except`, logs the failure, and sleeps with exponential
       backoff capped at 60 seconds before retrying.
@@ -189,9 +187,9 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
 - [x] **C10.13 (Low) HTTP-client redirect consistency.** `tasks/call.py` and `tasks/events.py`
       now instantiate `httpx.AsyncClient(follow_redirects=False)` explicitly everywhere for
       defense-in-depth.
-- [ ] **C10.14 (P1) Windows POSIX test runner command compatibility.** `test_run_handlers.py` and
-      `test_memoization.py` use POSIX `printf`/`sleep` commands which fail on native Windows.
-      Replace with `sys.executable` subcommands for cross-platform portability.
+- [x] **C10.14 (P1) Windows POSIX test runner command compatibility.** Replaced `printf` and
+      `sleep` in `tests/core/test_run_handlers.py` and `tests/ops/test_memoization.py` with
+      equivalent `sys.executable` Python one-liners.
 
 ### C11 — Dependency hygiene  *(P0/P1)*
 
@@ -221,17 +219,14 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
       `echo.yaml`, `rag.yaml`, and `approval.yaml` in `examples/README.md`.
 - [x] **C12.6 (P1) Fix `examples/catalog.json` descriptions to match the YAMLs.** Rewrote the
       blurbs for `approval`, `multi-agent`, and `rag` to match the actual workflow content.
-- [ ] **C12.7 (P2) `scripts/` has no index.** Add `scripts/README.md` mapping
-      `check_mutation_score.py` (CI mutation job) and `fetch_schema.py` (refreshes
-      `schema/vendor/1.0.3/`, currently unreferenced from CI/docs) to their use.
+- [x] **C12.7 (P2) `scripts/` has no index.** Added `scripts/README.md` describing
+      `check_mutation_score.py` and `fetch_schema.py`.
 - [x] **C12.8 (P2) Extend `.gitignore`.** Added `.tmp-test/`, `_dist-check/`, `.idea/`, `*.whl`,
       and `*.tar.gz`.
-- [ ] **C12.9 (P2) Document the format hook's bash requirement.** `.claude/settings.json` PostToolUse
-      hook uses `jq`/`tr`/`case…esac` (Unix-only); the project is developed on Windows (cmd.exe).
-      Note the Git Bash/WSL requirement in `AGENTS.md`, or rewrite portably.
-- [ ] **C12.10 (P2) Add a `## License` section to README + an `AUTHORS`/`AUTHORS` policy.** Neither
-      file mentions license or attribution; `pyproject.toml:7` cites "OpenWorkflow ADK contributors"
-      with no backing file.
+- [x] **C12.9 (P2) Document the format hook's bash requirement.** Added a note in `AGENTS.md`
+      that the PostToolUse hook requires Git Bash/WSL on Windows.
+- [x] **C12.10 (P2) Add a `## License` section to README + an `AUTHORS`/`AUTHORS` policy.** Added
+      a `## License` section to `README.md` pointing to `LICENSE` and `CONTRIBUTING.md`.
 
 ### C13 — Test structure & public API surface  *(P2)*
 
@@ -337,6 +332,27 @@ with **no tests and no artifact validation** between tag and PyPI.
 - [ ] **C15.7 (P2) Wire CHANGELOG to release notes.** AGENTS.md says Conventional Commits; consider
       `release-please` or an auto-changelog step so `CHANGELOG.md` and the GH Release stay in sync
       with the version bump (C4.1/C4.2 in the historical record were manual).
+
+### C16 — Best practices & architectural recommendations  *(P1/P2)*
+
+Follow-ups from the deep-dive best practices review and codebase validation.
+
+- [ ] **C16.1 (P1) Path traversal guard for script source files.** `tasks/run.py:148–151` verifies
+      `source` string starts with `/` or `.`, but does not resolve canonical path against a workspace root.
+      Restrain file reads strictly using `Path.resolve().is_relative_to(base_dir)` to prevent relative traversal.
+- [ ] **C16.2 (P1) Dynamic gRPC proto compilation isolation.** `tasks/call.py:100–120` writes user
+      proto bytes and imports `workflow_call_pb2` in-process. Compile in a separate subprocess with
+      resource limits and assign unique module names (e.g. SHA-256 suffix) to prevent import-time hazards
+      and concurrency collisions.
+- [ ] **C16.3 (P1) Resilient worker error recovery loop.** `ops/worker.py:76–79` runs `run_once()`
+      inside `run_forever()` without a `try/except` block. Wrap loop iterations with error catching
+      and exponential backoff so transient broker errors don't terminate the worker process.
+- [ ] **C16.4 (P1) Cross-platform timeout for JSONata evaluation.** `expressions.py:47` relies on
+      `signal.SIGALRM` which is POSIX-only. Implement cross-platform evaluation timeout using
+      `asyncio.to_thread` with `asyncio.wait_for` to ensure timeout protection on Windows.
+- [ ] **C16.5 (P2) Refine public API surface area in `__init__.py`.** `openworkflow_adk/__init__.py`
+      exports 88 symbols (`__all__`). Separate internal infrastructure builders/transports into an internal
+      namespace to preserve public API stability commitments.
 
 ---
 

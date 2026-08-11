@@ -1,3 +1,5 @@
+import sys
+
 from openworkflow_adk import ResultMemoization, load, run_workflow
 
 
@@ -38,7 +40,18 @@ async def test_shell_run_result_is_reused_across_runs() -> None:
                 "name": "memo-run",
                 "version": "1.0.0",
             },
-            "do": [{"command": {"run": {"shell": {"command": "printf", "arguments": ["ok"]}}}}],
+            "do": [
+                {
+                    "command": {
+                        "run": {
+                            "shell": {
+                                "command": sys.executable,
+                                "arguments": ["-c", "import sys; sys.stdout.write('ok')"],
+                            }
+                        }
+                    }
+                }
+            ],
         }
     )
     cache = ResultMemoization()

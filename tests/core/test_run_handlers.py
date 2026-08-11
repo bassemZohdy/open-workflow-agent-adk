@@ -1,4 +1,5 @@
 import shutil
+import sys
 
 import pytest
 
@@ -32,7 +33,18 @@ async def test_shell_run_returns_stdout() -> None:
                 "name": "shell",
                 "version": "1.0.0",
             },
-            "do": [{"say": {"run": {"shell": {"command": "printf", "arguments": ["hello"]}}}}],
+            "do": [
+                {
+                    "say": {
+                        "run": {
+                            "shell": {
+                                "command": sys.executable,
+                                "arguments": ["-c", "import sys; sys.stdout.write('hello')"],
+                            }
+                        }
+                    }
+                }
+            ],
         }
     )
 
@@ -108,7 +120,12 @@ async def test_process_timeout_terminates_run_handler() -> None:
                 {
                     "sleep": {
                         "timeout": {"after": "PT0.01S"},
-                        "run": {"shell": {"command": "sleep", "arguments": ["1"]}},
+                        "run": {
+                            "shell": {
+                                "command": sys.executable,
+                                "arguments": ["-c", "import time; time.sleep(1)"],
+                            }
+                        },
                     }
                 }
             ],

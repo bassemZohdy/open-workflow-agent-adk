@@ -154,6 +154,12 @@ runs the workflow against JSON fixtures. Editor integrations can use
 - [Generation and integration tools](docs/guides/generation.md)
 - [Project task list](TODO.md)
 
+## License
+
+This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE)
+for the full text. The package metadata cites "OpenWorkflow ADK contributors";
+see [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution policy.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for repository setup, tests, and code
