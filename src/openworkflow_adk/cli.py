@@ -6,11 +6,16 @@ import json
 import os
 from pathlib import Path
 
-from openworkflow_adk.loader import load
+from openworkflow_adk.loader import _contains_adk_extension, _to_pure_openworkflow, load, load_raw
 from openworkflow_adk.models import OpenWorkflowDocument
 from openworkflow_adk.resources.catalog import CatalogFunctionRegistry, with_catalog_functions
 from openworkflow_adk.runtime import run_workflow
-from openworkflow_adk.tools.diagnostics import lint_workflow, workflow_mermaid, workflow_plan
+from openworkflow_adk.tools.diagnostics import (
+    Diagnostic,
+    lint_workflow,
+    workflow_mermaid,
+    workflow_plan,
+)
 from openworkflow_adk.tools.diagnostics_server import serve_stdio
 
 
@@ -56,6 +61,27 @@ def main() -> int:
 
     lint_parser = commands.add_parser("lint", help="lint a workflow document")
     _add_file_and_mode_args(lint_parser)
+    lint_parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="also reject ADK extensions so the document is pure OpenWorkflow",
+    )
+
+    export_parser = commands.add_parser(
+        "export", help="export a workflow document to another format"
+    )
+    _add_file_and_mode_args(export_parser)
+    export_parser.add_argument(
+        "--format",
+        choices=("openworkflow",),
+        default="openworkflow",
+        help="output format",
+    )
+    export_parser.add_argument(
+        "--output",
+        type=Path,
+        help="output file (default: stdout)",
+    )
 
     plan_parser = commands.add_parser("plan", help="print the compiled workflow plan")
     _add_file_and_mode_args(plan_parser)
@@ -71,9 +97,29 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.command == "lint":
-        diagnostics = lint_workflow(_load_document(args))
+        document = load(args.file, mode=args.mode)
+        diagnostics = list(lint_workflow(document))
+        if args.strict and _contains_adk_extension(document.model_dump(mode="json")):
+            diagnostics.append(
+                Diagnostic(
+                    "adk-extension",
+                    "strict mode: document contains ADK extensions",
+                    "$",
+                )
+            )
         print(json.dumps([item.as_dict() for item in diagnostics], indent=2))
         return 1 if any(item.severity == "error" for item in diagnostics) else 0
+    if args.command == "export":
+        raw = load_raw(args.file)
+        pure = _to_pure_openworkflow(raw)
+        import yaml
+
+        output = yaml.safe_dump(pure, sort_keys=False)
+        if args.output:
+            args.output.write_text(output)
+        else:
+            print(output, end="")
+        return 0
     if args.command == "plan":
         print(json.dumps(workflow_plan(_load_document(args)), indent=2))
         return 0

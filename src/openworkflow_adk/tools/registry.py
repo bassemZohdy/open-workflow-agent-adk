@@ -80,9 +80,10 @@ class WorkflowRegistry:
             ]
             for item in document.do:
                 text_parts.append(item.name)
-                if item.task.agent:
+                agent_config = item.task.effective_agent()
+                if agent_config:
                     text_parts.extend(
-                        [item.task.agent.instruction or "", item.task.agent.description or ""]
+                        [agent_config.instruction or "", agent_config.description or ""]
                     )
             haystack = " ".join(text_parts).casefold()
             matched = tuple(sorted(term for term in terms if term in haystack))

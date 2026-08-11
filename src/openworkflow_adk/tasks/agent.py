@@ -10,7 +10,7 @@ from typing import Any
 from google.adk.agents import LlmAgent
 
 from openworkflow_adk.config import resolve_agent_characteristics, resolve_provider_config
-from openworkflow_adk.models import ProviderConfig, Task
+from openworkflow_adk.models import AgentCharacteristics, ProviderConfig, Task
 from openworkflow_adk.ops.suspension import WorkflowSuspended
 from openworkflow_adk.resources.providers import create_llm
 
@@ -18,6 +18,7 @@ from openworkflow_adk.resources.providers import create_llm
 def _agent_builder(
     name: str,
     task: Task,
+    agent_config: AgentCharacteristics,
     model_factory: Callable[[str], Any] | None = None,
     model_specs: dict[str, Any] | None = None,
     environ: dict[str, str] | None = None,
@@ -27,10 +28,8 @@ def _agent_builder(
     resume_input: Any = None,
     route_options: set[str] | None = None,
 ) -> LlmAgent:
-    if task.agent is None:
-        raise ValueError("agent builder requires task.agent")
     config = resolve_agent_characteristics(
-        task.agent, models=model_specs, environ=environ, providers=provider_configs
+        agent_config, models=model_specs, environ=environ, providers=provider_configs
     )
     return _build_agent(
         name,

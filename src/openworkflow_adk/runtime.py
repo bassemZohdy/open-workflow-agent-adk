@@ -37,7 +37,7 @@ def _has_agent(items: list[Any]) -> bool:
     for item in items:
         if isinstance(item, dict):
             item = TaskItem.model_validate(item)
-        if item.task.agent is not None:
+        if item.task.effective_agent() is not None:
             return True
         if item.task.do and _has_agent(item.task.do):
             return True
@@ -368,9 +368,10 @@ def memory_service_for_document(document: OpenWorkflowDocument) -> BaseMemorySer
     is introduced.
     """
     for item in document.do:
-        if item.task.agent and item.task.agent.memory:
-            reference = item.task.agent.memory.use
-            config = document.use.memories.get(reference)
+        agent_config = item.task.effective_agent()
+        if agent_config and agent_config.memory:
+            reference = agent_config.memory.use
+            config = document.effective_memories().get(reference)
             if config is None:
                 raise ValueError(f"unknown memory reference {reference!r}")
             return create_memory_service(config)

@@ -42,7 +42,7 @@ def _try_builder(name: str, task: Task, registry: NodeBuilderRegistry) -> Functi
     _dynamic(catch_node)
 
     async def run_try(ctx: Any) -> Any:
-        policy = task.self_heal
+        policy = task.effective_self_heal()
         max_attempts = int(policy.get("max_attempts", 1)) if isinstance(policy, dict) else 1
         for attempt in range(max(1, max_attempts)):
             try:

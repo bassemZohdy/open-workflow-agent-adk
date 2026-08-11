@@ -32,10 +32,11 @@ event-driven automation.
 ## Choose a workflow flavor
 
 Use **extended mode** when you want inline ADK agents, tools, memory, or teams
-through the `agent:` task extension. Use **catalog mode** when workflows must
-remain spec-pure and reusable functions should be shared from an external
-catalog. The CLI and Python API support explicit `extended`, `catalog`, or
-`auto` selection. See the [workflow flavors guide](docs/flavors.md).
+through `task.metadata.adk.agent` (the legacy `agent:` task extension is still
+accepted). Use **catalog mode** when workflows must remain spec-pure and
+reusable functions should be shared from an external catalog. The CLI and Python
+API support explicit `extended`, `catalog`, or `auto` selection. See the
+[workflow flavors guide](docs/flavors.md).
 
 ## Quick start
 
@@ -97,11 +98,16 @@ Add an agent where judgment, language understanding, or generation is needed:
 ```yaml
 do:
   - summarize:
-      agent:
-        model: gemini-2.5-flash
-        instruction: Summarize the current input in three concise bullet points.
-        output_key: summary
+      metadata:
+        adk:
+          agent:
+            model: gemini-2.5-flash
+            instruction: Summarize the current input in three concise bullet points.
+            output_key: summary
 ```
+
+This encoding is valid OpenWorkflow v1.0.3: other implementors can parse the
+same file and ignore the `metadata.adk` block.
 
 Agent model credentials are supplied by the deployment environment. Defaults
 can be configured with `WORKFLOW_` environment variables or a dotenv-style

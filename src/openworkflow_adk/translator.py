@@ -108,10 +108,12 @@ class NodeBuilderRegistry:
         self._call_builders[scheme] = builder
 
     def build(self, name: str, task: Task) -> Any:
-        if task.agent is not None and task.agent.agent:
+        agent_config = task.effective_agent()
+        if agent_config is not None and agent_config.agent:
             agent = _agent_builder(
                 name,
                 task,
+                agent_config,
                 self.model_factory,
                 self.model_specs,
                 self.environ,
@@ -225,9 +227,9 @@ def build_workflow(
             function_name: Task.model_validate(function_task)
             for function_name, function_task in document.use.functions.items()
         },
-        model_specs=document.use.models,
+        model_specs=document.effective_models(),
         workflow_registry=workflow_registry,
-        provider_configs=provider_configs or document.use.providers,
+        provider_configs=provider_configs or document.effective_providers(),
         provider_factory=provider_factory,
         suspend_long_waits=suspend_long_waits,
         suspend_after=suspend_after,

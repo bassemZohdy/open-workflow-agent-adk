@@ -4,7 +4,7 @@ OpenWorkflow ADK supports two ways to add AI behavior to a workflow.
 
 | Flavor | AI boundary | Best for |
 | --- | --- | --- |
-| Extended | `agent:` on a task | ADK-native agents, tools, memory, teams, and inline instructions |
+| Extended | `metadata.adk.agent` on a task | ADK-native agents, tools, memory, teams, and inline instructions |
 | Catalog | `call: <function>` resolved from `catalog.functions` | Spec-pure workflows that share reusable functions |
 
 The shared pipeline is:
@@ -20,15 +20,16 @@ Catalog mode adds a reusable function-resolution step before the existing
 
 The CLI and API accept `--mode auto|extended|catalog`.
 
-`auto` is the default. It selects extended mode when an `agent:` key is
-present, and catalog mode when a workflow references a catalog with a
-`functions` URI. Pass an explicit mode when a deployment wants a hard policy.
+`auto` is the default. It selects extended mode when an ADK agent is present
+(`task.metadata.adk.agent` or the legacy `agent:` key), and catalog mode when a
+workflow references a catalog with a `functions` URI. Pass an explicit mode when
+a deployment wants a hard policy.
 
 ## Extended mode example
 
-Extended workflows use the `agent:` task extension to invoke an ADK agent
-inline. You can register reusable models, providers, and memories under
-`use`:
+Extended workflows use `task.metadata.adk.agent` to invoke an ADK agent inline.
+Reusable models, providers, and memories are registered under
+`document.metadata.adk`:
 
 ```yaml
 document:
@@ -36,20 +37,33 @@ document:
   namespace: examples
   name: hello-agent
   version: '1.0.0'
-use:
-  models:
-    flash:
-      provider: gemini
-      model: gemini-2.5-flash
-  providers:
-    gemini: {}
+  metadata:
+    adk:
+      models:
+        flash:
+          model: gemini-2.5-flash
+          provider:
+            use: gemini
+      providers:
+        gemini:
+          type: gemini
 do:
   - greet:
-      agent:
-        model: flash
-        instruction: Greet the user by name.
-        output_key: greeting
+      wait:
+        seconds: 0
+      metadata:
+        adk:
+          agent:
+            model:
+              use: flash
+            instruction: Greet the user by name.
+            output_key: greeting
 ```
+
+This encoding is valid OpenWorkflow v1.0.3: other implementors can parse the
+same file and ignore the `metadata.adk` block. The legacy direct form (`agent:`,
+`use.models:`, `use.providers:`, `use.memories:`) remains accepted during a
+deprecation window.
 
 Use extended mode when you need ADK agents, tools, memory, agent teams, or
 inline instruction authoring.

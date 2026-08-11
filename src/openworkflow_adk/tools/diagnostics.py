@@ -43,11 +43,8 @@ def lint_workflow(document: OpenWorkflowDocument) -> list[Diagnostic]:
                     f"do[{index}].then",
                 )
             )
-        if (
-            item.task.agent is not None
-            and item.task.agent.agent
-            and not item.task.agent.instruction
-        ):
+        agent_config = item.task.effective_agent()
+        if agent_config is not None and agent_config.agent and not agent_config.instruction:
             diagnostics.append(
                 Diagnostic(
                     "agent-instruction",

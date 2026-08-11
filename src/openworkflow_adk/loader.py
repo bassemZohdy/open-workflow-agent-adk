@@ -10,7 +10,7 @@ from typing import Any
 from jsonschema import Draft202012Validator
 from pydantic import ValidationError
 
-from openworkflow_adk.models import AgentCharacteristics, OpenWorkflowDocument
+from openworkflow_adk.models import AdkMetadata, AgentCharacteristics, OpenWorkflowDocument
 from openworkflow_adk.schema import load_schema_for
 
 
@@ -43,6 +43,11 @@ def _parse_source(source: str | Path | dict[str, Any]) -> dict[str, Any]:
 
 def _strip_agent(value: Any, parent: str | None = None) -> Any:
     if isinstance(value, dict):
+        # `metadata.adk` is an OpenWorkflow-compatible container
+        # (additionalProperties: true); preserve it untouched for upstream schema
+        # validation while stripping legacy ADK extensions everywhere else.
+        if parent == "adk":
+            return {key: item for key, item in value.items()}
         return {
             key: _strip_agent(item, "catalog" if parent == "catalogs" else key)
             for key, item in value.items()
@@ -68,6 +73,18 @@ def _model_reference_errors(value: Any, models: set[str], path: str = "$") -> li
                         "message": f"unknown model reference {reference!r}",
                     }
                 )
+        metadata_adk = (
+            value.get("metadata", {}).get("adk", {}).get("agent") if value.get("metadata") else None
+        )
+        if isinstance(metadata_adk, dict) and isinstance(metadata_adk.get("model"), dict):
+            reference = metadata_adk["model"].get("use")
+            if reference not in models:
+                errors.append(
+                    {
+                        "path": f"{path}.metadata.adk.agent.model.use",
+                        "message": f"unknown model reference {reference!r}",
+                    }
+                )
         for key, item in value.items():
             errors.extend(_model_reference_errors(item, models, f"{path}.{key}"))
     elif isinstance(value, list):
@@ -81,8 +98,15 @@ def _registry_reference_errors(
 ) -> list[dict[str, str]]:
     errors: list[dict[str, str]] = []
     if isinstance(value, dict):
-        agent = value.get("agent")
-        if isinstance(agent, dict):
+        agents: list[tuple[str, Any]] = []
+        if isinstance(value.get("agent"), dict):
+            agents.append((f"{path}.agent", value["agent"]))
+        metadata_adk = (
+            value.get("metadata", {}).get("adk", {}).get("agent") if value.get("metadata") else None
+        )
+        if isinstance(metadata_adk, dict):
+            agents.append((f"{path}.metadata.adk.agent", metadata_adk))
+        for agent_path, agent in agents:
             for field, known, label in (
                 ("memory", memories, "memory"),
                 ("provider", providers, "provider"),
@@ -91,7 +115,7 @@ def _registry_reference_errors(
                 if isinstance(reference, dict) and reference.get("use") not in known:
                     errors.append(
                         {
-                            "path": f"{path}.agent.{field}.use",
+                            "path": f"{agent_path}.{field}.use",
                             "message": f"unknown {label} reference {reference.get('use')!r}",
                         }
                     )
@@ -101,7 +125,7 @@ def _registry_reference_errors(
                 if isinstance(provider, dict) and provider.get("use") not in providers:
                     errors.append(
                         {
-                            "path": f"{path}.agent.model.provider.use",
+                            "path": f"{agent_path}.model.provider.use",
                             "message": f"unknown provider reference {provider.get('use')!r}",
                         }
                     )
@@ -111,6 +135,64 @@ def _registry_reference_errors(
         for index, item in enumerate(value):
             errors.extend(_registry_reference_errors(item, providers, memories, f"{path}[{index}]"))
     return errors
+
+
+def _contains_adk_extension(value: Any, parent: str | None = None) -> bool:
+    """Return True if the raw document still contains ADK-specific fields."""
+    if isinstance(value, dict):
+        if parent == "metadata" and "adk" in value:
+            return True
+        for key, item in value.items():
+            if key in {"agent", "self_heal"}:
+                return True
+            if parent == "use" and key in {"models", "providers", "memories"}:
+                return True
+            if _contains_adk_extension(item, key):
+                return True
+        return False
+    if isinstance(value, list):
+        return any(_contains_adk_extension(item, parent) for item in value)
+    return False
+
+
+def _effective_registries(
+    raw: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Return merged model/provider/memory registries.
+
+    Legacy ``use.models``/``use.providers``/``use.memories`` are accepted
+    during the deprecation window and merged with the interoperable
+    ``document.metadata.adk.{models,providers,memories}`` encoding.
+    The metadata encoding takes precedence on key collisions.
+    """
+    use = raw.get("use", {}) or {}
+    adk = ((raw.get("document") or {}).get("metadata") or {}).get("adk") or {}
+    return (
+        {**use.get("models", {}), **(adk.get("models") or {})},
+        {**use.get("providers", {}), **(adk.get("providers") or {})},
+        {**use.get("memories", {}), **(adk.get("memories") or {})},
+    )
+
+
+def _to_pure_openworkflow(value: Any, parent: str | None = None) -> Any:
+    """Return a copy with all ADK extensions removed for pure OpenWorkflow export."""
+    if isinstance(value, dict):
+        # Strip the ADK payload from metadata containers but keep other metadata.
+        if parent == "metadata":
+            return {
+                key: _to_pure_openworkflow(item, key) for key, item in value.items() if key != "adk"
+            }
+        result: dict[str, Any] = {}
+        for key, item in value.items():
+            if key in {"agent", "self_heal"}:
+                continue
+            if parent == "use" and key in {"models", "providers", "memories"}:
+                continue
+            result[key] = _to_pure_openworkflow(item, key)
+        return result
+    if isinstance(value, list):
+        return [_to_pure_openworkflow(item, parent) for item in value]
+    return value
 
 
 def _extension_errors(value: Any, path: str = "$") -> list[dict[str, str]]:
@@ -123,12 +205,28 @@ def _extension_errors(value: Any, path: str = "$") -> list[dict[str, str]]:
                 for error in exc.errors():
                     location = ".".join(str(part) for part in error["loc"])
                     errors.append({"path": f"{path}.agent.{location}", "message": error["msg"]})
+        if isinstance(value.get("metadata"), dict) and isinstance(
+            value["metadata"].get("adk"), dict
+        ):
+            try:
+                AdkMetadata.model_validate(value["metadata"]["adk"])
+            except ValidationError as exc:
+                for error in exc.errors():
+                    location = ".".join(str(part) for part in error["loc"])
+                    errors.append(
+                        {"path": f"{path}.metadata.adk.{location}", "message": error["msg"]}
+                    )
         for key, item in value.items():
             errors.extend(_extension_errors(item, f"{path}.{key}"))
     elif isinstance(value, list):
         for index, item in enumerate(value):
             errors.extend(_extension_errors(item, f"{path}[{index}]"))
     return errors
+
+
+def load_raw(source: str | Path | dict[str, Any]) -> dict[str, Any]:
+    """Parse YAML/JSON text, a file, or a mapping into a raw document dict."""
+    return _parse_source(source)
 
 
 def load(source: str | Path | dict[str, Any], *, mode: str = "auto") -> OpenWorkflowDocument:
@@ -145,33 +243,29 @@ def load(source: str | Path | dict[str, Any], *, mode: str = "auto") -> OpenWork
             [{"path": "$", "message": "catalog mode does not allow the agent extension"}]
         )
     errors = _extension_errors(raw)
-    model_registry = raw.get("use", {}).get("models", {})
-    if isinstance(model_registry, dict):
-        errors.extend(_model_reference_errors(raw, set(model_registry)))
-    use = raw.get("use", {})
-    if isinstance(use, dict):
-        errors.extend(
-            _registry_reference_errors(
-                raw,
-                set(use.get("providers", {})) if isinstance(use.get("providers"), dict) else set(),
-                set(use.get("memories", {})) if isinstance(use.get("memories"), dict) else set(),
-            )
-        )
-        model_defs = use.get("models", {})
-        if isinstance(model_defs, dict):
-            for model_name, model_def in model_defs.items():
-                if not isinstance(model_def, dict):
-                    continue
-                provider = model_def.get("provider")
-                if isinstance(provider, dict) and provider.get("use") not in set(
-                    use.get("providers", {})
-                ):
-                    errors.append(
-                        {
-                            "path": f"$.use.models.{model_name}.provider.use",
-                            "message": f"unknown provider reference {provider.get('use')!r}",
-                        }
-                    )
+    model_registry, provider_registry, memory_registry = _effective_registries(raw)
+    errors.extend(_model_reference_errors(raw, set(model_registry)))
+    errors.extend(_registry_reference_errors(raw, provider_registry, memory_registry))
+    for source_path, source_registry in (
+        ("$.use.models", raw.get("use", {}).get("models", {})),
+        (
+            "$.document.metadata.adk.models",
+            ((raw.get("document") or {}).get("metadata") or {}).get("adk", {}).get("models", {}),
+        ),
+    ):
+        if not isinstance(source_registry, dict):
+            continue
+        for model_name, model_def in source_registry.items():
+            if not isinstance(model_def, dict):
+                continue
+            provider = model_def.get("provider")
+            if isinstance(provider, dict) and provider.get("use") not in set(provider_registry):
+                errors.append(
+                    {
+                        "path": f"{source_path}.{model_name}.provider.use",
+                        "message": f"unknown provider reference {provider.get('use')!r}",
+                    }
+                )
     try:
         schema = load_schema_for(str(raw.get("document", {}).get("dsl", "")))
     except ValueError as exc:

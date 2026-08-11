@@ -11,16 +11,17 @@ workflow.yaml/json
    │  1. load (PyYAML / json)
    ▼
 OpenWorkflowDocument (typed pydantic model)
-   │  2. validate against vendored 1.0.3 JSON schema + extension schema
-   │  3. resolve config (env > per-task agent config > project defaults)
+   │  2. validate ADK payload (`metadata.adk`) with Pydantic
+   │  3. strip legacy direct ADK properties and validate against vendored 1.0.3 schema
+   │  4. resolve config (env > per-task `metadata.adk.agent` > legacy `agent:` > project defaults)
    ▼
 Resolved tasks + agent characteristics
-   │  4. translate: each task → ADK node (LlmAgent | FunctionNode | nested Workflow)
+   │  5. translate: each task → ADK node (LlmAgent | FunctionNode | nested Workflow)
    │                  taskList `do` → edge chain; `then`/`switch`/`fork` → edges/routes
    │                  JSONata expressions (${…}) → expression evaluator over ctx.state
    ▼
 adk.Workflow(edges=…, state_schema=…)
-   │  5. run via adk.Runner + InMemorySessionService (dev) / Vertex (prod)
+   │  6. run via adk.Runner + InMemorySessionService (dev) / Vertex (prod)
    ▼
 events / output
 ```
@@ -57,10 +58,10 @@ agent config fall back to project-wide defaults (3-layer precedence — see
 | taskBase `timeout` | `FunctionNode(timeout=…)` / `RetryConfig` |
 | `use.retries` | `RetryConfig` references |
 | `use.authentications` | `AuthConfig` on nodes |
-| **task with agent config** | `adk.Agent`(model, instruction, tools, output_schema, output_key) |
-| `use.models` (extension) | named `ModelSpec` registry; agent `model: {use: name}` resolves a model + generation-config bundle |
-| `use.providers` (extension) | named `ProviderConfig` registry; a model references one; resolved to an ADK `BaseLlm` via the provider factory |
-| `use.memories` (extension) | named `MemoryConfig` registry; agent `memory: {use: name}` resolves to an ADK `BaseMemoryService` |
+| **task with `metadata.adk.agent`** | `adk.Agent`(model, instruction, tools, output_schema, output_key); legacy `agent:` is also accepted |
+| `document.metadata.adk.models` / `use.models` (extension) | named `ModelSpec` registry; agent `model: {use: name}` resolves a model + generation-config bundle. `document.metadata.adk.models` takes precedence |
+| `document.metadata.adk.providers` / `use.providers` (extension) | named `ProviderConfig` registry; a model references one; resolved to an ADK `BaseLlm` via the provider factory. `document.metadata.adk.providers` takes precedence |
+| `document.metadata.adk.memories` / `use.memories` (extension) | named `MemoryConfig` registry; agent `memory: {use: name}` resolves to an ADK `BaseMemoryService`. `document.metadata.adk.memories` takes precedence |
 
 The broker interface also ships CloudEvents 1.0 adapters for Redis Streams,
 Kafka, RabbitMQ, and NATS. Their client SDKs are lazy and available through

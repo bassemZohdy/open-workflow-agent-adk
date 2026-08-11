@@ -3,7 +3,7 @@
 Agent values use three layers, with later entries overriding earlier ones:
 
 ```text
-project defaults < task.agent < environment
+project defaults < task.metadata.adk.agent (or legacy task.agent) < environment
 ```
 
 Environment variables use the `WORKFLOW_` prefix and `__` for nesting:
@@ -20,17 +20,20 @@ Defaults may be supplied as a mapping or YAML/JSON file to
 The CLI supports dotenv-style files with `--env`; values are loaded into the
 process environment before the document is translated.
 
-Named model providers use `use.providers` and can be overridden without editing
-the document:
+Named model providers live in `document.metadata.adk.providers` (preferred) or
+the legacy `use.providers`:
 
 ```yaml
+document:
+  metadata:
+    adk:
+      providers:
+        openai-prod:
+          type: openai
+          base_url: https://api.openai.com/v1
+          credential: openai-key
 use:
   secrets: [openai-key]
-  providers:
-    openai-prod:
-      type: openai
-      base_url: https://api.openai.com/v1
-      credential: openai-key
 ```
 
 The corresponding deployment overrides are
@@ -40,14 +43,17 @@ The corresponding deployment overrides are
 OpenAI-compatible adapters currently cover OpenAI, Azure, Ollama, and vLLM;
 Gemini and Anthropic continue through ADK's native model resolution.
 
-Semantic memory uses the same named-registry pattern:
+Semantic memory uses the same named-registry pattern under
+`document.metadata.adk.memories` (preferred) or legacy `use.memories`:
 
 ```yaml
-use:
-  memories:
-    local:
-      type: file
-      connection: .workflow-memory.json
+document:
+  metadata:
+    adk:
+      memories:
+        local:
+          type: file
+          connection: .workflow-memory.json
 ```
 
 `agent.memory: {use: local}` selects the ADK memory service for the run. The
@@ -57,6 +63,9 @@ Vertex additionally requires ADK's GCP extra and an agent engine ID.
 File, Redis, Postgres, and Vertex services can be reused across run instances;
 completed ADK sessions are added to the configured memory service after a run,
 and the agent's `load_memory` tool can recall matching prior context.
+
+The legacy `agent:`, `self_heal:`, `use.models:`, `use.providers:`, and
+`use.memories:` forms remain accepted during a deprecation window.
 
 Multimodal agent input can be passed through with
 `run_workflow(..., message=google.genai.types.Content(...))`; image and audio

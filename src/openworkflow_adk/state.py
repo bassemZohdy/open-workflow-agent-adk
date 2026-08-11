@@ -57,8 +57,9 @@ def derive_state_schema(document: OpenWorkflowDocument) -> type:
     """Create an open Pydantic model containing workflow state keys."""
     keys = _names(document.input)
     for item in document.do:
-        if item.task.agent is not None:
-            keys.add(item.task.agent.output_key or item.name)
+        agent_config = item.task.effective_agent()
+        if agent_config is not None:
+            keys.add(agent_config.output_key or item.name)
         keys.update(_task_keys(item.task))
     for function in document.use.functions.values():
         keys.update(_task_keys(Task.model_validate(function)))

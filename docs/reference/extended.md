@@ -1,12 +1,18 @@
 # Extended mode reference
 
-Extended mode is the ADK-native flavor of OpenWorkflow. It adds the `agent:`
-task extension and lets workflows configure ADK models, providers, tools,
-memory, and agent teams inline.
+Extended mode is the ADK-native flavor of OpenWorkflow. It adds ADK-specific
+configuration inside OpenWorkflow-compatible metadata containers so that the
+same YAML file is still valid OpenWorkflow v1.0.3 for other implementors.
 
-## `agent:` task extension
+- Task-level ADK config lives in `task.metadata.adk`.
+- Project-level registries live in `document.metadata.adk`.
+- The legacy direct form (`agent:`, `self_heal:`, `use.models:`,
+  `use.providers:`, `use.memories:`) remains accepted during a deprecation
+  window.
 
-An `agent:` block turns a task into an ADK LLM agent invocation:
+## `metadata.adk.agent` task extension
+
+An `metadata.adk.agent` block turns a task into an ADK LLM agent invocation:
 
 ```yaml
 document:
@@ -14,11 +20,52 @@ document:
   namespace: examples
   name: draft-review
   version: '1.0.0'
+  metadata:
+    adk:
+      models:
+        flash:
+          model: gemini-2.5-flash
+          provider:
+            use: gemini
+      providers:
+        gemini:
+          type: gemini
+do:
+  - draft:
+      wait:
+        seconds: 0
+      metadata:
+        adk:
+          agent:
+            model:
+              use: flash
+            instruction: Draft a concise response.
+            output_key: draft
+  - review:
+      wait:
+        seconds: 0
+      metadata:
+        adk:
+          agent:
+            model:
+              use: flash
+            instruction: Review and improve {draft}.
+            output_key: reviewed
+```
+
+An agent task can also include `wait` (e.g. `wait: {seconds: 0}`) so that the
+task has a deterministic kind alongside the ADK extension.
+
+### Legacy form
+
+Existing documents may still use the direct `agent:` property:
+
+```yaml
 use:
   models:
     flash:
-      provider: gemini
       model: gemini-2.5-flash
+      provider: gemini
   providers:
     gemini: {}
 do:
@@ -26,72 +73,108 @@ do:
       agent:
         model: flash
         instruction: Draft a concise response.
-        output_key: draft
-  - review:
-      agent:
-        model: flash
-        instruction: Review and improve {draft}.
-        output_key: reviewed
 ```
 
-An agent task can also include `wait` (e.g. `wait: {seconds: 0}`) so that the
-task has a deterministic kind alongside the `agent` extension.
+New documents should prefer `metadata.adk.agent` for interoperability.
 
 ## Registries
 
-`use` supports three registries that agents can reference by name:
+`document.metadata.adk` supports three registries that agents can reference by
+name:
 
-- `use.models` — named `ModelSpec` objects pointing to a provider and model.
-- `use.providers` — provider configurations (e.g. `gemini`, `openai`).
-- `use.memories` — memory backends referenced by agent tasks.
+- `document.metadata.adk.models` — named `ModelSpec` objects pointing to a
+  provider and model.
+- `document.metadata.adk.providers` — provider configurations (e.g., `gemini`,
+  `openai`).
+- `document.metadata.adk.memories` — memory backends referenced by agent tasks.
 
 Example:
 
 ```yaml
-use:
-  models:
-    flash:
-      provider: gemini
-      model: gemini-2.5-flash
-  providers:
-    gemini: {}
-  memories:
-    session:
-      backend: inmemory
+document:
+  metadata:
+    adk:
+      models:
+        flash:
+          model: gemini-2.5-flash
+          provider:
+            use: gemini
+      providers:
+        gemini:
+          type: gemini
+      memories:
+        session:
+          type: in-memory
 ```
+
+The legacy `use.models`, `use.providers`, and `use.memories` registries are
+still accepted and merged with `document.metadata.adk.*`; the metadata encoding
+wins on key collisions.
 
 ## Tools
 
-Agents can declare tools by name under `agent.tools`. The tools must be
-registered through the translator's function registry or available as
+Agents can declare tools by name under `metadata.adk.agent.tools`. The tools
+must be registered through the translator's function registry or available as
 built-ins.
 
 ```yaml
   - lookup:
-      agent:
-        model: flash
-        instruction: Look up the value.
-        tools: [lookup]
+      metadata:
+        adk:
+          agent:
+            model:
+              use: flash
+            instruction: Look up the value.
+            tools: [lookup]
 ```
 
 ## Multi-agent teams
 
-An agent can spawn sub-agents through `agent.sub_agents`, creating a team
-where the parent agent can delegate work.
+An agent can spawn sub-agents through `metadata.adk.agent.sub_agents`, creating
+a team where the parent agent can delegate work.
 
 ```yaml
   - lead:
-      agent:
-        model: flash
-        instruction: Coordinate the team.
-        sub_agents:
-          - model: flash
-            instruction: Research the topic.
-            name: researcher
-          - model: flash
-            instruction: Summarize findings.
-            name: summarizer
+      metadata:
+        adk:
+          agent:
+            model:
+              use: flash
+            instruction: Coordinate the team.
+            sub_agents:
+              - model:
+                  use: flash
+                instruction: Research the topic.
+                name: researcher
+              - model:
+                  use: flash
+                instruction: Summarize findings.
+                name: summarizer
 ```
+
+## Self-heal
+
+Task-level self-healing configuration lives in
+`task.metadata.adk.self_heal`. The legacy `self_heal:` task property is still
+accepted.
+
+```yaml
+  - risky:
+      metadata:
+        adk:
+          self_heal:
+            max_attempts: 3
+```
+
+## Interoperability guarantee
+
+A document authored with the `metadata.adk` encoding is valid OpenWorkflow
+v1.0.3. Other implementors can parse it and ignore the ADK block. The loader
+validates the ADK payload separately and then validates the remainder of the
+document against the vendored upstream schema, leaving `metadata.adk` intact.
+
+Use `owf-adk lint --strict` (or `owf-adk export --format openworkflow`) to
+emit a pure OpenWorkflow document with ADK metadata stripped.
 
 ## When to use extended mode
 

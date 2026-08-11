@@ -104,6 +104,18 @@ class AgentCharacteristics(BaseModel):
     request_input: dict[str, Any] | None = None
 
 
+class AdkMetadata(BaseModel):
+    """ADK-specific configuration stored in OpenWorkflow metadata containers."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent: AgentCharacteristics | None = None
+    self_heal: dict[str, Any] | None = None
+    models: dict[str, ModelSpec] | None = None
+    providers: dict[str, ProviderConfig] | None = None
+    memories: dict[str, MemoryConfig] | None = None
+
+
 class WorkflowMetadata(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -157,6 +169,21 @@ class TaskBase(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     self_heal: dict[str, Any] | None = None
     agent: AgentCharacteristics | None = None
+
+    def adk_metadata(self) -> AdkMetadata | None:
+        """Return validated ADK metadata if the task carries it."""
+        payload = self.metadata.get("adk")
+        if isinstance(payload, dict):
+            return AdkMetadata.model_validate(payload)
+        return None
+
+    def effective_agent(self) -> AgentCharacteristics | None:
+        """ADK agent config, preferring metadata.adk over the legacy task field."""
+        return (self.adk_metadata().agent if self.adk_metadata() else None) or self.agent
+
+    def effective_self_heal(self) -> dict[str, Any] | None:
+        """Self-heal config, preferring metadata.adk over the legacy task field."""
+        return (self.adk_metadata().self_heal if self.adk_metadata() else None) or self.self_heal
 
 
 TASK_KEYS = (
@@ -240,3 +267,26 @@ class OpenWorkflowDocument(BaseModel):
     timeout: Any = None
     output: Any = None
     schedule: dict[str, Any] | None = None
+
+    def adk_metadata(self) -> AdkMetadata | None:
+        """Return validated ADK metadata from document.metadata if present."""
+        if self.document.metadata is None:
+            return None
+        payload = (self.document.metadata.model_extra or {}).get("adk")
+        if isinstance(payload, dict):
+            return AdkMetadata.model_validate(payload)
+        return None
+
+    def effective_models(self) -> dict[str, ModelSpec]:
+        """Model registry, preferring document.metadata.adk over legacy use.models."""
+        return (self.adk_metadata().models if self.adk_metadata() else None) or self.use.models
+
+    def effective_providers(self) -> dict[str, ProviderConfig]:
+        """Provider registry, preferring document.metadata.adk over legacy use.providers."""
+        return (
+            self.adk_metadata().providers if self.adk_metadata() else None
+        ) or self.use.providers
+
+    def effective_memories(self) -> dict[str, MemoryConfig]:
+        """Memory registry, preferring document.metadata.adk over legacy use.memories."""
+        return (self.adk_metadata().memories if self.adk_metadata() else None) or self.use.memories

@@ -452,16 +452,16 @@ added/interpreted by this translator only.
       - The legacy direct form (`agent:`, `self_heal:`, `use.models:`) remains
         accepted during a deprecation window and is normalized to the new encoding
         at load time.
-- [ ] **C18.3 Update Pydantic models to accept the new encoding.** Keep backward
-      compatibility for the legacy direct-property form (`agent:`, `use.models:`)
-      during a deprecation window.
-- [ ] **C18.4 Update loader validation.** Strip `metadata.adk` (and legacy
-      `agent`/`self_heal`) before upstream schema validation; validate the ADK
-      payload separately with Pydantic.
-- [ ] **C18.5 Update the ADK translator.** Read agent characteristics from
-      `metadata.adk.agent` (falling back to legacy `agent`), and read registries
-      from `document.metadata.adk.models/providers/memories` (falling back to
-      legacy `use.models`/`use.providers`/`use.memories`).
+- [x] **C18.3 Update Pydantic models to accept the new encoding.** Added
+      `AdkMetadata` and `effective_*` helpers on `TaskBase` and
+      `OpenWorkflowDocument`. Legacy direct-property forms remain accepted.
+- [x] **C18.4 Update loader validation.** `_strip_agent` now preserves the
+      `metadata.adk` subtree; `_effective_registries` merges legacy `use.*`
+      with `document.metadata.adk.*` for reference resolution; model/provider/
+      memory references are validated against the merged registries.
+- [x] **C18.5 Update the ADK translator.** All consumers now read via
+      `effective_agent()`, `effective_self_heal()`, `effective_models()`,
+      `effective_providers()`, and `effective_memories()`.
 - [ ] **C18.6 Update examples to use the interoperable encoding.** Rewrite
       `examples/multi-agent.yaml` and any other extended-mode examples to put
       ADK config in `metadata.adk` / `document.metadata.adk`.
@@ -475,6 +475,8 @@ added/interpreted by this translator only.
 - [ ] **C18.9 Update documentation.** Rewrite `docs/reference/extension-spec.md`
       and `docs/reference/extended.md` to describe the `metadata.adk` encoding,
       the backward-compat fallback, and the interoperability guarantee.
-- [ ] **C18.10 Add an export/lint helper.** Provide `owf-adk lint --strict` or a
-      new `owf-adk export --format openworkflow` that strips ADK metadata and
-      emits pure OpenWorkflow YAML for verification by other implementors.
+- [x] **C18.10 Add an export/lint helper.** Added `owf-adk export
+      --format openworkflow` and `owf-adk lint --strict`. `export` strips all
+      ADK extensions (including `metadata.adk`) and emits pure OpenWorkflow
+      YAML; `lint --strict` rejects any document that still contains ADK
+      extensions.
