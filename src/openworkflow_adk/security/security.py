@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import os
+import socket
 from urllib.parse import urlparse
 
 
@@ -42,8 +43,26 @@ def redact(value: object, secrets: list[str] | tuple[str, ...] = ()) -> object:
     return value
 
 
+def _block_address(address: ipaddress.IPv4Address | ipaddress.IPv6Address, host: str) -> None:
+    if (
+        address.is_private
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_reserved
+        or address.is_multicast
+    ):
+        raise EgressDeniedError(f"egress to {host!r} is blocked")
+
+
 def validate_egress(url: str, environ: dict[str, str] | None = None) -> None:
-    """Reject loopback/private/link-local targets unless explicitly allowlisted."""
+    """Reject loopback/private/link-local targets unless explicitly allowlisted.
+
+    By default non-IP hostnames pass through unchanged (the legacy behavior) so
+    that deployments without reliable DNS or with mocked hosts keep working. Set
+    ``WORKFLOW_EGRESS_RESOLVE_DNS=1`` to resolve every hostname and check all
+    resulting addresses; in that mode DNS failures are treated as blocked unless
+    ``WORKFLOW_EGRESS_ALLOW_UNRESOLVED=1`` is also set.
+    """
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"}:
         raise EgressDeniedError(f"unsupported egress scheme: {parsed.scheme or '<none>'}")
@@ -63,6 +82,15 @@ def validate_egress(url: str, environ: dict[str, str] | None = None) -> None:
     try:
         address = ipaddress.ip_address(host)
     except ValueError:
+        if values.get("WORKFLOW_EGRESS_RESOLVE_DNS", "").lower() not in {"1", "true", "yes"}:
+            return
+        try:
+            infos = socket.getaddrinfo(host, None)
+        except socket.gaierror as exc:
+            if values.get("WORKFLOW_EGRESS_ALLOW_UNRESOLVED", "").lower() in {"1", "true", "yes"}:
+                return
+            raise EgressDeniedError(f"could not resolve {host!r} for egress check") from exc
+        for info in infos:
+            _block_address(ipaddress.ip_address(info[4][0]), host)
         return
-    if address.is_private or address.is_loopback or address.is_link_local or address.is_reserved:
-        raise EgressDeniedError(f"egress to {host!r} is blocked")
+    _block_address(address, host)

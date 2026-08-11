@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -74,6 +75,14 @@ class WorkflowWorker:
         return result
 
     async def run_forever(self, stop: asyncio.Event | None = None) -> None:
-        """Process jobs until ``stop`` is set."""
+        """Process jobs until ``stop`` is set, with backoff on transient errors."""
+        logger = logging.getLogger(__name__)
+        backoff_seconds = 1.0
         while stop is None or not stop.is_set():
-            await self.run_once()
+            try:
+                await self.run_once()
+                backoff_seconds = 1.0
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("WorkflowWorker run_once failed: %s", exc)
+                await asyncio.sleep(backoff_seconds)
+                backoff_seconds = min(backoff_seconds * 2, 60.0)

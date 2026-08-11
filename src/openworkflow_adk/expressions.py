@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ctypes
 import os
 import re
 import signal
@@ -40,23 +41,47 @@ def _limit(expression: str) -> None:
         raise ExpressionError(f"expression exceeds maximum depth of {configured_depth}")
 
 
+def _raise_in_thread(thread_id: int, exception: type[BaseException]) -> None:
+    """Inject an exception into a running thread (Windows/non-main-thread fallback)."""
+    result = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+        ctypes.c_long(thread_id), ctypes.py_object(exception)
+    )
+    if result == 0:
+        raise ValueError("invalid thread id")
+    if result > 1:
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(thread_id), None)
+        raise RuntimeError("PyThreadState_SetAsyncExc failed")
+
+
 @contextmanager
 def _evaluation_budget() -> Any:
-    """Bound synchronous evaluation when running on a POSIX main thread."""
+    """Bound synchronous evaluation with a cross-platform timeout."""
     seconds = float(os.environ.get("WORKFLOW_EXPRESSION_TIMEOUT_SECONDS", "0.25"))
-    enabled = os.name == "posix" and threading.current_thread() is threading.main_thread()
-    previous = signal.getsignal(signal.SIGALRM) if enabled else None
-    if enabled:
+    if seconds <= 0:
+        yield
+        return
+    use_signal = os.name == "posix" and threading.current_thread() is threading.main_thread()
+    previous: Any = None
+    timer: threading.Timer | None = None
+    if use_signal:
+        previous = signal.getsignal(signal.SIGALRM)
         signal.signal(signal.SIGALRM, lambda _signum, _frame: (_ for _ in ()).throw(TimeoutError))
         signal.setitimer(signal.ITIMER_REAL, seconds)
+    else:
+        thread_id = threading.current_thread().ident
+        if thread_id is not None:
+            timer = threading.Timer(seconds, _raise_in_thread, args=(thread_id, TimeoutError))
+            timer.start()
     try:
         yield
     except TimeoutError as exc:
         raise ExpressionError("expression evaluation exceeded its time budget") from exc
     finally:
-        if enabled:
+        if use_signal:
             signal.setitimer(signal.ITIMER_REAL, 0)
             signal.signal(signal.SIGALRM, previous)
+        elif timer is not None:
+            timer.cancel()
 
 
 def _unwrap(expression: str) -> str:

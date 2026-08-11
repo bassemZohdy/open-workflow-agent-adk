@@ -123,6 +123,21 @@ def _container_builder(name: str, task: Task) -> FunctionNode:
     return _dynamic(FunctionNode(func=run_container, name=name))
 
 
+def _resolve_script_source(source: str, base_dir: Path) -> Path:
+    """Resolve a script source path and ensure it stays inside ``base_dir``."""
+    path = Path(source)
+    if not path.is_absolute():
+        path = base_dir / path
+    path = path.resolve()
+    try:
+        path.relative_to(base_dir)
+    except ValueError as exc:
+        raise ValueError(
+            f"script source {source!r} escapes the configured script base directory"
+        ) from exc
+    return path
+
+
 def _run_builder(
     name: str, task: Task, registry: NodeBuilderRegistry | None = None
 ) -> FunctionNode:
@@ -146,9 +161,12 @@ def _run_builder(
             if code is None:
                 source = process.get("source")
                 source = source.get("uri") if isinstance(source, dict) else source
-                if not source or not str(source).startswith(("/", ".")):
+                if not source:
                     raise ValueError("script source must be a local path")
-                code = Path(source).read_text()
+                script_base = Path(
+                    os.environ.get("WORKFLOW_SCRIPT_BASE_DIR", str(Path.cwd()))
+                ).resolve()
+                code = _resolve_script_source(source, script_base).read_text()
             if language in {"python", "py"}:
                 command = [sys.executable, "-c", code, *process.get("arguments", [])]
             elif language in {"javascript", "js", "node"}:

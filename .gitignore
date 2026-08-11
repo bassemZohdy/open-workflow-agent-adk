@@ -12,6 +12,7 @@ dist/
 .ruff_cache/
 .pytest_cache/
 .mypy_cache/
+.hypothesis/
 
 # Test / coverage
 .coverage
@@ -29,6 +30,20 @@ coverage.xml
 # OS / editor noise
 .DS_Store
 .idea/
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
+
+# Runtime artifacts (created by SQLiteRunHistory, JsonRunLogger, etc.)
+*.sqlite
+*.sqlite3
+*.db
+*.log
+
+# Local Python version pins (uv/python pin) — keep pyproject.toml as the source of truth
+.python-version
 
 # Build artifacts / scratch directories
 *.whl

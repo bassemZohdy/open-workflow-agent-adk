@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
@@ -46,6 +47,9 @@ def _agent_builder(
     )
 
 
+_MAX_SUB_AGENT_DEPTH = int(os.environ.get("WORKFLOW_MAX_SUB_AGENT_DEPTH", "10"))
+
+
 def _build_agent(
     name: str,
     config: Any,
@@ -59,8 +63,13 @@ def _build_agent(
     as_sub_agent: bool,
     resume_input: Any = None,
     route_options: set[str] | None = None,
+    depth: int = 0,
 ) -> LlmAgent:
     """Build one ADK agent and recursively assemble its coordinator tree."""
+    if depth > _MAX_SUB_AGENT_DEPTH:
+        raise ValueError(
+            f"agent sub-agent recursion exceeded maximum depth ({_MAX_SUB_AGENT_DEPTH})"
+        )
     model = model_factory(config.model or "") if model_factory else config.model or ""
     if config.provider:
         provider = resolve_provider_config(
@@ -120,6 +129,7 @@ def _build_agent(
             as_sub_agent=True,
             resume_input=resume_input,
             route_options=None,
+            depth=depth + 1,
         )
         for index, child in enumerate(config.sub_agents)
     ]

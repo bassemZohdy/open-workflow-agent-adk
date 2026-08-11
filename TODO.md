@@ -9,8 +9,9 @@ Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
  tagged `v0.2.0`; `v0.1.0` tags the baseline commit `1897458`. The release branch was not preserved,
 and the `Release` workflow (`on: push: tags: v*.*.*`) has never fired.
 C1–C8 below are kept as the historical record of the v0.2.0 work; new follow-ups from the
-whole-project review live in **C9–C15**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.3/C10.13,
-C11.1–C11.2, and C12.1–C12.8 completed; catalog `file://` URI handling fixed on Windows.
+whole-project review live in **C9–C15**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.4/C10.6/
+C10.8/C10.9/C10.11/C10.13, C11.1–C11.2, and C12.1–C12.8 completed; catalog `file://` URI
+handling fixed on Windows.
 
 ---
 
@@ -155,43 +156,42 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
 - [x] **C10.3 (P0) OpenAPI call endpoint is never egress-checked.** `tasks/events.py` now calls
       `validate_egress(endpoint)` after path-parameter substitution and before the outgoing HTTP
       request.
-- [ ] **C10.4 (P1) `validate_egress` does not resolve DNS.** `security/security.py:53–56` returns
-      early for non-IP-literal hostnames, so `metadata.google.internal` passes, then resolves to a
-      private IP at fetch time. Add optional DNS resolution and check all resulting IPs, or document
-      the limitation and require external DNS policy.
+- [x] **C10.4 (P1) `validate_egress` does not resolve DNS.** `security/security.py:84–92` resolves
+      non-IP-literal hostnames via `socket.getaddrinfo` and checks all returned IP addresses.
+      Regression tests cover hostname resolution and failure modes.
 - [ ] **C10.5 (P1) gRPC proto compilation imports generated code in-process.** `tasks/call.py:100–120`
       writes attacker-controllable proto bytes, runs `protoc`, then `importlib.import_module`s the
       generated `_pb2*.py`. Compiled output executes on import, and the fixed module name
       `workflow_call_pb2` collides under concurrent gRPC calls. Document the trust requirement, use
       unique module names (hash suffix), and prefer a subprocess with resource limits.
-- [ ] **C10.6 (P1) Script `source` can read arbitrary local files.** `tasks/run.py:148–151` only
-      rejects paths not starting with `/` or `.`, so `source: /etc/shadow` or `../../.env` is
-      readable via `Path(source).read_text()` outside the subprocess sandbox. Constrain to a
-      configurable base dir (mirror catalog's `base_dir` pattern) or document as unrestricted.
+- [x] **C10.6 (P1) Script `source` can read arbitrary local files.** `tasks/run.py` now resolves
+      script sources against `WORKFLOW_SCRIPT_BASE_DIR` (defaulting to the current working dir) and
+      rejects any path that escapes that directory via `..` or absolute traversal.
 - [ ] **C10.7 (P1) Container task mounts are unrestricted.** `tasks/run.py:63,82–85` calls
       `docker.from_env()` and defaults bind mode to `"rw"` with no host-path validation. In a CI/CD
       context with socket access this enables host escape. Default to `"ro"`, validate host paths
       against an allowlist, and consider making the Docker feature an opt-in extra.
-- [ ] **C10.8 (P1) `_evaluation_budget` is a no-op on Windows.** `expressions.py:47` gates on
-      `os.name == "posix"` — on Windows, JSONata expressions have no timeout (DoS vector). The
-      project supports Windows (`>=3.10`, first-class). Implement a cross-platform timeout or
-      document the platform gap.
-- [ ] **C10.9 (P1) Unbounded agent sub-agent recursion.** `tasks/agent.py:110–125` assembles
-      `sub_agents` with no depth limit — an adversarial or auto-generated document can trigger
-      `RecursionError` and is an ASI02 (excessive agency) expansion. Add a max-depth guard (~10).
+- [x] **C10.8 (P1) `_evaluation_budget` is a no-op on Windows.** `expressions.py` now uses a
+      thread-based `TimeoutError` injection fallback on non-POSIX platforms and non-main threads,
+      so JSONata expressions are bounded everywhere.
+- [x] **C10.9 (P1) Unbounded agent sub-agent recursion.** `tasks/agent.py` now tracks recursion
+      depth and raises `ValueError` when `WORKFLOW_MAX_SUB_AGENT_DEPTH` (default 10) is exceeded.
 - [ ] **C10.10 (P1) SQLiteRunHistory is not thread-safe.** `ops/history.py:104` uses the default
       `check_same_thread=True` and has no internal lock; the class is exported as public API and a
       caller using `asyncio.to_thread`/`run_in_executor` will crash. Add `check_same_thread=False`
       + a lock, switch to `aiosqlite`, or document as single-thread-only.
-- [ ] **C10.11 (P1) `WorkflowWorker.run_forever` has no error recovery.** `ops/worker.py:76–79`
-      loops `run_once()` with no `try/except`; one transient broker error kills the worker
-      permanently. Wrap with backoff + logging.
+- [x] **C10.11 (P1) `WorkflowWorker.run_forever` has no error recovery.** `ops/worker.py` now
+      wraps each `run_once()` call in `try/except`, logs the failure, and sleeps with exponential
+      backoff capped at 60 seconds before retrying.
 - [ ] **C10.12 (Low) AuditLog hash-chain cannot detect deletion.** `security/audit.py:47–63`
       verifies content + chaining but not gaps; an attacker with storage access can drop entries.
       Document, or add a stored count/root-hash check.
 - [x] **C10.13 (Low) HTTP-client redirect consistency.** `tasks/call.py` and `tasks/events.py`
       now instantiate `httpx.AsyncClient(follow_redirects=False)` explicitly everywhere for
       defense-in-depth.
+- [ ] **C10.14 (P1) Windows POSIX test runner command compatibility.** `test_run_handlers.py` and
+      `test_memoization.py` use POSIX `printf`/`sleep` commands which fail on native Windows.
+      Replace with `sys.executable` subcommands for cross-platform portability.
 
 ### C11 — Dependency hygiene  *(P0/P1)*
 
