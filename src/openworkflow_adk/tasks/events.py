@@ -62,6 +62,7 @@ def _openapi_builder(name: str, task: Task) -> FunctionNode:
         async with httpx.AsyncClient(
             follow_redirects=bool(arguments.get("redirect", False))
         ) as client:
+            validate_egress(endpoint)
             response = await client.request(
                 method, endpoint, params=query, headers=headers, json=body
             )
@@ -151,7 +152,7 @@ def _a2a_builder(name: str, task: Task) -> FunctionNode:
             "method": method,
             "params": arguments.get("parameters", {}),
         }
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=False) as client:
             response = await client.post(server, json=request)
             response.raise_for_status()
             result = response.json()
@@ -164,12 +165,17 @@ def _a2a_builder(name: str, task: Task) -> FunctionNode:
 
 async def _mcp_stdio_call(process: dict[str, Any], request: dict[str, Any]) -> Any:
     command = [process["command"], *(process.get("arguments") or [])]
+    environment = {
+        key: value
+        for key, value in {**os.environ, **(process.get("environment") or {})}.items()
+        if not key.startswith("WORKFLOW_SECRET__")
+    }
     proc = await asyncio.create_subprocess_exec(
         *command,
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        env={**os.environ, **(process.get("environment") or {})},
+        env=environment,
     )
     assert proc.stdin is not None and proc.stdout is not None
     proc.stdin.write((json.dumps(request) + "\n").encode())
@@ -202,7 +208,7 @@ def _mcp_builder(name: str, task: Task) -> FunctionNode:
                 raise ValueError("MCP HTTP transport requires endpoint.uri")
             validate_egress(endpoint)
             headers = dict(configuration.get("headers") or {})
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(follow_redirects=False) as client:
                 initialized = await client.post(
                     endpoint,
                     headers=headers,

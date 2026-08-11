@@ -189,7 +189,11 @@ def _run_builder(
             _kill_process_tree(proc)
             await proc.wait()
             raise TimeoutError(f"run task {name!r} exceeded its timeout") from error
-        values = {"stdout": stdout.decode(), "stderr": stderr.decode(), "code": proc.returncode}
+        values = {
+            "stdout": stdout.decode().replace("\r\n", "\n"),
+            "stderr": stderr.decode().replace("\r\n", "\n"),
+            "code": proc.returncode,
+        }
         if return_type == "none":
             return None
         if return_type == "all":

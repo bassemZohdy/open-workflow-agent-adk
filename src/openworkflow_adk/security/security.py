@@ -12,9 +12,19 @@ class EgressDeniedError(PermissionError):
 
 
 def resolve_secret(name: str, environ: dict[str, str] | None = None) -> str | None:
-    """Resolve a named secret from deployment environment variables."""
+    """Resolve a named secret from deployment environment variables.
+
+    Secrets are read only from ``WORKFLOW_SECRET__<NAME>`` prefixed variables.
+    A fallback to the bare variable name is available only when
+    ``WORKFLOW_SECRETS_ALLOW_RAW=1`` is set.
+    """
     values = os.environ if environ is None else environ
-    return values.get(f"WORKFLOW_SECRET__{name}") or values.get(name)
+    prefixed = values.get(f"WORKFLOW_SECRET__{name}")
+    if prefixed is not None:
+        return prefixed
+    if values.get("WORKFLOW_SECRETS_ALLOW_RAW", "").lower() in {"1", "true", "yes"}:
+        return values.get(name)
+    return None
 
 
 def redact(value: object, secrets: list[str] | tuple[str, ...] = ()) -> object:

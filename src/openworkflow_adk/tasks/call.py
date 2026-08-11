@@ -65,7 +65,7 @@ async def _read_resource(resource: Any) -> dict[str, Any]:
         raise ValueError("OpenAPI document requires a URI or local path")
     if source.startswith(("http://", "https://")):
         validate_egress(source)
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=False) as client:
             response = await client.get(source)
             response.raise_for_status()
             return response.json()
@@ -84,7 +84,7 @@ async def _read_resource_bytes(resource: Any) -> bytes:
         raise ValueError("protocol resource requires an endpoint URI or local path")
     if source.startswith(("http://", "https://")):
         validate_egress(source)
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=False) as client:
             response = await client.get(source)
             response.raise_for_status()
             return response.content

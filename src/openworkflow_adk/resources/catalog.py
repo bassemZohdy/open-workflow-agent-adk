@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
+from urllib.request import url2pathname
 
 import httpx
 import yaml
@@ -69,7 +70,7 @@ class CatalogFunctionRegistry:
         if parsed.scheme in {"http", "https"}:
             return uri
         if parsed.scheme == "file":
-            path = Path(unquote(parsed.path)).resolve()
+            path = Path(url2pathname(unquote(parsed.path))).resolve()
             root = Path(base_dir or Path.cwd()).resolve()
             try:
                 path.relative_to(root)

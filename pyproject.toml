@@ -19,8 +19,6 @@ dependencies = [
     "grpcio-tools>=1.60",
     "greenlet>=3.0",
     "httpx",
-    "hypothesis>=6.100",
-    "mutmut>=3.2",
     "asyncpg>=0.29",
     "redis>=5.0",
     "opentelemetry-api>=1.30",
@@ -42,12 +40,20 @@ dev = [
     "respx",
     "ruff",
     "testcontainers[postgres,redis]>=4.0",
+    "hypothesis>=6.100",
+    "mutmut>=3.2",
 ]
 brokers = [
     "aiokafka>=0.10",
     "aio-pika>=9.4",
     "nats-py>=2.7",
 ]
+
+[project.urls]
+Repository = "https://github.com/bassemZohdy/open-workflow-agent-adk"
+Documentation = "https://github.com/bassemZohdy/open-workflow-agent-adk/blob/main/docs/index.md"
+Changelog = "https://github.com/bassemZohdy/open-workflow-agent-adk/blob/main/CHANGELOG.md"
+Issues = "https://github.com/bassemZohdy/open-workflow-agent-adk/issues"
 
 [project.scripts]
 owf-adk = "openworkflow_adk.cli:main"
