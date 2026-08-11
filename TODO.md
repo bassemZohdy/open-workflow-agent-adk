@@ -271,8 +271,8 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
       in-progress runs for pull requests on the same ref.
 - [x] **C14.7 (P1) Enable uv caching.** Added `enable-cache: true` and
       `cache-dependency-glob: uv.lock / pyproject.toml` to every `setup-uv` step in `ci.yml`.
-- [ ] **C14.8 (P1) Path filtering.** Doc/example/`*.md`-only changes currently trigger the full
-      matrix + mutation + benchmark. Add `paths-ignore` or a `dorny/paths-filter` skip job.
+- [x] **C14.8 (P1) Path filtering.** Added `paths-ignore` for `**.md`, `docs/**`, and
+      `examples/**` to `ci.yml` push and pull_request triggers.
 - [ ] **C14.9 (P1) Pull mutation + benchmark off per-push.** `mutmut run` re-executes the suite many
       times — it's the most expensive job and runs on every push/PR. Move both to `schedule` (nightly)
       + `workflow_dispatch` + release tags. Add `timeout-minutes` to every job (esp. mutation: ~30)
