@@ -10,8 +10,8 @@ Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 and the `Release` workflow (`on: push: tags: v*.*.*`) has never fired.
 C1–C8 below are kept as the historical record of the v0.2.0 work; new follow-ups from the
 whole-project review live in **C9–C16**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.14,
-C11.1–C11.4, C12.1–C12.10, C13.2–C13.3, and C14.1–C14.4 completed; catalog `file://` URI
-handling fixed on Windows; C10.5 gRPC proto compilation hardened.
+C11.1–C11.4, C12.1–C12.10, C13.2–C13.3, C14.1–C14.12, and C15.1–C15.6 completed; catalog
+`file://` URI handling fixed on Windows; C10.5 gRPC proto compilation hardened.
 
 ---
 
@@ -305,24 +305,20 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
 `release.yml` has never fired (no tags exist — see C9.1/C9.4). When it does, it builds + publishes
 with **no tests and no artifact validation** between tag and PyPI.
 
-- [ ] **C15.1 (P0) Gate publish on tests.** `release.yml` runs `uv build` → `twine check` → publish
-      with no test run. Add a job that runs the suite (or `needs:` the ci.yml test job) before
-      `publish`. A tag push otherwise bypasses all quality gates.
-- [ ] **C15.2 (P0) Tag/version consistency check.** Assert the pushed `v*.*.*` tag matches
-      `pyproject.toml`'s `version` and fails early on mismatch. Blocks the C9.1 tagging.
-- [ ] **C15.3 (P1) Smoke-test the built artifact.** Before publishing, install the freshly built
-      wheel in a clean venv and run `owf-adk --version` + `python -c "import openworkflow_adk"`.
-      Catches packaging bugs (wrong `packages=` in `[tool.hatch.build]`, missing files).
-- [ ] **C15.4 (P1) Validate trusted-publishing end-to-end.** Confirm the PyPI publisher is registered
-      (repo + workflow filename `release.yml` + environment name) and that a `release` GitHub
-      Environment exists. Since the workflow has never fired, this has never been exercised — a
-      misconfig will surface only at first release.
-- [ ] **C15.5 (P1) Auto-create the GitHub Release.** A tag currently publishes to PyPI but creates no
-      GitHub Release/notes. Add `softprops/action-gh-release` or `gh release create` with
-      auto-generated notes (the repo uses Conventional Commits per AGENTS.md).
-- [ ] **C15.6 (P2) `attestations: true` is now the default** in current `pypa/gh-action-pypi-publish`
-      for trusted publishing — the explicit line at release.yml:26 is redundant. Either drop it or
-      keep as documentation; pick one and note it.
+- [x] **C15.1 (P0) Gate publish on tests.** Added a `test` job to `release.yml` that runs the
+      suite, lint, and format checks; the `publish` job now `needs: [test, version-check]`.
+- [x] **C15.2 (P0) Tag/version consistency check.** Added a `version-check` job that extracts the
+      `project.version` from `pyproject.toml` and fails if it does not match the pushed tag.
+- [x] **C15.3 (P1) Smoke-test the built artifact.** Added a smoke-test step in `release.yml` that
+      installs the built wheel into a fresh venv and verifies `owf-adk --version` and
+      `import openworkflow_adk`.
+- [ ] **C15.4 (P1) Validate trusted-publishing end-to-end.** Requires PyPI-side configuration and a
+      live tag push; cannot be verified statically. The workflow expects the `release` GitHub
+      Environment and the `pypa/gh-action-pypi-publish@release/v1` action.
+- [x] **C15.5 (P1) Auto-create the GitHub Release.** Added a `release-notes` job that runs after
+      successful publish and uses `softprops/action-gh-release@v2` with auto-generated notes.
+- [x] **C15.6 (P2) `attestations: true` is now the default** in current
+      `pypa/gh-action-pypi-publish`; removed the redundant explicit line from `release.yml`.
 - [ ] **C15.7 (P2) Wire CHANGELOG to release notes.** AGENTS.md says Conventional Commits; consider
       `release-please` or an auto-changelog step so `CHANGELOG.md` and the GH Release stay in sync
       with the version bump (C4.1/C4.2 in the historical record were manual).

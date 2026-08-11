@@ -5,16 +5,62 @@ on:
     tags: ["v*.*.*"]
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
-  publish:
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v9
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            uv.lock
+            pyproject.toml
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen --all-extras
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest
+
+  version-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v9
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            uv.lock
+            pyproject.toml
+      - name: Assert tag matches pyproject.toml version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VERSION=$(uvx --from toml-cli toml get --toml-path pyproject.toml project.version)
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Tag v$TAG does not match pyproject.toml version $VERSION"
+            exit 1
+          fi
+
+  publish:
+    needs: [test, version-check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: release
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v9
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            uv.lock
+            pyproject.toml
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -22,7 +68,22 @@ jobs:
       - run: uv build
       - name: Validate distributions
         run: uvx --from twine twine check dist/*
+      - name: Smoke-test built wheel
+        run: |
+          uv venv /tmp/owf-smoke --python python3.12
+          /tmp/owf-smoke/bin/pip install dist/*.whl
+          /tmp/owf-smoke/bin/owf-adk --version
+          /tmp/owf-smoke/bin/python -c "import openworkflow_adk"
       - name: Publish to PyPI with trusted publishing
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  release-notes:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          attestations: true
+          generate_release_notes: true
