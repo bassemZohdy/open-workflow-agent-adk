@@ -28,3 +28,10 @@ coverage.xml
 
 # OS / editor noise
 .DS_Store
+.idea/
+
+# Build artifacts / scratch directories
+*.whl
+*.tar.gz
+_dist-check/
+.tmp-test/

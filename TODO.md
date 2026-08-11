@@ -6,11 +6,11 @@ Forward-looking task list. Reference material in [`docs/`](docs/): [architecture
 Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 
 **Status:** v0.2.0 code has landed on `main` (`f78c0c1 Merge completed TODO work`) and is now
- tagged `v0.2.0`; `v0.1.0` tags the baseline commit `1897458`. The `agent/todo-complete-catalog-release`
-branch was not preserved, and the `Release` workflow (`on: push: tags: v*.*.*`) has never fired.
+ tagged `v0.2.0`; `v0.1.0` tags the baseline commit `1897458`. The release branch was not preserved,
+and the `Release` workflow (`on: push: tags: v*.*.*`) has never fired.
 C1–C8 below are kept as the historical record of the v0.2.0 work; new follow-ups from the
-whole-project review live in **C9–C15**. Latest cleanup pass: C9.1, C10.1–C10.3/C10.13,
-C11.1–C11.2, and C12.1–C12.4 completed; catalog `file://` URI handling fixed on Windows.
+whole-project review live in **C9–C15**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.3/C10.13,
+C11.1–C11.2, and C12.1–C12.8 completed; catalog `file://` URI handling fixed on Windows.
 
 ---
 
@@ -46,14 +46,15 @@ or bad pull and they're gone.
 
 - [x] **C1.1** Commit the restructuring as one focused commit (R1–R3 + R4.1/4.3/4.4 + R5 + R6.2–6.4 + R7.2).
 - [x] **C1.2** Commit catalog mode as a separate logical commit (B0–B6 + `examples/catalog/` + ADR 0008).
-- [x] **C1.3** Push both to `origin/agent/todo-complete-catalog-release`; draft PR targets `main`.
+- [x] **C1.3** ~~Push both to `origin/agent/todo-complete-catalog-release`; draft PR targets `main`.~~
+      Superseded — work landed on `main` via merge commit `f78c0c1`.
 
 ### C2 — Finish restructuring cleanup
 
 - [x] **R4.2 Module-level cleanup.** Remove dead exports, tighten docstrings, consolidate
       near-duplicate handlers across `resources/`/`ops/`/`tools/`.
 - [x] **R6.1 Confirm CI green on the release branch** after C1 lands (`.github/workflows/ci.yml`) —
-      run `31398202243` covers both the regrouped layout and catalog mode.
+      superseded by later CI runs on `main`; the original run ID is no longer verifiable.
 - [x] **R7.1 Baseline commit message** (`1897458`) still says "v1.0.0" — tag is correct at `v0.1.0`.
       Amend + `git push --force-with-lease` only if pristine history is wanted; else leave.
 
@@ -131,11 +132,10 @@ The historical C1–C8 record asserts a release state that does not exist in git
 
 - [x] **C9.1 Create the missing git tags.** Tagged `1897458` as `v0.1.0` and `f78c0c1` as
       `v0.2.0`; pushed both tags to `origin`.
-- [ ] **C9.2 Drop the `agent/todo-complete-catalog-release` citations.** C1.3 (L45) and R6.1 (L52)
-      reference a branch that does not exist locally or on `origin`. Mark superseded — work landed
-      via merge commit `f78c0c1`.
-- [ ] **C9.3 Remove the unverifiable CI run-ID.** R6.1 cites run `31398202243`; no anchor branch
-      remains to verify it. Replace with a permalink to a green run on `main`, or drop.
+- [x] **C9.2 Drop the `agent/todo-complete-catalog-release` citations.** Removed the branch name
+      from the status line and marked the C1.3 and R6.1 references as superseded.
+- [x] **C9.3 Remove the unverifiable CI run-ID.** Removed the `31398202243` reference from R6.1;
+      the original run is no longer verifiable.
 - [ ] **C9.4 Decide whether the Release workflow has ever published.** `.github/workflows/release.yml`
       triggers on `v*.*.*` tags, but no tags exist → PyPI publish has never fired. Confirm whether
       v0.2.0 was intended to ship and, if so, run the tag + publish flow.
@@ -217,18 +217,15 @@ gates matter. (C6 below the line is the prior hardening pass; these are new gaps
 - [x] **C12.3 (P1) Bump `AGENTS.md` status line.** Updated to "v0.2.0 delivered".
 - [x] **C12.4 (P1) Align `.env.example` secret name with the catalog example.** Changed
       `.env.example:24` to `WORKFLOW_SECRET__OPENAI_KEY` to match `examples/catalog/summarize.yaml`.
-- [ ] **C12.5 (P1) Document example prerequisites.** `examples/echo.yaml` needs `docker compose up
-      --wait` (hostname `http://echo:8080`); `rag.yaml` hits the non-routable `retriever.example`;
-      `approval.yaml` blocks on `listen` with no producer. Add a one-line prereq per example in
-      `examples/README.md`.
-- [ ] **C12.6 (P1) Fix `examples/catalog.json` descriptions to match the YAMLs.** `multi-agent.yaml`
-      is two sequential agents (not a coordinator), `rag.yaml` has no memory block, `approval.yaml`
-      only listens. Rewrite the gallery blurbs.
+- [x] **C12.5 (P1) Document example prerequisites.** Added a one-line prerequisite to each of
+      `echo.yaml`, `rag.yaml`, and `approval.yaml` in `examples/README.md`.
+- [x] **C12.6 (P1) Fix `examples/catalog.json` descriptions to match the YAMLs.** Rewrote the
+      blurbs for `approval`, `multi-agent`, and `rag` to match the actual workflow content.
 - [ ] **C12.7 (P2) `scripts/` has no index.** Add `scripts/README.md` mapping
       `check_mutation_score.py` (CI mutation job) and `fetch_schema.py` (refreshes
       `schema/vendor/1.0.3/`, currently unreferenced from CI/docs) to their use.
-- [ ] **C12.8 (P2) Extend `.gitignore`.** Add `.tmp-test/` (mutmut scratch), `_dist-check/`,
-      `.idea/`, `*.whl`, `*.tar.gz` (none currently tracked — preventive).
+- [x] **C12.8 (P2) Extend `.gitignore`.** Added `.tmp-test/`, `_dist-check/`, `.idea/`, `*.whl`,
+      and `*.tar.gz`.
 - [ ] **C12.9 (P2) Document the format hook's bash requirement.** `.claude/settings.json` PostToolUse
       hook uses `jq`/`tr`/`case…esac` (Unix-only); the project is developed on Windows (cmd.exe).
       Note the Git Bash/WSL requirement in `AGENTS.md`, or rewrite portably.
