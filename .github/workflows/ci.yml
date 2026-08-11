@@ -27,17 +27,9 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v9
-        with:
-          enable-cache: true
-          cache-dependency-glob: |
-            uv.lock
-            pyproject.toml
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-owf
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv sync --frozen --all-extras
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       # Current local baseline is 83%; keep a small margin for platform variance.
@@ -52,17 +44,9 @@ jobs:
         adk-version: ["2.6.3"]
         spec-version: ["1.0.3"]
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v9
-        with:
-          enable-cache: true
-          cache-dependency-glob: |
-            uv.lock
-            pyproject.toml
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-owf
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv sync --frozen --all-extras
       - run: uv run python -c "import importlib.metadata as m; assert m.version('google-adk') == '${{ matrix.adk-version }}'"
       - run: uv run pytest
 
@@ -70,17 +54,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v9
-        with:
-          enable-cache: true
-          cache-dependency-glob: |
-            uv.lock
-            pyproject.toml
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-owf
         with:
           python-version: "3.12"
-      - run: uv sync --frozen --all-extras
       - run: uv export --no-dev --no-emit-project --format requirements-txt > /tmp/owf-requirements.txt
       - run: uv run pip-audit -r /tmp/owf-requirements.txt --no-deps --disable-pip --strict
       - uses: anchore/sbom-action@v0
@@ -92,17 +68,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v9
-        with:
-          enable-cache: true
-          cache-dependency-glob: |
-            uv.lock
-            pyproject.toml
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-owf
         with:
           python-version: "3.12"
-      - run: uv sync --frozen --all-extras
       - run: uv run pytest tests/resources/test_memory_integration.py
         env:
           WORKFLOW_RUN_INTEGRATION_TESTS: "1"

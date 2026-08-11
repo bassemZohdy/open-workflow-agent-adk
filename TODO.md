@@ -286,9 +286,10 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
 - [x] **C14.12 (P1) Standardize `uv sync` flags.** Changed CI test jobs to
       `uv sync --frozen --all-extras` and added `uv sync --frozen --no-dev` to `release.yml` before
       the build step. `uv.lock` remains committed.
-- [ ] **C14.13 (P2) DRY the setup boilerplate.** The `checkout → setup-uv → setup-python → uv sync`
-      sequence is repeated 7× in ci.yml. Extract a reusable workflow
-      (`.github/workflows/_setup.yml`) or a composite action.
+- [x] **C14.13 (P2) DRY the setup boilerplate.** Created the composite action
+      `.github/actions/setup-owf/action.yml` and replaced the repeated
+      `checkout → setup-uv → setup-python → uv sync` sequence in `ci.yml`, `extended.yml`, and
+      `release.yml` with a single `uses: ./.github/actions/setup-owf` step.
 - [ ] **C14.14 (P2) Coverage upload + tighten gate.** Add `codecov/codecov-action@v5` to upload
       `coverage.xml`; bump `--cov-fail-under` from 80 → 83 to match the comment on ci.yml:22 (or
       document why 80 is the real bar). See Q4.
