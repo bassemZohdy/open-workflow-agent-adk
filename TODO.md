@@ -293,9 +293,9 @@ Action versions verified 2026-08-11 — re-verify quarterly (dependabot will hel
 - [x] **C14.14 (P2) Coverage upload + document gate.** Added `codecov/codecov-action@v5` to the
       `test` job to upload `coverage.xml`. Kept `--cov-fail-under=80` because the measured baseline
       is ~82%, so 80 provides a small margin for platform variance.
-- [ ] **C14.15 (P2) Lint the workflows themselves.** Add `actionlint` (syntax/style) + `zizmor`
-      (injection/permission patterns) as a CI job — both via `pip install`/`cargo install`. No
-      official GH Actions wrap them reliably; direct install is preferred.
+- [x] **C14.15 (P2) Lint the workflows themselves.** Added a `workflow-lint` job to `ci.yml`
+      that installs `actionlint-py` and `zizmor` from PyPI and runs them against
+      `.github/workflows` on every push/PR.
 - [ ] **C14.16 (P2) Security findings → SARIF/code-scanning.** `pip-audit` can emit SARIF (upload via
       `github/codeql-action/upload-sarif@v3`); pin `anchore/sbom-action@v0` to a major and consider
       uploading its SBOM to the GH dependency graph. Currently findings live only in the run log.

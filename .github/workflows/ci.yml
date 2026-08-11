@@ -78,3 +78,15 @@ jobs:
       - run: uv run pytest tests/resources/test_memory_integration.py
         env:
           WORKFLOW_RUN_INTEGRATION_TESTS: "1"
+
+  workflow-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install actionlint-py zizmor
+      - run: actionlint
+      - run: zizmor .github/workflows
