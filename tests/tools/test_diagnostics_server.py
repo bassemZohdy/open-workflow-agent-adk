@@ -1,7 +1,7 @@
 import io
 import json
 
-from openworkflow_adk import DiagnosticsServer, serve_stdio
+from openworkflow_adk.internal import DiagnosticsServer, serve_stdio
 
 SOURCE = """document:
   dsl: 1.0.3

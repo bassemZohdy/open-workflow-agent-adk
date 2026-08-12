@@ -1,4 +1,5 @@
-from openworkflow_adk import load, memory_service_for_document
+from openworkflow_adk import load
+from openworkflow_adk.internal import memory_service_for_document
 from openworkflow_adk.resources.memory import InMemoryMemoryService
 
 

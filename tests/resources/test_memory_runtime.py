@@ -1,4 +1,5 @@
-from openworkflow_adk import load, memory_service_for_document
+from openworkflow_adk import load
+from openworkflow_adk.internal import memory_service_for_document
 
 
 def test_agent_memory_reference_selects_memory_service() -> None:

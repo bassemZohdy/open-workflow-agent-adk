@@ -1,4 +1,5 @@
-from openworkflow_adk import MemoryConfig, create_memory_service
+from openworkflow_adk import MemoryConfig
+from openworkflow_adk.internal import create_memory_service
 
 
 def test_vertex_memory_uses_adk_native_service() -> None:

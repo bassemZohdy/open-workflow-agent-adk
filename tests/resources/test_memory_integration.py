@@ -4,7 +4,8 @@ import pytest
 from google.adk.memory.base_memory_service import MemoryEntry
 from google.genai import types
 
-from openworkflow_adk import MemoryConfig, create_memory_service
+from openworkflow_adk import MemoryConfig
+from openworkflow_adk.internal import create_memory_service
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("WORKFLOW_RUN_INTEGRATION_TESTS") != "1",

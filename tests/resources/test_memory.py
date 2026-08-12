@@ -1,12 +1,8 @@
 from google.adk.memory.base_memory_service import MemoryEntry
 from google.genai import types
 
-from openworkflow_adk import (
-    FileMemoryService,
-    InMemoryMemoryService,
-    MemoryConfig,
-    create_memory_service,
-)
+from openworkflow_adk import FileMemoryService, InMemoryMemoryService, MemoryConfig
+from openworkflow_adk.internal import create_memory_service
 
 
 async def test_in_memory_memory_round_trip() -> None:

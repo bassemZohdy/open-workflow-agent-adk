@@ -1,11 +1,7 @@
 import pytest
 
-from openworkflow_adk import (
-    WorkflowValidationError,
-    load,
-    resolve_memory_config,
-    resolve_provider_config,
-)
+from openworkflow_adk import WorkflowValidationError, load
+from openworkflow_adk.internal import resolve_memory_config, resolve_provider_config
 
 
 def test_provider_and_memory_registries_parse_and_environment_overrides() -> None:

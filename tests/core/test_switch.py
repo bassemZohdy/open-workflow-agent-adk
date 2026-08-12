@@ -1,6 +1,7 @@
 from google.adk.workflow._graph import DEFAULT_ROUTE
 
-from openworkflow_adk import build_workflow, load
+from openworkflow_adk import load
+from openworkflow_adk.internal import build_workflow
 
 
 def test_switch_builds_routed_edges() -> None:

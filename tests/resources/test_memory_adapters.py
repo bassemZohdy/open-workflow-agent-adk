@@ -1,9 +1,5 @@
-from openworkflow_adk import (
-    MemoryConfig,
-    PostgresMemoryService,
-    RedisMemoryService,
-    create_memory_service,
-)
+from openworkflow_adk import MemoryConfig, PostgresMemoryService, RedisMemoryService
+from openworkflow_adk.internal import create_memory_service
 
 
 def test_remote_memory_adapters_construct_without_connecting() -> None:

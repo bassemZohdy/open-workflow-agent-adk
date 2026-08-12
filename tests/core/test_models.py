@@ -1,14 +1,7 @@
 import pytest
 
-from openworkflow_adk import (
-    DocumentAdkMetadata,
-    ModelReference,
-    ModelSpec,
-    TaskAdkMetadata,
-    build_workflow,
-    load,
-    resolve_agent_characteristics,
-)
+from openworkflow_adk import DocumentAdkMetadata, ModelReference, ModelSpec, TaskAdkMetadata, load
+from openworkflow_adk.internal import build_workflow, resolve_agent_characteristics
 
 
 def test_named_model_reference_resolves_and_environment_can_repoint_bundle() -> None:

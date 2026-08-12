@@ -27,7 +27,7 @@ execution-backend track.**
 
 ### C16 — Best practices & architectural recommendations  *(P1/P2)*
 
-- [ ] **C16.5 (P2) Refine public API surface area in `__init__.py`.** `openworkflow_adk/__init__.py` exports many symbols (`__all__`). Separate internal infrastructure builders/transports into an internal namespace to preserve public API stability commitments.
+- [x] **C16.5 (P2) Refine public API surface area in `__init__.py`.** Moved internal infrastructure builders/transports (`build_workflow`, `create_llm`, `create_memory_service`, `memory_service_for_document`, `resolve_*`, `WorkflowWorker`, `PostgresPollingWorker`, `DiagnosticsServer`, `serve_stdio`, `load_schema`, `spec_drift_check`) to `openworkflow_adk.internal`. Root `__all__` now exposes the stable public surface; tests updated to import internals from the provisional namespace.
 
 ### C18 — Extended-flavor OpenWorkflow interoperability  *(P0)*
 

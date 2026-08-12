@@ -3,7 +3,8 @@ import os
 
 import pytest
 
-from openworkflow_adk import PostgresPollingWorker, WorkflowRegistry, load
+from openworkflow_adk import WorkflowRegistry, load
+from openworkflow_adk.internal import PostgresPollingWorker
 from openworkflow_adk.ops.postgres_history import PostgresRunHistory, PostgresRunHistoryConfig
 
 pytestmark = [

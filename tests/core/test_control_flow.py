@@ -1,4 +1,5 @@
-from openworkflow_adk import build_workflow, load
+from openworkflow_adk import load
+from openworkflow_adk.internal import build_workflow
 
 
 def test_competing_fork_is_single_coordinator_node() -> None:

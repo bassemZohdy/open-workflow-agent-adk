@@ -5,14 +5,8 @@ from google.adk.models.llm_request import LlmRequest
 from google.genai import types
 from httpx import Response
 
-from openworkflow_adk import (
-    OpenAICompatibleLlm,
-    ProviderConfig,
-    build_workflow,
-    create_llm,
-    load,
-    run_workflow,
-)
+from openworkflow_adk import OpenAICompatibleLlm, ProviderConfig, load, run_workflow
+from openworkflow_adk.internal import build_workflow, create_llm
 
 
 async def test_openai_compatible_adapter_calls_chat_completions(monkeypatch) -> None:

@@ -1,7 +1,7 @@
 from google.adk.workflow._function_node import FunctionNode
 
-from openworkflow_adk import build_workflow, load
-from openworkflow_adk.internal import NodeBuilderRegistry
+from openworkflow_adk import load
+from openworkflow_adk.internal import NodeBuilderRegistry, build_workflow
 
 
 def test_plugin_call_builder_can_add_extension_scheme() -> None:

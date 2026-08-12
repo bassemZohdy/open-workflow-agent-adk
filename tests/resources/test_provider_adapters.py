@@ -4,7 +4,8 @@ from google.adk.models.llm_request import LlmRequest
 from google.genai import types
 from httpx import Response
 
-from openworkflow_adk import AnthropicLlm, BedrockLlm, ProviderConfig, create_llm
+from openworkflow_adk import AnthropicLlm, BedrockLlm, ProviderConfig
+from openworkflow_adk.internal import create_llm
 
 
 def test_anthropic_and_bedrock_adapters_construct_from_provider_config(monkeypatch) -> None:
