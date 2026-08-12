@@ -102,16 +102,27 @@ class AgentCharacteristics(BaseModel):
     request_input: dict[str, Any] | None = None
 
 
-class AdkMetadata(BaseModel):
-    """ADK-specific configuration stored in OpenWorkflow metadata containers."""
+class TaskAdkMetadata(BaseModel):
+    """ADK task-level configuration allowed inside ``task.metadata.adk``."""
 
     model_config = ConfigDict(extra="forbid")
 
     agent: AgentCharacteristics | None = None
     self_heal: dict[str, Any] | None = None
+
+
+class DocumentAdkMetadata(BaseModel):
+    """ADK document-level configuration allowed inside ``document.metadata.adk``."""
+
+    model_config = ConfigDict(extra="forbid")
+
     models: dict[str, ModelSpec] | None = None
     providers: dict[str, ProviderConfig] | None = None
     memories: dict[str, MemoryConfig] | None = None
+
+
+AdkMetadata = TaskAdkMetadata | DocumentAdkMetadata
+"""Backward-compatible type alias for ADK metadata at either location."""
 
 
 class WorkflowMetadata(BaseModel):
@@ -159,11 +170,11 @@ class TaskBase(BaseModel):
     then: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    def adk_metadata(self) -> AdkMetadata | None:
+    def adk_metadata(self) -> TaskAdkMetadata | None:
         """Return validated ADK metadata if the task carries it."""
         payload = self.metadata.get("adk")
         if isinstance(payload, dict):
-            return AdkMetadata.model_validate(payload)
+            return TaskAdkMetadata.model_validate(payload)
         return None
 
     def effective_agent(self) -> AgentCharacteristics | None:
@@ -259,13 +270,13 @@ class OpenWorkflowDocument(BaseModel):
     output: Any = None
     schedule: dict[str, Any] | None = None
 
-    def adk_metadata(self) -> AdkMetadata | None:
+    def adk_metadata(self) -> DocumentAdkMetadata | None:
         """Return validated ADK metadata from document.metadata if present."""
         if self.document.metadata is None:
             return None
         payload = (self.document.metadata.model_extra or {}).get("adk")
         if isinstance(payload, dict):
-            return AdkMetadata.model_validate(payload)
+            return DocumentAdkMetadata.model_validate(payload)
         return None
 
     def effective_models(self) -> dict[str, ModelSpec]:

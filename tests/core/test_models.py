@@ -1,8 +1,10 @@
 import pytest
 
 from openworkflow_adk import (
+    DocumentAdkMetadata,
     ModelReference,
     ModelSpec,
+    TaskAdkMetadata,
     build_workflow,
     load,
     resolve_agent_characteristics,
@@ -84,3 +86,111 @@ def test_workflow_agent_uses_named_model_bundle() -> None:
     agent = workflow.edges[0][1]
     assert agent.model == "factory:resolved-model"
     assert agent.generate_content_config.temperature == 0.2
+
+
+def test_task_adk_metadata_rejects_document_only_fields() -> None:
+    with pytest.raises(ValueError, match="models"):
+        load(
+            {
+                "document": {
+                    "dsl": "1.0.3",
+                    "namespace": "demo",
+                    "name": "bad-task-meta",
+                    "version": "1.0.0",
+                },
+                "do": [
+                    {
+                        "answer": {
+                            "wait": {"seconds": 0},
+                            "metadata": {
+                                "adk": {
+                                    "agent": {"instruction": "hi"},
+                                    "models": {"fast": {"model": "gemini"}},
+                                }
+                            },
+                        }
+                    }
+                ],
+            }
+        )
+
+
+def test_document_adk_metadata_rejects_task_only_fields() -> None:
+    with pytest.raises(ValueError, match="agent"):
+        load(
+            {
+                "document": {
+                    "dsl": "1.0.3",
+                    "namespace": "demo",
+                    "name": "bad-doc-meta",
+                    "version": "1.0.0",
+                    "metadata": {
+                        "adk": {
+                            "agent": {"instruction": "hi"},
+                            "models": {"fast": {"model": "gemini"}},
+                        }
+                    },
+                },
+                "do": [{"answer": {"wait": {"seconds": 0}}}],
+            }
+        )
+
+
+def test_task_adk_metadata_accepts_agent_and_self_heal() -> None:
+    document = load(
+        {
+            "document": {
+                "dsl": "1.0.3",
+                "namespace": "demo",
+                "name": "task-meta",
+                "version": "1.0.0",
+            },
+            "do": [
+                {
+                    "answer": {
+                        "wait": {"seconds": 0},
+                        "metadata": {
+                            "adk": {
+                                "agent": {"instruction": "hi"},
+                                "self_heal": {"max_attempts": 2},
+                            }
+                        },
+                    }
+                }
+            ],
+        }
+    )
+    task_adk = document.do[0].task.adk_metadata()
+    assert isinstance(task_adk, TaskAdkMetadata)
+    assert task_adk.agent is not None
+    assert task_adk.agent.instruction == "hi"
+    assert task_adk.self_heal == {"max_attempts": 2}
+
+
+def test_document_adk_metadata_accepts_registries() -> None:
+    document = load(
+        {
+            "document": {
+                "dsl": "1.0.3",
+                "namespace": "demo",
+                "name": "doc-meta",
+                "version": "1.0.0",
+                "metadata": {
+                    "adk": {
+                        "models": {"fast": {"model": "gemini"}},
+                        "providers": {"gemini": {"type": "gemini"}},
+                        "memories": {"session": {"type": "in-memory"}},
+                    }
+                },
+            },
+            "do": [{"answer": {"wait": {"seconds": 0}}}],
+        }
+    )
+    doc_adk = document.adk_metadata()
+    assert isinstance(doc_adk, DocumentAdkMetadata)
+    assert doc_adk.models is not None
+    assert doc_adk.models["fast"].model == "gemini"
+    assert doc_adk.providers is not None
+    assert doc_adk.providers["gemini"].type == "gemini"
+    assert doc_adk.memories is not None
+    assert doc_adk.memories["session"].type == "in-memory"

@@ -10,7 +10,7 @@ Forward-looking task list. Reference material in [`docs/`](docs/): [architecture
 Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 
 **Status:** v0.2.0 code has landed on `main` and is tagged `v0.2.0`; catalog mode was removed in a
-follow-up commit. **Open: C9.4, C15.4, C16.5, C18, C19.7, C21.4–C21.5, and the new C23 PostgreSQL
+follow-up commit. **Open: C9.4, C15.4, C16.5, C18, C21.4–C21.5, and the new C23 PostgreSQL
 execution-backend track.**
 
 ---
@@ -45,7 +45,7 @@ Follow-ups from the legacy-encoding removal audit. These close inconsistencies a
 - [x] **C19.4 Make memory-service discovery recursive.** Added `_iter_tasks()` helper in `runtime.py`; `memory_service_for_document` now finds memory references in nested `do`, `try`, `catch.do`, and `fork.branches`.
 - [x] **C19.5 Make state-schema derivation recursive and cover switch cases.** `_task_keys()` now collects explicit `output_key` from nested agents via `effective_agent()` and extracts state names from `switch` case `when` expressions.
 - [x] **C19.6 Make diagnostics recursive.** Refactored `lint_workflow()` to recurse into nested task containers and report agent-instruction, switch-route, and duplicate-task diagnostics at the correct paths.
-- [ ] **C19.7 Scope `metadata.adk` contents by location.** Task-level `metadata.adk` should only allow `agent`/`self_heal`; document-level `metadata.adk` should only allow `models`/`providers`/`memories`. Either split `AdkMetadata` or add location-aware validation.
+- [x] **C19.7 Scope `metadata.adk` contents by location.** Split `AdkMetadata` into `TaskAdkMetadata` (task-level `agent`/`self_heal`) and `DocumentAdkMetadata` (document-level `models`/`providers`/`memories`). The loader routes each `metadata.adk` payload to the correct validator by path, and `AdkMetadata` is kept as a backward-compatible union alias.
 - [x] **C19.10 Harden metadata access in loader validators.** Added `_adk_agent_payload()` helper and hardened `_registries()`; non-dict `metadata` values no longer crash custom reference validators.
 - [x] **C19.8–C19.11** Completed — see archive.
 

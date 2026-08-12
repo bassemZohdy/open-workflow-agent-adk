@@ -10,7 +10,7 @@ from typing import Any
 from jsonschema import Draft202012Validator
 from pydantic import ValidationError
 
-from openworkflow_adk.models import AdkMetadata, OpenWorkflowDocument
+from openworkflow_adk.models import DocumentAdkMetadata, OpenWorkflowDocument, TaskAdkMetadata
 from openworkflow_adk.schema import load_schema_for
 
 
@@ -264,14 +264,16 @@ def _extension_errors(value: Any, path: str = "$") -> list[dict[str, str]]:
         if isinstance(value.get("metadata"), dict) and isinstance(
             value["metadata"].get("adk"), dict
         ):
+            adk_path = f"{path}.metadata.adk"
+            validator = (
+                DocumentAdkMetadata if adk_path == "$.document.metadata.adk" else TaskAdkMetadata
+            )
             try:
-                AdkMetadata.model_validate(value["metadata"]["adk"])
+                validator.model_validate(value["metadata"]["adk"])
             except ValidationError as exc:
                 for error in exc.errors():
                     location = ".".join(str(part) for part in error["loc"])
-                    errors.append(
-                        {"path": f"{path}.metadata.adk.{location}", "message": error["msg"]}
-                    )
+                    errors.append({"path": f"{adk_path}.{location}", "message": error["msg"]})
         for key, item in value.items():
             errors.extend(_extension_errors(item, f"{path}.{key}"))
     elif isinstance(value, list):

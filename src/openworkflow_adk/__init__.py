@@ -12,11 +12,13 @@ from openworkflow_adk.models import (
     AdkMetadata,
     AgentCharacteristics,
     CatalogConfig,
+    DocumentAdkMetadata,
     MemoryConfig,
     ModelReference,
     ModelSpec,
     OpenWorkflowDocument,
     ProviderConfig,
+    TaskAdkMetadata,
 )
 from openworkflow_adk.ops.health import WorkflowHealth, WorkflowHost
 from openworkflow_adk.ops.history import InMemoryRunHistory, RunRecord, SQLiteRunHistory
@@ -75,10 +77,12 @@ __all__ = [
     "AdkMetadata",
     "AgentCharacteristics",
     "CatalogConfig",
+    "DocumentAdkMetadata",
     "ModelReference",
     "ModelSpec",
     "ProviderConfig",
     "MemoryConfig",
+    "TaskAdkMetadata",
     "ResultMemoization",
     "WorkflowManager",
     "WorkflowRegistry",

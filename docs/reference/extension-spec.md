@@ -75,8 +75,9 @@ ones:
 
 The loader applies two-stage validation:
 
-1. Validate the ADK payload with Pydantic (`AdkMetadata`, `AgentCharacteristics`,
-   `ModelSpec`, `ProviderConfig`, `MemoryConfig`).
+1. Validate the ADK payload with Pydantic (`TaskAdkMetadata` inside
+   `task.metadata.adk`, `DocumentAdkMetadata` inside `document.metadata.adk`, plus
+   `AgentCharacteristics`, `ModelSpec`, `ProviderConfig`, `MemoryConfig`).
 2. Validate the document against the vendored OpenWorkflow v1.0.3 JSON Schema.
    The `metadata.adk` subtree is left intact because the upstream schema permits
    additional properties under `task.metadata` and `document.metadata`.
