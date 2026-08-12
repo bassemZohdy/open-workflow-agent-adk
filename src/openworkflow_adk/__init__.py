@@ -24,6 +24,7 @@ from openworkflow_adk.ops.health import WorkflowHealth, WorkflowHost
 from openworkflow_adk.ops.history import InMemoryRunHistory, RunRecord, SQLiteRunHistory
 from openworkflow_adk.ops.management import WorkflowManager
 from openworkflow_adk.ops.memoization import ResultMemoization
+from openworkflow_adk.ops.postgres_history import PostgresRunHistory
 from openworkflow_adk.ops.suspension import WorkflowSuspended
 from openworkflow_adk.ops.worker import WorkflowWorker
 from openworkflow_adk.resources.memory import (
@@ -105,6 +106,7 @@ __all__ = [
     "import_airflow",
     "import_argo",
     "SQLiteRunHistory",
+    "PostgresRunHistory",
     "Diagnostic",
     "DiagnosticsServer",
     "serve_stdio",

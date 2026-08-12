@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import os
 import time
 from collections.abc import Awaitable, Callable
@@ -17,6 +18,7 @@ from openworkflow_adk.models import OpenWorkflowDocument
 from openworkflow_adk.ops import replay as _replay
 from openworkflow_adk.ops.history import InMemoryRunHistory, SQLiteRunHistory
 from openworkflow_adk.ops.logging import JsonRunLogger
+from openworkflow_adk.ops.postgres_history import PostgresRunHistory
 from openworkflow_adk.ops.schedule import trigger_events
 from openworkflow_adk.ops.suspension import WorkflowSuspended
 from openworkflow_adk.ops.telemetry import WorkflowTelemetry
@@ -57,6 +59,14 @@ replay_from_task = _replay.replay_from_task
 verify_replay_determinism = _replay.verify_replay_determinism
 
 
+async def _call_history_method(history: Any, method: str, *args: Any, **kwargs: Any) -> Any:
+    """Invoke a sync or async history method and await the result if needed."""
+    result = getattr(history, method)(*args, **kwargs)
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
+
 async def run_workflow(
     document: OpenWorkflowDocument,
     input: dict[str, Any] | None = None,
@@ -68,7 +78,7 @@ async def run_workflow(
     function_registry: dict[str, Callable[..., Any]] | None = None,
     session_backend: str | None = None,
     workflow_registry: WorkflowRegistry | None = None,
-    history: InMemoryRunHistory | SQLiteRunHistory | None = None,
+    history: InMemoryRunHistory | SQLiteRunHistory | PostgresRunHistory | None = None,
     run_logger: JsonRunLogger | Callable[[dict[str, Any]], None] | None = None,
     telemetry: WorkflowTelemetry | None = None,
     memory_service: BaseMemoryService | None = None,
@@ -90,7 +100,7 @@ async def run_workflow(
         raise ValueError("resume requires a persistent run history")
     if resume and history is not None:
         try:
-            prior = history.get(session_id)
+            prior = await _call_history_method(history, "get", session_id)
         except KeyError:
             prior = None
         if prior is not None and prior.checkpoint_task:
@@ -135,7 +145,9 @@ async def run_workflow(
         self_healer=self_healer,
     )
     if history is not None and not resume:
-        history.start(session_id, document.document.name, input or {}, region=region)
+        await _call_history_method(
+            history, "start", session_id, document.document.name, input or {}, region=region
+        )
     secret_values = [
         value for name in document.use.secrets if (value := resolve_secret(name)) is not None
     ]
@@ -222,7 +234,9 @@ async def run_workflow(
             if event.actions:
                 state.update(event.actions.state_delta or {})
             if history is not None:
-                history.record_event(session_id, _event_log_entry(event))
+                await _call_history_method(
+                    history, "record_event", session_id, _event_log_entry(event)
+                )
             if (
                 history is not None
                 and interval
@@ -230,7 +244,9 @@ async def run_workflow(
                 and not event.error_code
                 and not event.error_message
             ):
-                history.checkpoint(
+                await _call_history_method(
+                    history,
+                    "checkpoint",
                     session_id,
                     state=redact(state, secret_values),
                     index=len(events),
@@ -247,7 +263,9 @@ async def run_workflow(
     except WorkflowSuspended as suspension:
         if history is None:
             raise
-        history.suspend(
+        await _call_history_method(
+            history,
+            "suspend",
             session_id,
             state=redact(state, secret_values),
             index=len(events),
@@ -268,7 +286,13 @@ async def run_workflow(
     except Exception as error:
         safe_error = RuntimeError(str(redact(str(error), secret_values)))
         if history is not None:
-            history.finish(session_id, state=redact(state, secret_values), error=safe_error)
+            await _call_history_method(
+                history,
+                "finish",
+                session_id,
+                state=redact(state, secret_values),
+                error=safe_error,
+            )
         if run_logger:
             run_logger(
                 {
@@ -280,7 +304,9 @@ async def run_workflow(
             )
         raise
     if history is not None:
-        history.finish(
+        await _call_history_method(
+            history,
+            "finish",
             session_id,
             state=redact(state, secret_values),
             output=redact(events[-1].output if events else None, secret_values),
