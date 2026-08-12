@@ -136,3 +136,23 @@ async def test_polling_worker_lease_extends_during_execution(history) -> None:
     assert result is not None
     extended = await history.extend_lease("lease-run", worker._worker_id, lease_seconds=5.0)
     assert not extended
+
+
+async def test_polling_worker_reclaims_expired_lease(postgres_url) -> None:
+    config = PostgresRunHistoryConfig(url=postgres_url, schema="polling", namespace_id="reclaim")
+    store = PostgresRunHistory(config)
+    await store.connect()
+    try:
+        await store.enqueue_run("reclaim-run", "polled", input={}, workflow_namespace="demo")
+        first = await store.claim_run("worker-1", lease_seconds=0.5)
+        assert first is not None
+        await asyncio.sleep(0.7)
+
+        second = await store.claim_run("worker-2", lease_seconds=5.0)
+        assert second is not None
+        assert second.run_id == "reclaim-run"
+        record = await store.get("reclaim-run")
+        assert record.status == "running"
+        assert record.workflow != "worker-1"
+    finally:
+        await store.close()

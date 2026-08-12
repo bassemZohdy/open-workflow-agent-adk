@@ -487,9 +487,13 @@ class PostgresRunHistory:
                 SELECT run_id
                 FROM {self._table}.workflow_runs
                 WHERE namespace_id = $1
-                  AND status = 'pending'
+                  AND status IN ('pending', 'running')
                   AND (available_at IS NULL OR available_at <= NOW())
-                ORDER BY created_at ASC, run_id ASC
+                ORDER BY
+                    CASE WHEN status = 'pending' THEN 0 ELSE 1 END,
+                    available_at ASC NULLS FIRST,
+                    created_at ASC,
+                    run_id ASC
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED
             )
