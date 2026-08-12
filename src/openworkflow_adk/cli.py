@@ -95,6 +95,11 @@ def main() -> int:
     _add_file_and_mode_args(test_parser)
     test_parser.add_argument("--fixtures", type=Path, required=True)
 
+    serve_parser = commands.add_parser("serve", help="serve a workflow over HTTP")
+    _add_file_and_mode_args(serve_parser)
+    serve_parser.add_argument("--host", default="127.0.0.1", help="bind host")
+    serve_parser.add_argument("--port", type=int, default=8080, help="bind port")
+
     commands.add_parser("diagnostics-server", help="serve editor diagnostics over stdio")
     args = parser.parse_args()
 
@@ -150,6 +155,15 @@ def main() -> int:
             reports.append({"case": case.get("name", str(index)), "passed": passed})
         print(json.dumps(reports, indent=2))
         return 0 if all(item["passed"] for item in reports) else 1
+    if args.command == "serve":
+        from openworkflow_adk.server import serve as serve_app
+
+        serve_app(
+            load(args.file, mode=args.mode),
+            host=args.host,
+            port=args.port,
+        )
+        return 0
     if args.command == "diagnostics-server":
         serve_stdio()
         return 0

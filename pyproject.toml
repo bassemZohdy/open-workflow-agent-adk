@@ -48,6 +48,10 @@ brokers = [
     "aio-pika>=9.4",
     "nats-py>=2.7",
 ]
+server = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+]
 
 [project.urls]
 Repository = "https://github.com/bassemZohdy/open-workflow-agent-adk"

@@ -10,10 +10,9 @@ tagged `v0.2.0`; `v0.1.0` tags the baseline commit `1897458`. The release branch
 and the `Release` workflow (`on: push: tags: v*.*.*`) has never fired.
 C1–C8 below are kept as the historical record of the v0.2.0 work; follow-ups from the whole-project
 review live in **C9–C18**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.14, C11.1–C11.4, C12.1–C12.10,
-C13.1–C13.5, C14.1–C14.17, C15.1–C15.7, and C17.1–C17.10 completed; catalog `file://` URI handling fixed on
-Windows; C10.5 gRPC proto compilation hardened. **Open: C18 (extended-flavor interoperability) tracks
-making ADK extensions valid OpenWorkflow v1.0.3 so other implementors can parse the same YAML without
-error.**
+C13.1–C13.5, C14.1–C14.17, C15.1–C15.7, C17.1–C17.10, and C21.1–C21.3/C21.6–C21.7 completed; catalog
+`file://` URI handling fixed on Windows; C10.5 gRPC proto compilation hardened. **Open: C18
+(extended-flavor interoperability) and C21.4/C21.5 (server sessions + protocol adapters).**
 
 ---
 
@@ -565,3 +564,30 @@ Docs, editor integration, changelog, and public API cleanup.
 - [ ] **C20.11 Export `AdkMetadata` or make `adk_metadata()` private.**
       `TaskBase.adk_metadata()` and `OpenWorkflowDocument.adk_metadata()` return
       `AdkMetadata`, which is not in `openworkflow_adk.__all__`.
+
+---
+
+### C21 — API-first agent serving  *(P1 — strategic direction)*
+
+Shift the primary consumption model from CLI-driven workflow execution to
+API-calling agents/workflows. Reuse ADK-native protocol support instead of
+building custom interface layers.
+
+- [x] **C21.1 Decide on serving stack and protocols.** HTTP/REST first via
+      FastAPI + Uvicorn; A2A/MCP/OpenAPI adapters deferred to C21.5.
+- [x] **C21.2 Add a `serve` CLI command or library entrypoint.** Added
+      `owf-adk serve workflow.yaml --host --port` and `openworkflow_adk.server.serve()`.
+- [x] **C21.3 Define request/response shape.** `POST /run` accepts JSON
+      `{input, session_id, user_id}` and returns `{workflow, events}`; `POST /run/stream`
+      returns collected events as an SSE stream; `GET /health` reports workflow name.
+- [ ] **C21.4 Wire persistent sessions/history.** Server-mode runs use
+      `run_workflow` directly, but explicit session/history backend configuration
+      for long-lived server processes is not yet exposed.
+- [ ] **C21.5 Add protocol-specific adapters.** A2A (workflow as ADK agent), MCP
+      (workflow tasks as tools), and OpenAPI spec generation remain future work.
+- [x] **C21.6 Security defaults.** Bind defaults to `127.0.0.1`; egress validation
+      and secret resolution are inherited from `run_workflow`. Production TLS/auth
+      still requires a reverse proxy.
+- [x] **C21.7 Tests and examples.** Added `tests/tools/test_server.py` covering
+      health, run, and streaming endpoints. A curl/example snippet can be added
+      under `examples/` in a follow-up.
