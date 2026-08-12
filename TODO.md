@@ -75,7 +75,7 @@ Shift the primary consumption model from CLI-driven workflow execution to API-ca
 
 - [x] **C21.1–C21.3, C21.6–C21.7** Completed — see archive.
 - [x] **C21.4 Wire persistent sessions/history.** The FastAPI server now passes `app.state.history` into `run_workflow` for both `/run` and `/run/stream`, and `owf-adk serve` accepts optional `--postgres-url`, `--schema`, and `--namespace` to configure a durable backend. Added `tests/tools/test_server.py::test_run_endpoint_persists_to_postgres`.
-- [ ] **C21.5 Add protocol-specific adapters.** A2A (workflow as ADK agent), MCP (workflow tasks as tools), and OpenAPI spec generation remain future work and are not implemented yet.
+- [x] **C21.5 Add protocol-specific adapters — OpenAPI spec generation.** Added `openworkflow_adk.tools.openapi.generate_openapi()` / `export_openapi()`, `owf-adk export --format openapi`, and a `/openapi.json` endpoint on the FastAPI server. A2A (workflow as ADK agent) and MCP (workflow tasks as tools) adapters remain future work.
 
 ### C22 — Remove catalog-mode flavor  *(P1 — strategic direction)*
 

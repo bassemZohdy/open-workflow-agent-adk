@@ -55,9 +55,14 @@ def main() -> int:
     _add_file_and_mode_args(export_parser)
     export_parser.add_argument(
         "--format",
-        choices=("openworkflow",),
+        choices=("openworkflow", "openapi"),
         default="openworkflow",
         help="output format",
+    )
+    export_parser.add_argument(
+        "--base-url",
+        default="http://localhost:8080",
+        help="base URL for generated OpenAPI specs",
     )
     export_parser.add_argument(
         "--output",
@@ -138,11 +143,16 @@ def main() -> int:
         print(json.dumps([item.as_dict() for item in diagnostics], indent=2))
         return 1 if any(item.severity == "error" for item in diagnostics) else 0
     if args.command == "export":
-        raw = load_raw(args.file)
-        pure = _to_pure_openworkflow(raw)
-        import yaml
+        if args.format == "openapi":
+            from openworkflow_adk.tools.openapi import export_openapi
 
-        output = yaml.safe_dump(pure, sort_keys=False)
+            output = export_openapi(_load_document(args), base_url=args.base_url)
+        else:
+            raw = load_raw(args.file)
+            pure = _to_pure_openworkflow(raw)
+            import yaml
+
+            output = yaml.safe_dump(pure, sort_keys=False)
         if args.output:
             args.output.write_text(output)
         else:

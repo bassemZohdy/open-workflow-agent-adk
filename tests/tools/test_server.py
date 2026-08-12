@@ -72,6 +72,35 @@ def test_run_endpoint_executes_workflow() -> None:
     assert data["events"]
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("fastapi") is None or importlib.util.find_spec("uvicorn") is None,
+    reason="server extras not installed",
+)
+def test_openapi_json_endpoint() -> None:
+    from fastapi.testclient import TestClient
+
+    from openworkflow_adk.server import create_app
+
+    document = load(
+        {
+            "document": {
+                "dsl": "1.0.3",
+                "namespace": "demo",
+                "name": "openapi-served",
+                "version": "1.0.0",
+            },
+            "do": [{"finish": {"set": {"value": 1}}}],
+        }
+    )
+    client = TestClient(create_app(document))
+    response = client.get("/openapi.json")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["openapi"] == "3.1.0"
+    assert "/run" in data["paths"]
+    assert "/metrics" in data["paths"]
+
+
 @pytest.fixture(scope="module")
 def postgres_url():
     try:

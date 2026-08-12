@@ -12,6 +12,12 @@ from openworkflow_adk.models import OpenWorkflowDocument
 from openworkflow_adk.ops.history import InMemoryRunHistory, SQLiteRunHistory
 from openworkflow_adk.ops.postgres_history import PostgresRunHistory, PostgresRunHistoryConfig
 from openworkflow_adk.runtime import run_workflow
+from openworkflow_adk.tools.openapi import generate_openapi
+
+try:
+    from fastapi import Request
+except ImportError:  # pragma: no cover - server extras may be missing at import time
+    Request = Any  # type: ignore[misc,assignment]
 
 
 class RunRequest(BaseModel):
@@ -64,7 +70,13 @@ def create_app(
             if isinstance(app.state.history, PostgresRunHistory):
                 await app.state.history.close()
 
-    app = FastAPI(title=f"owf-adk: {document.document.name}", lifespan=lifespan)
+    app = FastAPI(
+        title=f"owf-adk: {document.document.name}",
+        lifespan=lifespan,
+        openapi_url=None,
+        docs_url=None,
+        redoc_url=None,
+    )
     app.state.history = history
 
     @app.get("/health")
@@ -75,6 +87,11 @@ def create_app(
     async def metrics() -> PlainTextResponse:
         body = await _prometheus_metrics(app.state.history)
         return PlainTextResponse(content=body, media_type="text/plain; version=0.0.4")
+
+    @app.get("/openapi.json")
+    async def openapi(request: Request) -> JSONResponse:
+        spec = generate_openapi(document, base_url=str(request.base_url))
+        return JSONResponse(content=spec)
 
     @app.post("/run")
     async def run(payload: RunRequest = Body(...)) -> JSONResponse:

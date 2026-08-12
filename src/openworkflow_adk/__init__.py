@@ -53,6 +53,7 @@ from openworkflow_adk.tools.diagnostics import (
 from openworkflow_adk.tools.exports import export_temporal
 from openworkflow_adk.tools.generation import WorkflowGenerationError, generate_workflow
 from openworkflow_adk.tools.importers import import_airflow, import_argo
+from openworkflow_adk.tools.openapi import export_openapi, generate_openapi
 from openworkflow_adk.tools.optimization import SimplificationResult, simplify_workflow
 from openworkflow_adk.tools.patterns import debate_pattern, hierarchical_pattern, map_reduce_pattern
 from openworkflow_adk.tools.plugins import PluginManifest, PluginRegistry
@@ -92,6 +93,8 @@ __all__ = [
     "WorkflowHost",
     "import_airflow",
     "import_argo",
+    "generate_openapi",
+    "export_openapi",
     "SQLiteRunHistory",
     "PostgresRunHistory",
     "Diagnostic",
