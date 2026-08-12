@@ -343,6 +343,25 @@ async def run(document: OpenWorkflowDocument, input: dict[str, Any] | None = Non
     return await run_workflow(document, input)
 
 
+def _iter_tasks(items: list[Any]) -> Any:
+    """Recursively yield TaskItem instances from a task list and nested bodies."""
+    from openworkflow_adk.models import TaskItem
+
+    for item in items:
+        if isinstance(item, dict):
+            item = TaskItem.model_validate(item)
+        yield item
+        task = item.task
+        for child in [*(task.do or []), *(task.try_ or [])]:
+            yield from _iter_tasks([child])
+        catch = getattr(task, "catch", None)
+        if isinstance(catch, dict):
+            yield from _iter_tasks(catch.get("do", []))
+        if isinstance(task.fork, dict):
+            for branch in task.fork.get("branches", []):
+                yield from _iter_tasks([branch])
+
+
 def memory_service_for_document(document: OpenWorkflowDocument) -> BaseMemoryService | None:
     """Build the first referenced memory backend for a workflow host.
 
@@ -350,7 +369,7 @@ def memory_service_for_document(document: OpenWorkflowDocument) -> BaseMemorySer
     multiple stores should use separate hosts until a routing memory service
     is introduced.
     """
-    for item in document.do:
+    for item in _iter_tasks(document.do):
         agent_config = item.task.effective_agent()
         if agent_config and agent_config.memory:
             reference = agent_config.memory.use

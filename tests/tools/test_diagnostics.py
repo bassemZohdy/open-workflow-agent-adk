@@ -39,3 +39,34 @@ def test_plan_and_mermaid_include_compiled_edges() -> None:
 
     assert {"first", "second"} <= set(plan["nodes"])
     assert "first --> second" in workflow_mermaid(document)
+
+
+def test_linter_recurse_into_nested_tasks_for_missing_instruction() -> None:
+    document = load(
+        {
+            "document": {
+                "dsl": "1.0.3",
+                "namespace": "demo",
+                "name": "nested",
+                "version": "1.0.0",
+            },
+            "do": [
+                {
+                    "outer": {
+                        "do": [
+                            {
+                                "inner": {
+                                    "wait": {"seconds": 0},
+                                    "metadata": {"adk": {"agent": {"model": "gemini-2.5-flash"}}},
+                                }
+                            }
+                        ]
+                    }
+                }
+            ],
+        }
+    )
+
+    diagnostics = lint_workflow(document)
+
+    assert any(item.code == "agent-instruction" and "inner" in item.message for item in diagnostics)

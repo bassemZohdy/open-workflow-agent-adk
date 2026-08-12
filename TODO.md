@@ -10,8 +10,8 @@ Forward-looking task list. Reference material in [`docs/`](docs/): [architecture
 Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 
 **Status:** v0.2.0 code has landed on `main` and is tagged `v0.2.0`; catalog mode was removed in a
-follow-up commit. **Open: C9.4, C15.4, C16.5, C18, C19.3–C19.4/C19.6–C19.7/C19.22–C19.23, C21.4–C21.5,
-and the new C23 PostgreSQL execution-backend track.**
+follow-up commit. **Open: C9.4, C15.4, C16.5, C18, C19.3/C19.7/C19.22, C21.4–C21.5, and the new C23
+PostgreSQL execution-backend track.**
 
 ---
 
@@ -42,9 +42,9 @@ Follow-ups from the legacy-encoding removal audit. These close inconsistencies a
 #### Code fixes
 
 - [ ] **C19.3 Resolve/validate sub-agent model references.** Sub-agents inherit `AgentCharacteristics` but their `model: {use: name}` references are not resolved in `tasks/agent.py` or validated in `loader.py`.
-- [ ] **C19.4 Make memory-service discovery recursive.** `runtime.memory_service_for_document` only scans top-level `document.do`; nested agents in `do`, `try`, `fork`, or `switch` are missed.
+- [x] **C19.4 Make memory-service discovery recursive.** Added `_iter_tasks()` helper in `runtime.py`; `memory_service_for_document` now finds memory references in nested `do`, `try`, `catch.do`, and `fork.branches`.
 - [x] **C19.5 Make state-schema derivation recursive and cover switch cases.** `_task_keys()` now collects explicit `output_key` from nested agents via `effective_agent()` and extracts state names from `switch` case `when` expressions.
-- [ ] **C19.6 Make diagnostics recursive.** `tools/diagnostics.py` only lints top-level tasks; nested tasks are not checked.
+- [x] **C19.6 Make diagnostics recursive.** Refactored `lint_workflow()` to recurse into nested task containers and report agent-instruction, switch-route, and duplicate-task diagnostics at the correct paths.
 - [ ] **C19.7 Scope `metadata.adk` contents by location.** Task-level `metadata.adk` should only allow `agent`/`self_heal`; document-level `metadata.adk` should only allow `models`/`providers`/`memories`. Either split `AdkMetadata` or add location-aware validation.
 - [x] **C19.10 Harden metadata access in loader validators.** Added `_adk_agent_payload()` helper and hardened `_registries()`; non-dict `metadata` values no longer crash custom reference validators.
 - [x] **C19.8–C19.11** Completed — see archive.
@@ -53,13 +53,7 @@ Follow-ups from the legacy-encoding removal audit. These close inconsistencies a
 
 - [x] **C19.20–C19.21** Completed — see archive.
 - [ ] **C19.22 Add tests for sub-agent model reference resolution/validation.**
-- [ ] **C19.23 Add tests for nested agent memory and state-schema coverage.**
-
-#### Tests
-
-- [x] **C19.20–C19.21** Completed — see archive.
-- [ ] **C19.22 Add tests for sub-agent model reference resolution/validation.**
-- [ ] **C19.23 Add tests for nested agent memory and state-schema coverage.**
+- [x] **C19.23 Add tests for nested agent memory and state-schema coverage.** Covered by new tests for C19.4 (nested memory) and C19.5 (nested state schema).
 
 ### C20 — Documentation and schema hygiene  *(P1)*
 
@@ -135,7 +129,7 @@ Per-task detail is in git history + the `v0.1.0`/`v0.2.0` tags; design rationale
 - **C16.1–C16.4** — path traversal, gRPC isolation, worker recovery, cross-platform JSONata timeouts.
 - **C17.1–C17.10** — flavor gaps; superseded by C22 when catalog mode was removed.
 - **C18.1–C18.11** — extended-flavor interoperability: `metadata.adk` encoding, loader validation, translator updates, examples, round-trip tests, export/lint helpers, legacy removal.
-- **C19.1–C19.2, C19.5, C19.8–C19.11, C19.20–C19.21** — diagnostic path, recursive state-schema derivation, agent boolean removal, legacy rejection, CLI catalog-mode reconciliation, rejection tests, agent-boolean tests. **C19.10** hardened metadata access in loader validators.
+- **C19.1–C19.6, C19.8–C19.11, C19.20–C19.21** — diagnostic path, recursive memory-service discovery, recursive state-schema derivation, recursive diagnostics, agent boolean removal, legacy rejection, CLI catalog-mode reconciliation, rejection tests, agent-boolean tests. **C19.10** hardened metadata access in loader validators.
 - **C20.1–C20.11** — VS Code snippet, stale JSON extension schema rewrite, ADR 0001/0005/0008 updates, upstream proposal update, `.env.example` comments, configuration doc fix, CHANGELOG entry, `CLAUDE.md` metadata mention, `AdkMetadata` export.
 - **C21.1–C21.3, C21.6–C21.7** — HTTP/REST server decision, `owf-adk serve`, request/response shape, localhost defaults, server tests.
 - **C22.1–C22.8** — catalog mode removal: runtime/registry, CLI, models, loader, tests, examples, docs, lockfile + green verification.
