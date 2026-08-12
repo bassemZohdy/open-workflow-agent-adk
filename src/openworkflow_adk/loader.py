@@ -44,22 +44,30 @@ def _parse_source(source: str | Path | dict[str, Any]) -> dict[str, Any]:
 def _adk_agent_present(value: Any) -> bool:
     """Return True when any task carries ``metadata.adk.agent``."""
     if isinstance(value, dict):
-        metadata = value.get("metadata")
-        if isinstance(metadata, dict) and isinstance(metadata.get("adk"), dict):
-            if isinstance(metadata["adk"].get("agent"), dict):
-                return True
+        if isinstance(_adk_agent_payload(value), dict):
+            return True
         return any(_adk_agent_present(item) for item in value.values())
     if isinstance(value, list):
         return any(_adk_agent_present(item) for item in value)
     return False
 
 
+def _adk_agent_payload(value: dict[str, Any]) -> Any | None:
+    """Safely return ``value.metadata.adk.agent`` when it is a dict, else None."""
+    metadata = value.get("metadata")
+    if not isinstance(metadata, dict):
+        return None
+    adk = metadata.get("adk")
+    if not isinstance(adk, dict):
+        return None
+    agent = adk.get("agent")
+    return agent if isinstance(agent, dict) else None
+
+
 def _model_reference_errors(value: Any, models: set[str], path: str = "$") -> list[dict[str, str]]:
     errors: list[dict[str, str]] = []
     if isinstance(value, dict):
-        metadata_adk = (
-            value.get("metadata", {}).get("adk", {}).get("agent") if value.get("metadata") else None
-        )
+        metadata_adk = _adk_agent_payload(value)
         if isinstance(metadata_adk, dict) and isinstance(metadata_adk.get("model"), dict):
             reference = metadata_adk["model"].get("use")
             if reference not in models:
@@ -82,9 +90,7 @@ def _registry_reference_errors(
 ) -> list[dict[str, str]]:
     errors: list[dict[str, str]] = []
     if isinstance(value, dict):
-        metadata_adk = (
-            value.get("metadata", {}).get("adk", {}).get("agent") if value.get("metadata") else None
-        )
+        metadata_adk = _adk_agent_payload(value)
         if isinstance(metadata_adk, dict):
             for field, known, label in (
                 ("memory", memories, "memory"),
@@ -129,7 +135,15 @@ def _contains_adk_extension(value: Any) -> bool:
 
 def _registries(raw: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Return model/provider/memory registries from ``document.metadata.adk``."""
-    adk = ((raw.get("document") or {}).get("metadata") or {}).get("adk") or {}
+    document = raw.get("document")
+    if not isinstance(document, dict):
+        return {}, {}, {}
+    metadata = document.get("metadata")
+    if not isinstance(metadata, dict):
+        return {}, {}, {}
+    adk = metadata.get("adk")
+    if not isinstance(adk, dict):
+        return {}, {}, {}
     return (
         adk.get("models") or {},
         adk.get("providers") or {},

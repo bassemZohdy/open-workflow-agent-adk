@@ -95,3 +95,31 @@ def test_legacy_use_models_registry_is_rejected_with_migration_hint() -> None:
         )
 
     assert any("legacy 'use.models'" in error["message"] for error in raised.value.errors)
+
+
+def test_non_dict_metadata_does_not_crash_validators() -> None:
+    """C19.10: loader validators must not assume metadata is a dict."""
+    with pytest.raises(WorkflowValidationError) as raised:
+        load(
+            {
+                "document": {
+                    "dsl": "1.0.3",
+                    "namespace": "demo",
+                    "name": "x",
+                    "version": "1.0.0",
+                    "metadata": "not-a-dict",
+                },
+                "do": [
+                    {
+                        "task": {
+                            "wait": {"seconds": 1},
+                            "metadata": ["also", "not", "a", "dict"],
+                        }
+                    }
+                ],
+            }
+        )
+
+    # The failure should come from upstream schema validation, not an AttributeError
+    # in our custom reference validators.
+    assert raised.value.errors

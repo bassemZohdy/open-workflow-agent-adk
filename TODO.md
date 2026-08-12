@@ -10,8 +10,8 @@ Forward-looking task list. Reference material in [`docs/`](docs/): [architecture
 Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 
 **Status:** v0.2.0 code has landed on `main` and is tagged `v0.2.0`; catalog mode was removed in a
-follow-up commit. **Open: C9.4, C15.4, C16.5, C18, C19.3–C19.7/C19.10/C19.22–C19.23, C20.2/C20.6,
-C21.4–C21.5, and the new C23 PostgreSQL execution-backend track.**
+follow-up commit. **Open: C9.4, C15.4, C16.5, C18, C19.3–C19.7/C19.22–C19.23, C21.4–C21.5, and the
+new C23 PostgreSQL execution-backend track.**
 
 ---
 
@@ -46,7 +46,7 @@ Follow-ups from the legacy-encoding removal audit. These close inconsistencies a
 - [ ] **C19.5 Make state-schema derivation recursive and cover switch cases.** `state.py` only adds top-level agent `output_key` values; nested agents and switch branches are skipped.
 - [ ] **C19.6 Make diagnostics recursive.** `tools/diagnostics.py` only lints top-level tasks; nested tasks are not checked.
 - [ ] **C19.7 Scope `metadata.adk` contents by location.** Task-level `metadata.adk` should only allow `agent`/`self_heal`; document-level `metadata.adk` should only allow `models`/`providers`/`memories`. Either split `AdkMetadata` or add location-aware validation.
-- [ ] **C19.10 Harden metadata access in loader validators.** The chained `value.get("metadata", {}).get("adk", {}).get("agent")` guards assume `metadata` is a dict; non-dict values crash with `AttributeError`.
+- [x] **C19.10 Harden metadata access in loader validators.** Added `_adk_agent_payload()` helper and hardened `_registries()`; non-dict `metadata` values no longer crash custom reference validators.
 - [x] **C19.8–C19.11** Completed — see archive.
 
 #### Tests
@@ -65,11 +65,11 @@ Follow-ups from the legacy-encoding removal audit. These close inconsistencies a
 
 Docs, editor integration, changelog, and public API cleanup.
 
-- [ ] **C20.2 Rewrite or remove stale JSON extension schema.** `docs/schema/agent-characteristics.json` describes the old direct-task `agent` object and is referenced by `.vscode/settings.json` and `docs/guides/editor-integration.md`.
+- [x] **C20.2 Rewrite stale JSON extension schema.** `docs/schema/agent-characteristics.json` now describes the `metadata.adk` container (task-level `agent`/`self_heal` and document-level `models`/`providers`/`memories`).
 - [x] **C20.3 Update ADR 0001.** Marked superseded; now describes `task.metadata.adk.agent` and rejects the legacy `agent:` key.
 - [x] **C20.4 Update ADR 0005.** Now describes `document.metadata.adk.models` and the `{use: name}` reference object.
 - [x] **C20.5 Update ADR 0008.** `docs/decisions/0008-workflow-flavors.md` now describes the removal of catalog mode.
-- [ ] **C20.6 Update upstream proposal.** `docs/proposals/0001-agent-characteristics-upstream.md` still uses the legacy encoding.
+- [x] **C20.6 Update upstream proposal.** `docs/proposals/0001-agent-characteristics-upstream.md` now proposes `task.metadata.adk.agent` and `document.metadata.adk` registries.
 - [x] **C20.7–C20.8** Completed — see archive.
 - [x] **C20.9 Mention `metadata.adk` in `CLAUDE.md`.** The architectural baseline now names the `metadata.adk` container for task-level and document-level config.
 - [x] **C20.10** Completed — see archive.
@@ -135,7 +135,7 @@ Per-task detail is in git history + the `v0.1.0`/`v0.2.0` tags; design rationale
 - **C16.1–C16.4** — path traversal, gRPC isolation, worker recovery, cross-platform JSONata timeouts.
 - **C17.1–C17.10** — flavor gaps; superseded by C22 when catalog mode was removed.
 - **C18.1–C18.11** — extended-flavor interoperability: `metadata.adk` encoding, loader validation, translator updates, examples, round-trip tests, export/lint helpers, legacy removal.
-- **C19.1–C19.2, C19.8–C19.11, C19.20–C19.21** — diagnostic path, agent boolean removal, legacy rejection, CLI catalog-mode reconciliation, rejection tests, agent-boolean tests.
-- **C20.1, C20.3–C20.5, C20.7–C20.11** — VS Code snippet, ADR 0001/0005/0008 updates, `.env.example` comments, configuration doc fix, CHANGELOG entry, `CLAUDE.md` metadata mention, `AdkMetadata` export.
+- **C19.1–C19.2, C19.8–C19.11, C19.20–C19.21** — diagnostic path, agent boolean removal, legacy rejection, CLI catalog-mode reconciliation, rejection tests, agent-boolean tests. **C19.10** hardened metadata access in loader validators.
+- **C20.1–C20.11** — VS Code snippet, stale JSON extension schema rewrite, ADR 0001/0005/0008 updates, upstream proposal update, `.env.example` comments, configuration doc fix, CHANGELOG entry, `CLAUDE.md` metadata mention, `AdkMetadata` export.
 - **C21.1–C21.3, C21.6–C21.7** — HTTP/REST server decision, `owf-adk serve`, request/response shape, localhost defaults, server tests.
 - **C22.1–C22.8** — catalog mode removal: runtime/registry, CLI, models, loader, tests, examples, docs, lockfile + green verification.
