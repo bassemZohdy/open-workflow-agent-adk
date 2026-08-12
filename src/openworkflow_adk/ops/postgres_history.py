@@ -587,6 +587,133 @@ class PostgresRunHistory:
         )
         return await self.get(run_id)
 
+    async def stats_summary(
+        self,
+        *,
+        workflow: str | None = None,
+        workflow_namespace: str | None = None,
+        status: str | None = None,
+        started_after: datetime | None = None,
+        started_before: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Return aggregate run counts and duration percentiles."""
+        pool = await self._pool_ref()
+        conditions = ["namespace_id = $1"]
+        args: list[Any] = [self.config.namespace_id]
+        if workflow is not None:
+            args.append(workflow)
+            conditions.append(f"workflow = ${len(args)}")
+        if workflow_namespace is not None:
+            args.append(workflow_namespace)
+            conditions.append(f"workflow_namespace = ${len(args)}")
+        if status is not None:
+            args.append(status)
+            conditions.append(f"status = ${len(args)}")
+        if started_after is not None:
+            args.append(started_after)
+            conditions.append(f"started_at >= ${len(args)}")
+        if started_before is not None:
+            args.append(started_before)
+            conditions.append(f"started_at <= ${len(args)}")
+        where_clause = " AND ".join(conditions)
+
+        count_row = await pool.fetchrow(
+            f"""
+            SELECT COUNT(*) AS total,
+                   COUNT(*) FILTER (WHERE status = 'completed') AS completed,
+                   COUNT(*) FILTER (WHERE status = 'failed') AS failed,
+                   COUNT(*) FILTER (WHERE status = 'running') AS running,
+                   COUNT(*) FILTER (WHERE status = 'pending') AS pending,
+                   COUNT(*) FILTER (WHERE status = 'suspended') AS suspended,
+                   COUNT(*) FILTER (WHERE status = 'canceled') AS canceled
+            FROM {self._table}.workflow_runs
+            WHERE {where_clause}
+            """,
+            *args,
+        )
+        duration_row = await pool.fetchrow(
+            f"""
+            SELECT
+                PERCENTILE_CONT(0.50) WITHIN GROUP (
+                    ORDER BY EXTRACT(EPOCH FROM (finished_at - started_at))
+                ) AS p50,
+                PERCENTILE_CONT(0.95) WITHIN GROUP (
+                    ORDER BY EXTRACT(EPOCH FROM (finished_at - started_at))
+                ) AS p95,
+                PERCENTILE_CONT(0.99) WITHIN GROUP (
+                    ORDER BY EXTRACT(EPOCH FROM (finished_at - started_at))
+                ) AS p99
+            FROM {self._table}.workflow_runs
+            WHERE {where_clause}
+              AND status = 'completed'
+              AND started_at IS NOT NULL
+              AND finished_at IS NOT NULL
+            """,
+            *args,
+        )
+        return {
+            "total": count_row["total"] if count_row else 0,
+            "by_status": {
+                "completed": count_row["completed"] if count_row else 0,
+                "failed": count_row["failed"] if count_row else 0,
+                "running": count_row["running"] if count_row else 0,
+                "pending": count_row["pending"] if count_row else 0,
+                "suspended": count_row["suspended"] if count_row else 0,
+                "canceled": count_row["canceled"] if count_row else 0,
+            },
+            "duration_seconds": {
+                "p50": float(duration_row["p50"]) if duration_row and duration_row["p50"] else None,
+                "p95": float(duration_row["p95"]) if duration_row and duration_row["p95"] else None,
+                "p99": float(duration_row["p99"]) if duration_row and duration_row["p99"] else None,
+            },
+        }
+
+    async def failure_summary(
+        self,
+        *,
+        workflow: str | None = None,
+        workflow_namespace: str | None = None,
+        started_after: datetime | None = None,
+        started_before: datetime | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Return recent failed runs with error text."""
+        pool = await self._pool_ref()
+        conditions = ["namespace_id = $1", "status = 'failed'"]
+        args: list[Any] = [self.config.namespace_id]
+        if workflow is not None:
+            args.append(workflow)
+            conditions.append(f"workflow = ${len(args)}")
+        if workflow_namespace is not None:
+            args.append(workflow_namespace)
+            conditions.append(f"workflow_namespace = ${len(args)}")
+        if started_after is not None:
+            args.append(started_after)
+            conditions.append(f"started_at >= ${len(args)}")
+        if started_before is not None:
+            args.append(started_before)
+            conditions.append(f"started_at <= ${len(args)}")
+        where_clause = " AND ".join(conditions)
+        query = f"""
+            SELECT run_id, workflow, error, started_at, finished_at
+            FROM {self._table}.workflow_runs
+            WHERE {where_clause}
+            ORDER BY finished_at DESC NULLS LAST
+            LIMIT ${len(args) + 1}
+        """
+        args.append(limit)
+        rows = await pool.fetch(query, *args)
+        return [
+            {
+                "run_id": row["run_id"],
+                "workflow": row["workflow"],
+                "error": row["error"],
+                "started_at": row["started_at"].isoformat() if row["started_at"] else None,
+                "finished_at": row["finished_at"].isoformat() if row["finished_at"] else None,
+            }
+            for row in rows
+        ]
+
     def _record_from_row(self, row: Any) -> RunRecord:
         return RunRecord(
             run_id=row["run_id"],

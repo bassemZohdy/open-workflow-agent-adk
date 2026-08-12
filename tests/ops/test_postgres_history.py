@@ -199,3 +199,45 @@ async def test_postgres_history_step_attempts_are_isolated_by_namespace(postgres
     finally:
         await ns_a.close()
         await ns_b.close()
+
+
+async def test_postgres_history_stats_summary(postgres_url) -> None:
+    config = PostgresRunHistoryConfig(url=postgres_url, schema="test_owf", namespace_id="stats")
+    store = PostgresRunHistory(config)
+    await store.connect()
+    try:
+        await store.start("run-1", "wf-a", {})
+        await store.finish("run-1", state={}, output="done")
+        await store.start("run-2", "wf-a", {})
+        await store.finish("run-2", state={}, error=RuntimeError("boom"))
+        await store.start("run-3", "wf-b", {})
+
+        summary = await store.stats_summary()
+        assert summary["total"] == 3
+        assert summary["by_status"]["completed"] == 1
+        assert summary["by_status"]["failed"] == 1
+        assert summary["by_status"]["running"] == 1
+        assert summary["duration_seconds"]["p50"] is not None
+
+        filtered = await store.stats_summary(workflow="wf-a")
+        assert filtered["total"] == 2
+        assert filtered["by_status"]["completed"] == 1
+    finally:
+        await store.close()
+
+
+async def test_postgres_history_failure_summary(postgres_url) -> None:
+    config = PostgresRunHistoryConfig(url=postgres_url, schema="test_owf", namespace_id="failures")
+    store = PostgresRunHistory(config)
+    await store.connect()
+    try:
+        await store.start("fail-1", "wf", {})
+        await store.finish("fail-1", state={}, error=RuntimeError("first"))
+        await store.start("fail-2", "wf", {})
+        await store.finish("fail-2", state={}, error=RuntimeError("second"))
+
+        failures = await store.failure_summary()
+        assert len(failures) == 2
+        assert all(f["error"] is not None for f in failures)
+    finally:
+        await store.close()
