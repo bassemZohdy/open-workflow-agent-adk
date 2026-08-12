@@ -8,8 +8,7 @@ from pathlib import Path
 
 from openworkflow_adk.loader import _contains_adk_extension, _to_pure_openworkflow, load, load_raw
 from openworkflow_adk.models import OpenWorkflowDocument
-from openworkflow_adk.resources.catalog import CatalogFunctionRegistry, with_catalog_functions
-from openworkflow_adk.runtime import _has_agent, run_workflow
+from openworkflow_adk.runtime import run_workflow
 from openworkflow_adk.tools.diagnostics import (
     Diagnostic,
     lint_workflow,
@@ -21,33 +20,11 @@ from openworkflow_adk.tools.diagnostics_server import serve_stdio
 
 def _add_file_and_mode_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("file", type=Path)
-    parser.add_argument("--mode", choices=("auto", "extended", "catalog"), default="auto")
-    parser.add_argument(
-        "--catalog-base-dir",
-        type=Path,
-        help="Base directory for resolving relative catalog function URIs",
-    )
-
-
-def _catalog_mode(document: OpenWorkflowDocument, mode: str) -> bool:
-    """Mirror load-time and runtime catalog detection."""
-    if mode == "catalog":
-        return True
-    if mode != "auto":
-        return False
-    return not _has_agent(document.do) and any(
-        item.functions for item in document.use.catalogs.values()
-    )
+    parser.add_argument("--mode", choices=("auto", "extended"), default="auto")
 
 
 def _load_document(args: argparse.Namespace) -> OpenWorkflowDocument:
-    document = load(args.file, mode=args.mode)
-    base_dir = args.catalog_base_dir or args.file.parent
-    if _catalog_mode(document, args.mode):
-        document = with_catalog_functions(
-            document, CatalogFunctionRegistry(), base_dir=str(base_dir)
-        )
-    return document
+    return load(args.file, mode=args.mode)
 
 
 def main() -> int:
@@ -143,7 +120,6 @@ def main() -> int:
                     document,
                     case.get("input", {}),
                     mode=args.mode,
-                    catalog_base_dir=str(args.catalog_base_dir or args.file.parent),
                 )
             )
             outputs = [event.output for event in events if event.output is not None]
@@ -180,7 +156,6 @@ def main() -> int:
             load(args.file, mode=args.mode),
             input_data,
             mode=args.mode,
-            catalog_base_dir=str(args.catalog_base_dir or args.file.parent),
         )
     )
     for event in events:

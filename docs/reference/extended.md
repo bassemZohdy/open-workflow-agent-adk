@@ -158,5 +158,5 @@ Use extended mode when you need:
 - Multi-agent teams.
 - Tight integration with ADK runners and telemetry.
 
-For portable, spec-pure workflows that delegate AI behavior to an external
-function catalog, use [catalog mode](catalogs.md) instead.
+For portable, spec-pure workflows, keep shared logic in `use.functions` or
+expose it through agent tools.

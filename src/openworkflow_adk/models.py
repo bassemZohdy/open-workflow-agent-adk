@@ -56,12 +56,11 @@ class MemoryConfig(BaseModel):
 
 
 class CatalogConfig(BaseModel):
-    """Reusable catalog endpoint and optional external function file."""
+    """Reusable catalog endpoint (ignored by the ADK translator)."""
 
     model_config = ConfigDict(extra="allow")
 
     endpoint: Any = None
-    functions: str | None = None
 
 
 class ModelReference(BaseModel):

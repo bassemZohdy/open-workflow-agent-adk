@@ -7,6 +7,8 @@
   `self_heal`); project-level registries go in `document.metadata.adk`
   (`models`, `providers`, `memories`). The legacy direct forms (`agent:`,
   `self_heal:`, `use.models:`, `use.providers:`, `use.memories:`) are removed.
+- **Breaking**: Catalog mode is removed. The project now supports only the
+  extended flavor; `use.catalogs` is ignored by the translator.
 - Added `owf-adk export --format openworkflow` and `owf-adk lint --strict`
   helpers for interoperable pure-OpenWorkflow output.
 

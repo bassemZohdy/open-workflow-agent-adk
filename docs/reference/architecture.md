@@ -12,7 +12,7 @@ workflow.yaml/json
    ▼
 OpenWorkflowDocument (typed pydantic model)
    │  2. validate ADK payload (`metadata.adk`) with Pydantic
-   │  3. strip catalog `functions` (not ADK properties) and validate against vendored 1.0.3 schema
+   │  3. validate against vendored OpenWorkflow v1.0.3 schema
    │  4. resolve config (env > per-task `metadata.adk.agent` > project defaults)
    ▼
 Resolved tasks + agent characteristics

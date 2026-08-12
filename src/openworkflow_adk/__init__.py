@@ -23,7 +23,6 @@ from openworkflow_adk.ops.management import WorkflowManager
 from openworkflow_adk.ops.memoization import ResultMemoization
 from openworkflow_adk.ops.suspension import WorkflowSuspended
 from openworkflow_adk.ops.worker import WorkflowWorker
-from openworkflow_adk.resources.catalog import CatalogFunctionRegistry
 from openworkflow_adk.resources.memory import (
     FileMemoryService,
     InMemoryMemoryService,
@@ -37,7 +36,7 @@ from openworkflow_adk.resources.providers import (
     OpenAICompatibleLlm,
     create_llm,
 )
-from openworkflow_adk.resources.templates import load_template_catalog
+from openworkflow_adk.resources.templates import load_example_gallery
 from openworkflow_adk.runtime import (
     memory_service_for_document,
     replay_event_log,
@@ -130,7 +129,7 @@ __all__ = [
     "OidcMetadata",
     "SamlMetadata",
     "build_workflow",
-    "load_template_catalog",
+    "load_example_gallery",
     "graph_to_document",
     "graph_to_yaml",
     "WorkflowWorker",
@@ -148,5 +147,4 @@ __all__ = [
     "AuditEntry",
     "AuditLog",
     "WorkflowSuspended",
-    "CatalogFunctionRegistry",
 ]

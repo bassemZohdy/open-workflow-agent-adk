@@ -10,7 +10,5 @@ The process sandbox is best-effort. It applies POSIX resource limits and Linux
 seccomp profile. Sandboxed code can therefore still make outbound network
 connections; use container or deployment-level network policy for isolation.
 
-Catalog HTTP resources do not follow redirects. Local catalog files must be
-under the workflow's catalog base directory, which prevents `file://` path
-traversal. Keep catalog sources trusted and configure
-`WORKFLOW_EGRESS_ALLOWLIST` for approved hosts.
+Configure `WORKFLOW_EGRESS_ALLOWLIST` for approved hosts so `call: http` tasks
+and agent tools can only reach intended endpoints.

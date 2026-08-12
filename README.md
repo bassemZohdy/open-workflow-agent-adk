@@ -32,10 +32,8 @@ event-driven automation.
 ## Choose a workflow flavor
 
 Use **extended mode** when you want inline ADK agents, tools, memory, or teams
-through `task.metadata.adk.agent`. Use **catalog mode** when workflows must remain spec-pure and
-reusable functions should be shared from an external catalog. The CLI and Python
-API support explicit `extended`, `catalog`, or `auto` selection. See the
-[workflow flavors guide](docs/flavors.md).
+through `task.metadata.adk.agent`. The CLI and Python API support `--mode auto|extended`.
+See the [workflow flavors guide](docs/flavors.md).
 
 ## Quick start
 

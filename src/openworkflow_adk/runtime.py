@@ -21,7 +21,6 @@ from openworkflow_adk.ops.schedule import trigger_events
 from openworkflow_adk.ops.suspension import WorkflowSuspended
 from openworkflow_adk.ops.telemetry import WorkflowTelemetry
 from openworkflow_adk.resources.broker import Broker, InMemoryBroker
-from openworkflow_adk.resources.catalog import CatalogFunctionRegistry, with_catalog_functions
 from openworkflow_adk.resources.memory import create_memory_service
 from openworkflow_adk.security.security import redact, resolve_secret
 from openworkflow_adk.tools.registry import WorkflowRegistry
@@ -85,8 +84,6 @@ async def run_workflow(
     self_healer: Callable[[Exception, dict[str, Any]], Any] | None = None,
     region: str | None = None,
     mode: str = "auto",
-    catalog_registry: CatalogFunctionRegistry | None = None,
-    catalog_base_dir: str | None = None,
 ) -> list[Any]:
     """Run a translated workflow using the selected ADK session backend."""
     if resume and history is None:
@@ -116,22 +113,8 @@ async def run_workflow(
                     break
             else:
                 raise KeyError(f"checkpoint task {prior.checkpoint_task!r} is not in workflow")
-    if mode not in {"auto", "extended", "catalog"}:
-        raise ValueError("mode must be auto, extended, or catalog")
-    has_agent = _has_agent(document.do)
-    if mode == "catalog" and has_agent:
-        raise ValueError("catalog mode does not allow the agent extension")
-    catalog_mode = mode == "catalog" or (
-        mode == "auto"
-        and not has_agent
-        and any(item.functions for item in document.use.catalogs.values())
-    )
-    if catalog_mode:
-        document = with_catalog_functions(
-            document,
-            catalog_registry or CatalogFunctionRegistry(),
-            base_dir=catalog_base_dir,
-        )
+    if mode not in {"auto", "extended"}:
+        raise ValueError("mode must be auto or extended")
     workflow = build_workflow(
         document,
         broker=broker or InMemoryBroker(),

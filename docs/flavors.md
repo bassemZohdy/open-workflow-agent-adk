@@ -1,34 +1,9 @@
 # Workflow flavors
 
-OpenWorkflow ADK supports two ways to add AI behavior to a workflow.
+OpenWorkflow ADK focuses on a single authoring flavor: **extended mode**.
 
-| Flavor | AI boundary | Best for |
-| --- | --- | --- |
-| Extended | `metadata.adk.agent` on a task | ADK-native agents, tools, memory, teams, and inline instructions |
-| Catalog | `call: <function>` resolved from `catalog.functions` | Spec-pure workflows that share reusable functions |
-
-The shared pipeline is:
-
-```text
-load → validate → resolve catalogs/functions → translate → run
-```
-
-Catalog mode adds a reusable function-resolution step before the existing
-`call: function` path. It does not change extended-mode agent translation.
-
-## Selecting a flavor
-
-The CLI and API accept `--mode auto|extended|catalog`.
-
-`auto` is the default. It selects extended mode when an ADK agent is present
-(`task.metadata.adk.agent`), and catalog mode when a workflow references a
-catalog with a `functions` URI. Pass an explicit mode when a deployment wants a
-hard policy.
-
-## Extended mode example
-
-Extended workflows use `task.metadata.adk.agent` to invoke an ADK agent inline.
-Reusable models, providers, and memories are registered under
+Extended workflows use `task.metadata.adk.agent` to invoke a Google ADK agent
+inline. Reusable models, providers, and memories are registered under
 `document.metadata.adk`:
 
 ```yaml
@@ -66,48 +41,18 @@ same file and ignore the `metadata.adk` block.
 Use extended mode when you need ADK agents, tools, memory, agent teams, or
 inline instruction authoring.
 
-## Catalog mode example
+## Mode selection
 
-Catalog workflows keep AI behavior in a separate, reusable `functions` file.
-The workflow itself is spec-pure OpenWorkflow:
+The CLI and API accept `--mode auto|extended`. `auto` is the default and simply
+selects extended mode when an ADK agent is present (`task.metadata.adk.agent`).
+Pass `--mode extended` to enforce a hard policy.
 
-```yaml
-document:
-  dsl: '1.0.3'
-  namespace: examples
-  name: greeting
-  version: '1.0.0'
-use:
-  catalogs:
-    shared:
-      functions: functions.yaml
-do:
-  - greet:
-      call: makeGreeting
-```
+## Reusable functions
 
-`functions.yaml` defines ordinary tasks under a top-level `functions` key:
+Workflow-level `use.functions` remains available in OpenWorkflow v1.0.3 for
+in-document reusable functions. External function catalogs are no longer
+supported by this translator; keep shared logic in `use.functions` or behind
+agent tools.
 
-```yaml
-functions:
-  makeGreeting:
-    set:
-      greeting: '"hello"'
-```
-
-Use catalog mode when you want portable, spec-pure workflows or when multiple
-workflows share the same function library.
-
-## When to pick which
-
-- Choose **extended** for agent-centric workflows, rich tool use, ADK memory,
-  multi-agent teams, or when you want model/provider configuration inline.
-- Choose **catalog** when portability and shared reusable functions matter
-  more than ADK-specific agent features, or when you are integrating with an
-  existing OpenWorkflow function catalog.
-- Use **`auto`** to let the runtime decide from the document shape, or pass an
-  explicit `--mode` to enforce a policy.
-
-See [ADR 0008](decisions/0008-workflow-flavors.md), the
-[catalog reference](reference/catalogs.md), and the
+See [ADR 0008](decisions/0008-workflow-flavors.md) and the
 [extended reference](reference/extended.md).

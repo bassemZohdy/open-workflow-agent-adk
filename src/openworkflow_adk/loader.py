@@ -137,36 +137,15 @@ def _registries(raw: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], di
     )
 
 
-def _strip_catalog_functions(value: Any, parent: str | None = None) -> Any:
-    """Return a copy with catalog ``functions`` URIs stripped.
-
-    The vendored OpenWorkflow schema allows only ``endpoint`` under
-    ``use.catalogs.<name>``; ``functions`` is an ADK catalog-mode extension.
-    """
-    if isinstance(value, dict):
-        return {
-            key: _strip_catalog_functions(item, "catalog" if parent == "catalogs" else key)
-            for key, item in value.items()
-            if not (parent == "catalog" and key == "functions")
-        }
-    if isinstance(value, list):
-        return [_strip_catalog_functions(item, parent) for item in value]
-    return value
-
-
 def _to_pure_openworkflow(value: Any, parent: str | None = None) -> Any:
-    """Return a copy with ADK metadata and catalog extensions stripped."""
+    """Return a copy with ADK metadata stripped."""
 
     if isinstance(value, dict):
         if parent == "metadata":
             return {
                 key: _to_pure_openworkflow(item, key) for key, item in value.items() if key != "adk"
             }
-        return {
-            key: _to_pure_openworkflow(item, "catalog" if parent == "catalogs" else key)
-            for key, item in value.items()
-            if not (parent == "catalog" and key == "functions")
-        }
+        return {key: _to_pure_openworkflow(item, key) for key, item in value.items()}
     if isinstance(value, list):
         return [_to_pure_openworkflow(item, parent) for item in value]
     return value
@@ -254,18 +233,10 @@ def load_raw(source: str | Path | dict[str, Any]) -> dict[str, Any]:
 
 def load(source: str | Path | dict[str, Any], *, mode: str = "auto") -> OpenWorkflowDocument:
     """Load YAML/JSON text, a file, or a mapping into a typed document."""
-    if mode not in {"auto", "extended", "catalog"}:
-        raise ValueError("mode must be auto, extended, or catalog")
+    if mode not in {"auto", "extended"}:
+        raise ValueError("mode must be auto or extended")
     raw = _parse_source(source)
     errors = _legacy_extension_errors(raw)
-    has_agent = _adk_agent_present(raw)
-    catalog_mode = mode == "catalog" or (
-        mode == "auto" and not has_agent and _catalog_has_functions(raw)
-    )
-    if catalog_mode and has_agent:
-        raise WorkflowValidationError(
-            [{"path": "$", "message": "catalog mode does not allow the agent extension"}]
-        )
     errors.extend(_extension_errors(raw))
     model_registry, provider_registry, memory_registry = _registries(raw)
     errors.extend(_model_reference_errors(raw, set(model_registry)))
@@ -295,7 +266,7 @@ def load(source: str | Path | dict[str, Any], *, mode: str = "auto") -> OpenWork
                 ),
                 "message": error.message,
             }
-            for error in Draft202012Validator(schema).iter_errors(_strip_catalog_functions(raw))
+            for error in Draft202012Validator(schema).iter_errors(raw)
         )
     if errors:
         raise WorkflowValidationError(errors)
@@ -308,10 +279,3 @@ def load(source: str | Path | dict[str, Any], *, mode: str = "auto") -> OpenWork
                 for error in exc.errors()
             ]
         ) from exc
-
-
-def _catalog_has_functions(value: Any) -> bool:
-    catalogs = value.get("use", {}).get("catalogs", {}) if isinstance(value, dict) else {}
-    return isinstance(catalogs, dict) and any(
-        isinstance(item, dict) and item.get("functions") for item in catalogs.values()
-    )

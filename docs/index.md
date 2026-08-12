@@ -8,5 +8,4 @@
 - [Upstream sync](guides/upstream-sync.md)
 - [Examples](../examples/README.md)
 - [Workflow flavors](flavors.md)
-- [Catalog mode](reference/catalogs.md)
 - [Contributing](../CONTRIBUTING.md)

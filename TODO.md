@@ -10,9 +10,9 @@ tagged `v0.2.0`; `v0.1.0` tags the baseline commit `1897458`. The release branch
 and the `Release` workflow (`on: push: tags: v*.*.*`) has never fired.
 C1–C8 below are kept as the historical record of the v0.2.0 work; follow-ups from the whole-project
 review live in **C9–C18**. Latest cleanup pass: C9.1–C9.3, C10.1–C10.14, C11.1–C11.4, C12.1–C12.10,
-C13.1–C13.5, C14.1–C14.17, C15.1–C15.7, C17.1–C17.10, and C21.1–C21.3/C21.6–C21.7 completed; catalog
-`file://` URI handling fixed on Windows; C10.5 gRPC proto compilation hardened. **Open: C18
-(extended-flavor interoperability) and C21.4/C21.5 (server sessions + protocol adapters).**
+C13.1–C13.5, C14.1–C14.17, C15.1–C15.7, C17.1–C17.10 (superseded by C22), C21.1–C21.3/C21.6–C21.7,
+and C22.1–C22.7 completed; C10.5 gRPC proto compilation hardened. **Open: C18 (extended-flavor
+interoperability), C21.4/C21.5 (server sessions + protocol adapters), and C22.8 (lockfile + green).**
 
 ---
 
@@ -349,68 +349,24 @@ Follow-ups from the deep-dive best practices review and codebase validation.
 
 ### C17 — Flavor (extended/catalog mode) gaps  *(P0/P1)*
 
+:warning: **Superseded by C22.** Catalog mode was removed; only extended mode remains. This section
+is kept as historical context.
+
 Findings from a focused review of the two-flavor system ([ADR 0008](docs/decisions/0008-workflow-flavors.md)).
-Catalog function resolution (`with_catalog_functions`) is called in **exactly one place**
-(`runtime.py:99`) — so catalog mode only works end-to-end through `owf-adk run`. Verified by direct
-read 2026-08-11.
+Catalog function resolution (`with_catalog_functions`) was called in exactly one place
+(`runtime.py:99`) — so catalog mode only worked end-to-end through `owf-adk run`.
 
 #### Implementation bugs
 
-- [ ] **C17.1 (P0) `lint`/`plan`/`graph` never resolve catalog functions.** `with_catalog_functions`
-      is invoked only inside `run_workflow` (`runtime.py:99`); `tools/diagnostics.py` has no catalog
-      reference. A catalog-mode workflow whose `do:` is `[call: makeGreeting]` runs fine but
-      `owf-adk plan|graph|lint` operate on a document where `makeGreeting` is unresolved â†’ incomplete
-      plan/graph or a lint error. Wire catalog resolution (registry + `base_dir`) into the diagnostics
-      path, or document that these commands don't support catalog mode.
-- [ ] **C17.2 (P0) `--mode` exists only on `run`.** `cli.py:24` adds `--mode` to `run_parser` only;
-      `lint`/`plan`/`graph`/`test` call `load(args.file)` with no mode (cli.py:37/41/44/49). Hard policy
-      mode is impossible when inspecting. Add `--mode` to the other subcommands (or to the top-level
-      parser).
-- [ ] **C17.3 (P0) `test` command is broken for catalog mode.** `cli.py:46-60` calls
-      `run_workflow(document, input)` with no `mode` AND no `catalog_base_dir` — compare `run`
-      (cli.py:72-79) which passes both. A relative `functions: functions.yaml` resolves from the
-      process CWD, not `examples/catalog/` â†’ wrong file or `FileNotFoundError`. `owf-adk test
-      examples/catalog/greeting.yaml --fixtures â€¦` does not work.
-- [x] **C17.4 (P1) Auto-detection reconciled between loader and runtime.** `runtime.py` now recursively detects agent usage and skips catalog merging in `auto` mode when an agent is present, matching the loader precedence.
-      `loader.py:140-141` gates on `mode == "auto" and not has_agent and _catalog_has_functions(raw)`;
-      `runtime.py:95-96` uses `mode == "auto" and any(item.functions â€¦)` with **no `not has_agent`
-      check**. A document with **both** `agent:` and a `functions` catalog in `auto` mode loads as
-      extended (loader) but runs with catalog functions merged (runtime) — the load-time rejection
-      ("catalog mode does not allow the agent extension") never fires, silently merging the two
-      flavors ADR 0008 says to keep apart. Reconcile the two paths (the loader's `not has_agent`
-      precedence is the documented one) and document the agent+catalog precedence rule.
+- [x] **C17.1–C17.4** Superseded — catalog mode removed under C22.
 
 #### Documentation gaps
 
-- [x] **C17.5 (P1) `docs/flavors.md` expanded.** Added end-to-end examples for both extended and catalog flavors and a "when to pick which" decision guide.
-      example for either flavor. A user cannot learn to write a catalog-mode workflow from this page.
-      Add end-to-end examples for both flavors (extended with `agent:`, catalog with `use.catalogs` +
-      an external functions file) and a "when to pick which" decision guide.
-- [x] **C17.6 (P1) Malformed `endpoint` removed.** Dropped the invalid `endpoint: file://./functions.yaml` from `examples/catalog/greeting.yaml`, `examples/catalog/summarize.yaml`, and `docs/reference/catalogs.md`; documented that `functions` is the operative resolver.
-      done: `docs/reference/catalogs.md:10-11` shows both `endpoint: file://./functions.yaml` and
-      `functions: ./functions.yaml`; `examples/catalog/greeting.yaml:9` carries
-      `endpoint: file://./functions.yaml` — **`file://./` is not a valid file URI** (parses as
-      host=`.`). The text says `endpoint` is vestigial but every example still ships it. Either drop
-      `endpoint` from the examples or fix the URI; stop shipping a broken field users will copy.
-- [x] **C17.7 (P1) Catalog examples indexed.** Added `greeting` and `summarize` to `examples/catalog.json`.
-      `examples/catalog.json` lists only `hello`/`echo`/`approval`/`multi-agent`/`rag` (all extended
-      mode). `greeting`/`summarize` live in `examples/catalog/` but aren't referenced. **C3.5 is
-      marked `[x]` done but the gallery index does not include them** — unmark or actually add them.
-- [x] **C17.8 (P2) `docs/reference/extended.md` added.** New reference doc covering `agent:`, registries, tools, and multi-agent teams.
-      (catalog has a reference doc, extended doesn't). Add one covering `agent:`, tools, memory,
-      teams, and the `use.models`/`use.providers`/`use.memories` registries — or fold both into a
-      single `docs/reference/flavors.md` with subsections.
+- [x] **C17.5–C17.8** Superseded — catalog mode removed under C22.
 
 #### Test gaps
 
-- [x] **C17.9 (P1) Test agent + catalog auto-mode conflict.** Added `test_auto_mode_with_agent_prefers_extended_and_skips_catalog` to verify the loader/runtime agreement.
-      `tests/resources/test_catalog.py:135-140` covers only *explicit* catalog-mode rejection; the
-      divergent auto-mode case (both keys present) is untested. Add a test asserting the documented
-      precedence (extended wins) and that the two detection paths agree.
-- [x] **C17.10 (P1) Tests for catalog-aware CLI subcommands.** Added `tests/tools/test_cli.py` tests for `lint`, `plan`, `graph`, `test`, and `run` with `--mode catalog`.
-      went unnoticed by CI. Add CLI-integration tests that run each subcommand against a catalog-mode
-      fixture and assert the catalog function is resolved (or document the unsupported surface and
-      assert the documented error).
+- [x] **C17.9–C17.10** Superseded — catalog mode removed under C22.
 
 ---
 
@@ -591,3 +547,36 @@ building custom interface layers.
 - [x] **C21.7 Tests and examples.** Added `tests/tools/test_server.py` covering
       health, run, and streaming endpoints. A curl/example snippet can be added
       under `examples/` in a follow-up.
+
+---
+
+### C22 — Remove catalog-mode flavor  *(P1 — strategic direction)*
+
+The project now focuses exclusively on the extended flavor: OpenWorkflow v1.0.3
+consumed by the ADK translator with ADK config in `metadata.adk`. The spec-pure
+catalog flavor (external function files referenced by `use.catalogs.<name>.functions`)
+is no longer supported. Documents may still contain `use.catalogs` per the upstream
+schema, but the translator ignores them.
+
+- [x] **C22.1 Remove catalog runtime/registry code.** Deleted
+      `src/openworkflow_adk/resources/catalog.py` and removed imports/usages from
+      `runtime.py`.
+- [x] **C22.2 Remove catalog CLI surface.** Dropped `--mode catalog`, `--catalog-base-dir`,
+      and `_catalog_mode()` from `cli.py`; kept `--mode {auto,extended}` only.
+- [x] **C22.3 Remove catalog extension from models.** Dropped `functions` from
+      `CatalogConfig`; kept a minimal `endpoint`-only model so upstream documents
+      still parse.
+- [x] **C22.4 Remove catalog-mode loader logic.** Dropped `_strip_catalog_functions`,
+      `_catalog_has_functions`, and catalog-mode detection from `loader.py`.
+- [x] **C22.5 Remove catalog tests and fixtures.** Deleted `tests/resources/test_catalog.py`
+      and catalog-specific cases in `tests/tools/test_cli.py`.
+- [x] **C22.6 Remove catalog examples.** Deleted `examples/catalog/` and the old
+      `examples/catalog.json`; added `examples/gallery.json` and updated
+      `examples/README.md`.
+- [x] **C22.7 Update docs.** Removed `docs/reference/catalogs.md`; rewrote
+      `docs/flavors.md` and `docs/decisions/0008-workflow-flavors.md`; updated
+      `README.md`, `docs/index.md`, `docs/reference/architecture.md`,
+      `docs/reference/extended.md`, `docs/reference/security.md`, `CHANGELOG.md`,
+      and `docs/reference/extension-spec.md`.
+- [ ] **C22.8 Regenerate lockfile and verify green.** Run `uv lock`, ruff, and the
+      full pytest suite after cleanup.
