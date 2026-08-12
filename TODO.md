@@ -99,8 +99,8 @@ This project currently has `InMemoryRunHistory` and `SQLiteRunHistory`, plus a b
 - [x] **C23.6 Add heartbeats and crash recovery.** `PostgresPollingWorker` already heartbeats via `extend_lease()` while executing. `claim_run()` now considers both `pending` runs and `running` runs whose `available_at` lease has expired, allowing orphaned runs to be reclaimed by another worker. Added a test that verifies lease expiry and reclamation.
 - [x] **C23.7 Add query helpers for execution stats.** Added `PostgresRunHistory.stats_summary()` (counts by status plus p50/p95/p99 duration percentiles) and `failure_summary()` (recent failed runs with error text). Both support filters by workflow, workflow_namespace, status, and time range.
 - [x] **C23.8 Add Prometheus-compatible metrics endpoint.** Added `/metrics` to the FastAPI server in `openworkflow_adk/server.py`. When a `PostgresRunHistory` is configured it emits `owf_adk_runs_total`, `owf_adk_run_duration_seconds`, and `owf_adk_run_failures_total`. Added `_prometheus_metrics()` helper and tests.
-- [ ] **C23.9 Add CLI subcommands for worker and dashboard.** `owf-adk worker start` (poll DB or consume broker) and `owf-adk dashboard` (read-only web UI or metrics endpoint).
-- [ ] **C23.10 Add PostgreSQL backend tests.** Use `testcontainers-postgres` to test migrations, run lifecycle, step attempts, retries, namespace isolation, crash recovery, and metrics.
+- [x] **C23.9 Add CLI subcommands for worker and dashboard.** Added `owf-adk worker start` (poll DB) and `owf-adk dashboard` (serve read-only metrics endpoint) in `openworkflow_adk/cli.py`; tests in `tests/tools/test_cli_worker.py`.
+- [x] **C23.10 Add PostgreSQL backend tests.** `testcontainers-postgres` tests cover migrations, run lifecycle, step attempts, namespace isolation, crash recovery/lease reclamation, stats/failure summaries, and the Prometheus `/metrics` endpoint. Retries are not yet implemented at the runtime level, so no separate retry test was added.
 
 ---
 

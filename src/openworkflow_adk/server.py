@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from openworkflow_adk.loader import load
 from openworkflow_adk.models import OpenWorkflowDocument
 from openworkflow_adk.ops.history import InMemoryRunHistory, SQLiteRunHistory
-from openworkflow_adk.ops.postgres_history import PostgresRunHistory
+from openworkflow_adk.ops.postgres_history import PostgresRunHistory, PostgresRunHistoryConfig
 from openworkflow_adk.runtime import run_workflow
 
 
@@ -38,16 +38,34 @@ def create_app(
     workflow_registry: Any | None = None,
     event_sink: Callable[[Any], None | Awaitable[None]] | None = None,
     history: InMemoryRunHistory | SQLiteRunHistory | PostgresRunHistory | None = None,
+    history_config: PostgresRunHistoryConfig | None = None,
 ) -> Any:
     """Return a FastAPI app that runs a loaded OpenWorkflow document."""
     _check_deps()
+    from contextlib import asynccontextmanager
+
     from fastapi import Body, FastAPI, HTTPException
     from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 
     if isinstance(document, str):
         document = load(document)
 
-    app = FastAPI(title=f"owf-adk: {document.document.name}")
+    @asynccontextmanager
+    async def lifespan(app: Any) -> Any:
+        if history_config is not None:
+            pg_history = PostgresRunHistory(history_config)
+            await pg_history.connect()
+            app.state.history = pg_history
+        else:
+            app.state.history = history
+        try:
+            yield
+        finally:
+            if isinstance(app.state.history, PostgresRunHistory):
+                await app.state.history.close()
+
+    app = FastAPI(title=f"owf-adk: {document.document.name}", lifespan=lifespan)
+    app.state.history = history
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -55,7 +73,7 @@ def create_app(
 
     @app.get("/metrics")
     async def metrics() -> PlainTextResponse:
-        body = await _prometheus_metrics(history)
+        body = await _prometheus_metrics(app.state.history)
         return PlainTextResponse(content=body, media_type="text/plain; version=0.0.4")
 
     @app.post("/run")
@@ -155,6 +173,8 @@ def serve(
     model_factory: Callable[[str], Any] | None = None,
     function_registry: dict[str, Callable[..., Any]] | None = None,
     workflow_registry: Any | None = None,
+    history: InMemoryRunHistory | SQLiteRunHistory | PostgresRunHistory | None = None,
+    history_config: PostgresRunHistoryConfig | None = None,
 ) -> None:
     """Start a Uvicorn server for the given workflow document."""
     _check_deps()
@@ -165,5 +185,7 @@ def serve(
         model_factory=model_factory,
         function_registry=function_registry,
         workflow_registry=workflow_registry,
+        history=history,
+        history_config=history_config,
     )
     uvicorn.run(app, host=host, port=port)

@@ -8,6 +8,8 @@ from pathlib import Path
 
 from openworkflow_adk.loader import _contains_adk_extension, _to_pure_openworkflow, load, load_raw
 from openworkflow_adk.models import OpenWorkflowDocument
+from openworkflow_adk.ops.polling_worker import PostgresPollingWorker
+from openworkflow_adk.ops.postgres_history import PostgresRunHistory, PostgresRunHistoryConfig
 from openworkflow_adk.runtime import run_workflow
 from openworkflow_adk.tools.diagnostics import (
     Diagnostic,
@@ -16,6 +18,7 @@ from openworkflow_adk.tools.diagnostics import (
     workflow_plan,
 )
 from openworkflow_adk.tools.diagnostics_server import serve_stdio
+from openworkflow_adk.tools.registry import WorkflowRegistry
 
 
 def _add_file_and_mode_args(parser: argparse.ArgumentParser) -> None:
@@ -76,6 +79,40 @@ def main() -> int:
     _add_file_and_mode_args(serve_parser)
     serve_parser.add_argument("--host", default="127.0.0.1", help="bind host")
     serve_parser.add_argument("--port", type=int, default=8080, help="bind port")
+
+    dashboard_parser = commands.add_parser(
+        "dashboard", help="serve a workflow with PostgreSQL-backed metrics"
+    )
+    _add_file_and_mode_args(dashboard_parser)
+    dashboard_parser.add_argument("--host", default="127.0.0.1", help="bind host")
+    dashboard_parser.add_argument("--port", type=int, default=8080, help="bind port")
+    dashboard_parser.add_argument("--postgres-url", required=True, help="PostgreSQL connection URL")
+    dashboard_parser.add_argument(
+        "--schema", default="openworkflow", help="PostgreSQL schema for history tables"
+    )
+    dashboard_parser.add_argument("--namespace", default="default", help="namespace/tenant id")
+
+    worker_parser = commands.add_parser("worker", help="run a database-polling workflow worker")
+    worker_subcommands = worker_parser.add_subparsers(dest="worker_command")
+    worker_start = worker_subcommands.add_parser("start", help="start polling worker")
+    worker_start.add_argument(
+        "--directory", type=Path, required=True, help="directory of workflow YAML files"
+    )
+    worker_start.add_argument("--postgres-url", required=True, help="PostgreSQL connection URL")
+    worker_start.add_argument(
+        "--schema", default="openworkflow", help="PostgreSQL schema for history tables"
+    )
+    worker_start.add_argument("--namespace", default="default", help="namespace/tenant id")
+    worker_start.add_argument("--concurrency", type=int, default=4, help="max concurrent runs")
+    worker_start.add_argument(
+        "--poll-interval", type=float, default=1.0, help="poll interval in seconds"
+    )
+    worker_start.add_argument(
+        "--lease-seconds", type=float, default=30.0, help="run lease duration"
+    )
+    worker_start.add_argument(
+        "--mode", choices=("auto", "extended"), default="auto", help="document loading mode"
+    )
 
     commands.add_parser("diagnostics-server", help="serve editor diagnostics over stdio")
     args = parser.parse_args()
@@ -139,6 +176,52 @@ def main() -> int:
             host=args.host,
             port=args.port,
         )
+        return 0
+    if args.command == "dashboard":
+        from openworkflow_adk.server import serve as serve_app
+
+        config = PostgresRunHistoryConfig(
+            url=args.postgres_url,
+            schema=args.schema,
+            namespace_id=args.namespace,
+        )
+        serve_app(
+            load(args.file, mode=args.mode),
+            host=args.host,
+            port=args.port,
+            history_config=config,
+        )
+        return 0
+    if args.command == "worker" and args.worker_command == "start":
+
+        async def _run_worker() -> None:
+            registry = WorkflowRegistry()
+            for path in sorted(args.directory.glob("*.yaml")) + sorted(
+                args.directory.glob("*.yml")
+            ):
+                registry.register(load(path, mode=args.mode))
+            config = PostgresRunHistoryConfig(
+                url=args.postgres_url,
+                schema=args.schema,
+                namespace_id=args.namespace,
+            )
+            history = PostgresRunHistory(config)
+            await history.connect()
+            worker = PostgresPollingWorker(
+                registry=registry,
+                history=history,
+                max_concurrency=args.concurrency,
+                poll_interval_seconds=args.poll_interval,
+                lease_seconds=args.lease_seconds,
+            )
+            try:
+                await worker.run_forever()
+            except KeyboardInterrupt:
+                await worker.stop()
+            finally:
+                await history.close()
+
+        asyncio.run(_run_worker())
         return 0
     if args.command == "diagnostics-server":
         serve_stdio()
