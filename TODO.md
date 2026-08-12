@@ -10,8 +10,8 @@ Forward-looking task list. Reference material in [`docs/`](docs/): [architecture
 Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 
 **Status:** v0.2.0 code has landed on `main` and is tagged `v0.2.0`; catalog mode was removed in a
-follow-up commit. **Open: C9.4, C15.4, C16.5, C18, C21.4–C21.5, and the new C23 PostgreSQL
-execution-backend track.**
+follow-up commit. **Open: C9.4, C15.4, C21.5 A2A/MCP adapters, and the C18/C23 tracks are
+complete. C16.5 and C21.4 are done.**
 
 ---
 
