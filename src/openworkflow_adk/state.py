@@ -28,6 +28,9 @@ def _names(value: Any) -> set[str]:
 
 def _task_keys(task: Task) -> set[str]:
     keys: set[str] = set()
+    agent_config = task.effective_agent()
+    if agent_config is not None and agent_config.output_key:
+        keys.add(agent_config.output_key)
     if isinstance(task.set, dict):
         keys.update(task.set)
     if isinstance(task.for_, dict):
@@ -38,6 +41,12 @@ def _task_keys(task: Task) -> set[str]:
     if isinstance(task.fork, dict):
         for branch in task.fork.get("branches", []):
             keys.update(_task_keys(TaskItem.model_validate(branch).task))
+    if isinstance(task.switch, list):
+        for case in task.switch:
+            if isinstance(case, dict):
+                for configuration in case.values():
+                    if isinstance(configuration, dict):
+                        keys.update(_names(configuration.get("when")))
     catch = getattr(task, "catch", None)
     if isinstance(catch, dict) and isinstance(catch.get("as"), str):
         keys.add(catch["as"])
