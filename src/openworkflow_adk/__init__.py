@@ -24,6 +24,7 @@ from openworkflow_adk.ops.health import WorkflowHealth, WorkflowHost
 from openworkflow_adk.ops.history import InMemoryRunHistory, RunRecord, SQLiteRunHistory
 from openworkflow_adk.ops.management import WorkflowManager
 from openworkflow_adk.ops.memoization import ResultMemoization
+from openworkflow_adk.ops.polling_worker import PostgresPollingWorker
 from openworkflow_adk.ops.postgres_history import PostgresRunHistory
 from openworkflow_adk.ops.suspension import WorkflowSuspended
 from openworkflow_adk.ops.worker import WorkflowWorker
@@ -141,6 +142,7 @@ __all__ = [
     "graph_to_document",
     "graph_to_yaml",
     "WorkflowWorker",
+    "PostgresPollingWorker",
     "derive_state_schema",
     "run_workflow",
     "replay_from_task",

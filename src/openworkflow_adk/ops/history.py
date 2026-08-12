@@ -29,6 +29,7 @@ class RunRecord:
     resume_at: str | None = None
     suspension_reason: str | None = None
     region: str | None = None
+    workflow_namespace: str = "default"
     event_log: list[dict[str, Any]] = field(default_factory=list)
 
 

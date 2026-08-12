@@ -145,7 +145,7 @@ class PostgresRunHistory:
             record.status,
             _to_dt(record.finished_at),
             json.dumps(record.state),
-            json.dumps(record.output) if record.output is not None else None,
+            json.dumps(record.output, default=str) if record.output is not None else None,
             record.error,
             self.config.namespace_id,
             run_id,
@@ -421,10 +421,173 @@ class PostgresRunHistory:
         )
         return {row["status"]: row["count"] for row in rows}
 
+    async def enqueue_run(
+        self,
+        run_id: str,
+        workflow: str,
+        *,
+        input: dict[str, Any] | None = None,
+        available_at: datetime | None = None,
+        workflow_namespace: str = "default",
+    ) -> RunRecord:
+        """Insert a run with status ``pending`` for workers to claim."""
+        pool = await self._pool_ref()
+        record = RunRecord(
+            run_id=run_id,
+            workflow=workflow,
+            status="pending",
+            started_at=_now(),
+            state=dict(input or {}),
+        )
+        await pool.execute(
+            f"""
+            INSERT INTO {self._table}.workflow_runs (
+                namespace_id, run_id, workflow, workflow_namespace, status, started_at,
+                state, event_log, checkpoint_index, available_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            ON CONFLICT (namespace_id, run_id) DO UPDATE SET
+                workflow = EXCLUDED.workflow,
+                workflow_namespace = EXCLUDED.workflow_namespace,
+                status = CASE
+                    WHEN {self._table}.workflow_runs.status IN ('completed', 'failed', 'canceled')
+                    THEN {self._table}.workflow_runs.status
+                    ELSE EXCLUDED.status
+                END,
+                state = EXCLUDED.state,
+                available_at = EXCLUDED.available_at,
+                updated_at = NOW()
+            """,
+            self.config.namespace_id,
+            run_id,
+            workflow,
+            workflow_namespace,
+            record.status,
+            _to_dt(record.started_at),
+            json.dumps(record.state),
+            json.dumps(record.event_log),
+            record.checkpoint_index,
+            available_at,
+        )
+        return record
+
+    async def claim_run(
+        self,
+        worker_id: str,
+        *,
+        lease_seconds: float = 30.0,
+    ) -> RunRecord | None:
+        """Atomically find and claim a runnable pending run."""
+        from datetime import timedelta
+
+        pool = await self._pool_ref()
+        lease_interval = timedelta(seconds=lease_seconds)
+        row = await pool.fetchrow(
+            f"""
+            WITH candidate AS (
+                SELECT run_id
+                FROM {self._table}.workflow_runs
+                WHERE namespace_id = $1
+                  AND status = 'pending'
+                  AND (available_at IS NULL OR available_at <= NOW())
+                ORDER BY created_at ASC, run_id ASC
+                LIMIT 1
+                FOR UPDATE SKIP LOCKED
+            )
+            UPDATE {self._table}.workflow_runs AS wr
+            SET status = 'running',
+                worker_id = $2,
+                available_at = NOW() + $3::interval,
+                started_at = COALESCE(started_at, NOW()),
+                updated_at = NOW()
+            FROM candidate
+            WHERE wr.namespace_id = $1 AND wr.run_id = candidate.run_id
+            RETURNING wr.run_id, wr.workflow, wr.workflow_namespace, wr.status,
+                      wr.started_at, wr.state, wr.event_log, wr.checkpoint_index,
+                      wr.checkpoint_task, wr.region
+            """,
+            self.config.namespace_id,
+            worker_id,
+            lease_interval,
+        )
+        if row is None:
+            return None
+        return RunRecord(
+            run_id=row["run_id"],
+            workflow=row["workflow"],
+            workflow_namespace=row.get("workflow_namespace") or "default",
+            status=row["status"],
+            started_at=row["started_at"].isoformat() if row["started_at"] else _now(),
+            state=json.loads(row["state"]),
+            event_log=json.loads(row["event_log"]),
+            checkpoint_index=row["checkpoint_index"],
+            checkpoint_task=row["checkpoint_task"],
+            region=row["region"],
+        )
+
+    async def extend_lease(
+        self,
+        run_id: str,
+        worker_id: str,
+        *,
+        lease_seconds: float = 30.0,
+    ) -> bool:
+        """Extend the lease on a run owned by ``worker_id``."""
+        from datetime import timedelta
+
+        pool = await self._pool_ref()
+        lease_interval = timedelta(seconds=lease_seconds)
+        result = await pool.execute(
+            f"""
+            UPDATE {self._table}.workflow_runs
+            SET available_at = NOW() + $1::interval, updated_at = NOW()
+            WHERE namespace_id = $2 AND run_id = $3
+              AND worker_id = $4
+              AND status = 'running'
+            """,
+            lease_interval,
+            self.config.namespace_id,
+            run_id,
+            worker_id,
+        )
+        return result.endswith("UPDATE 1")
+
+    async def release_run(
+        self,
+        run_id: str,
+        worker_id: str,
+        *,
+        status: str,
+        output: Any = None,
+        error: str | None = None,
+    ) -> RunRecord:
+        """Mark a claimed run terminal and clear the worker lease."""
+        pool = await self._pool_ref()
+        await pool.execute(
+            f"""
+            UPDATE {self._table}.workflow_runs
+            SET status = $1,
+                output = $2,
+                error = $3,
+                finished_at = NOW(),
+                worker_id = NULL,
+                available_at = NULL,
+                updated_at = NOW()
+            WHERE namespace_id = $4 AND run_id = $5 AND worker_id = $6
+            """,
+            status,
+            json.dumps(output, default=str) if output is not None else None,
+            error,
+            self.config.namespace_id,
+            run_id,
+            worker_id,
+        )
+        return await self.get(run_id)
+
     def _record_from_row(self, row: Any) -> RunRecord:
         return RunRecord(
             run_id=row["run_id"],
             workflow=row["workflow"],
+            workflow_namespace=row.get("workflow_namespace") or "default",
             status=row["status"],
             started_at=row["started_at"],
             finished_at=row["finished_at"],
@@ -500,6 +663,9 @@ class PostgresRunHistory:
                 resume_at TIMESTAMPTZ,
                 suspension_reason TEXT,
                 region TEXT,
+                worker_id TEXT,
+                available_at TIMESTAMPTZ,
+                workflow_namespace TEXT NOT NULL DEFAULT 'default',
                 event_log JSONB NOT NULL DEFAULT '[]',
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -534,6 +700,16 @@ class PostgresRunHistory:
                 ON {quoted}.step_attempts (namespace_id, run_id, created_at);
             CREATE INDEX IF NOT EXISTS step_attempts_run_step_idx
                 ON {quoted}.step_attempts (namespace_id, run_id, step_name, created_at);
+            COMMIT;
+            """,
+            f"""
+            BEGIN;
+            ALTER TABLE {quoted}.workflow_runs
+                ADD COLUMN IF NOT EXISTS worker_id TEXT,
+                ADD COLUMN IF NOT EXISTS available_at TIMESTAMPTZ,
+                ADD COLUMN IF NOT EXISTS workflow_namespace TEXT NOT NULL DEFAULT 'default';
+            CREATE INDEX IF NOT EXISTS workflow_runs_available_at_idx
+                ON {quoted}.workflow_runs (namespace_id, status, available_at, created_at);
             COMMIT;
             """,
         ]
