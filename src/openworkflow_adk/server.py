@@ -88,6 +88,7 @@ def create_app(
                 function_registry=function_registry,
                 workflow_registry=workflow_registry,
                 event_sink=event_sink,
+                history=app.state.history,
             )
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -116,6 +117,7 @@ def create_app(
                     function_registry=function_registry,
                     workflow_registry=workflow_registry,
                     event_sink=sink,
+                    history=app.state.history,
                 )
             except Exception as exc:
                 yield f"event: error\ndata: {str(exc)}\n\n"

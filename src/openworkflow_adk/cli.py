@@ -79,6 +79,13 @@ def main() -> int:
     _add_file_and_mode_args(serve_parser)
     serve_parser.add_argument("--host", default="127.0.0.1", help="bind host")
     serve_parser.add_argument("--port", type=int, default=8080, help="bind port")
+    serve_parser.add_argument(
+        "--postgres-url", help="optional PostgreSQL connection URL for durable run history"
+    )
+    serve_parser.add_argument(
+        "--schema", default="openworkflow", help="PostgreSQL schema for history tables"
+    )
+    serve_parser.add_argument("--namespace", default="default", help="namespace/tenant id")
 
     dashboard_parser = commands.add_parser(
         "dashboard", help="serve a workflow with PostgreSQL-backed metrics"
@@ -171,10 +178,18 @@ def main() -> int:
     if args.command == "serve":
         from openworkflow_adk.server import serve as serve_app
 
+        history_config = None
+        if args.postgres_url:
+            history_config = PostgresRunHistoryConfig(
+                url=args.postgres_url,
+                schema=args.schema,
+                namespace_id=args.namespace,
+            )
         serve_app(
             load(args.file, mode=args.mode),
             host=args.host,
             port=args.port,
+            history_config=history_config,
         )
         return 0
     if args.command == "dashboard":

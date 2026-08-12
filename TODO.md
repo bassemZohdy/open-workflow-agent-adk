@@ -74,8 +74,8 @@ Docs, editor integration, changelog, and public API cleanup.
 Shift the primary consumption model from CLI-driven workflow execution to API-calling agents/workflows. Reuse ADK-native protocol support instead of building custom interface layers.
 
 - [x] **C21.1–C21.3, C21.6–C21.7** Completed — see archive.
-- [ ] **C21.4 Wire persistent sessions/history.** Server-mode runs use `run_workflow` directly, but explicit session/history backend configuration for long-lived server processes is not yet exposed.
-- [ ] **C21.5 Add protocol-specific adapters.** A2A (workflow as ADK agent), MCP (workflow tasks as tools), and OpenAPI spec generation remain future work.
+- [x] **C21.4 Wire persistent sessions/history.** The FastAPI server now passes `app.state.history` into `run_workflow` for both `/run` and `/run/stream`, and `owf-adk serve` accepts optional `--postgres-url`, `--schema`, and `--namespace` to configure a durable backend. Added `tests/tools/test_server.py::test_run_endpoint_persists_to_postgres`.
+- [ ] **C21.5 Add protocol-specific adapters.** A2A (workflow as ADK agent), MCP (workflow tasks as tools), and OpenAPI spec generation remain future work and are not implemented yet.
 
 ### C22 — Remove catalog-mode flavor  *(P1 — strategic direction)*
 
