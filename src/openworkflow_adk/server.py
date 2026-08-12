@@ -9,6 +9,8 @@ from pydantic import BaseModel
 
 from openworkflow_adk.loader import load
 from openworkflow_adk.models import OpenWorkflowDocument
+from openworkflow_adk.ops.history import InMemoryRunHistory, SQLiteRunHistory
+from openworkflow_adk.ops.postgres_history import PostgresRunHistory
 from openworkflow_adk.runtime import run_workflow
 
 
@@ -35,11 +37,12 @@ def create_app(
     function_registry: dict[str, Callable[..., Any]] | None = None,
     workflow_registry: Any | None = None,
     event_sink: Callable[[Any], None | Awaitable[None]] | None = None,
+    history: InMemoryRunHistory | SQLiteRunHistory | PostgresRunHistory | None = None,
 ) -> Any:
     """Return a FastAPI app that runs a loaded OpenWorkflow document."""
     _check_deps()
     from fastapi import Body, FastAPI, HTTPException
-    from fastapi.responses import JSONResponse, StreamingResponse
+    from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 
     if isinstance(document, str):
         document = load(document)
@@ -49,6 +52,11 @@ def create_app(
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok", "workflow": document.document.name}
+
+    @app.get("/metrics")
+    async def metrics() -> PlainTextResponse:
+        body = await _prometheus_metrics(history)
+        return PlainTextResponse(content=body, media_type="text/plain; version=0.0.4")
 
     @app.post("/run")
     async def run(payload: RunRequest = Body(...)) -> JSONResponse:
@@ -100,6 +108,35 @@ def create_app(
         return StreamingResponse(generator(), media_type="text/event-stream")
 
     return app
+
+
+async def _prometheus_metrics(
+    history: InMemoryRunHistory | SQLiteRunHistory | PostgresRunHistory | None,
+) -> str:
+    lines: list[str] = []
+    if isinstance(history, PostgresRunHistory):
+        summary = await history.stats_summary()
+        lines.append("# HELP owf_adk_runs_total Total workflow runs by status")
+        lines.append("# TYPE owf_adk_runs_total gauge")
+        for status, count in summary["by_status"].items():
+            lines.append(f'owf_adk_runs_total{{status="{status}"}} {count}')
+        durations = summary["duration_seconds"]
+        lines.append("# HELP owf_adk_run_duration_seconds Workflow run duration percentiles")
+        lines.append("# TYPE owf_adk_run_duration_seconds summary")
+        for quantile, value in durations.items():
+            if value is not None:
+                lines.append(f'owf_adk_run_duration_seconds{{quantile="{quantile}"}} {value}')
+        failures = await history.failure_summary(limit=1000)
+        lines.append("# HELP owf_adk_run_failures_total Total failed workflow runs")
+        lines.append("# TYPE owf_adk_run_failures_total gauge")
+        lines.append(f"owf_adk_run_failures_total {len(failures)}")
+    else:
+        lines.append(
+            "# HELP owf_adk_runs_total Total workflow runs (history backend not configured)"
+        )
+        lines.append("# TYPE owf_adk_runs_total gauge")
+        lines.append('owf_adk_runs_total{status="unknown"} 0')
+    return "\n".join(lines) + "\n"
 
 
 def _event_to_json(event: Any) -> dict[str, Any]:

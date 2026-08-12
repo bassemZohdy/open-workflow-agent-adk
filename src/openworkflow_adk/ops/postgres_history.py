@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -51,9 +52,15 @@ class PostgresRunHistory:
         self._pool: Any | None = None
 
     async def _pool_ref(self) -> Any:
-        if self._pool is None:
-            import asyncpg
+        import asyncpg
 
+        current_loop = asyncio.get_running_loop()
+        if self._pool is not None and getattr(self._pool, "_loop", None) is not current_loop:
+            # Discarding the old pool avoids cross-loop close errors. In
+            # production the history and its pool live on the same loop; this
+            # branch mainly helps tests that spawn the app on another loop.
+            self._pool = None
+        if self._pool is None:
             self._pool = await asyncpg.create_pool(
                 self.config.url,
                 min_size=self.config.min_pool_size,
