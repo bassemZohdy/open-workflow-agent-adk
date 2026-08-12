@@ -152,3 +152,50 @@ async def test_postgres_history_migrations_are_idempotent(postgres_url) -> None:
     await second.start("idemp", "wf", {})
     assert (await second.get("idemp")).workflow == "wf"
     await second.close()
+
+
+async def test_postgres_history_records_step_attempts(history) -> None:
+    document = load(
+        {
+            "document": {
+                "dsl": "1.0.3",
+                "namespace": "demo",
+                "name": "steps",
+                "version": "1.0.0",
+            },
+            "do": [
+                {"first": {"set": {"value": '"one"'}}},
+                {"second": {"set": {"value": '"two"'}}},
+            ],
+        }
+    )
+
+    await run_workflow(document, session_id="run-steps", history=history)
+
+    attempts = await history.list_step_attempts("run-steps")
+    assert len(attempts) >= 1
+    completed = [a for a in attempts if a["status"] == "completed"]
+    assert len(completed) >= 1
+    assert completed[0]["step_name"] == "second"
+
+
+async def test_postgres_history_step_attempts_are_isolated_by_namespace(postgres_url) -> None:
+    ns_a = PostgresRunHistory(
+        PostgresRunHistoryConfig(url=postgres_url, schema="test_owf", namespace_id="sa-a")
+    )
+    ns_b = PostgresRunHistory(
+        PostgresRunHistoryConfig(url=postgres_url, schema="test_owf", namespace_id="sa-b")
+    )
+    await ns_a.connect()
+    await ns_b.connect()
+    try:
+        await ns_a.start("run-sa", "wf", {})
+        await ns_a.record_step_attempt("run-sa", "step", status="running")
+
+        a_attempts = await ns_a.list_step_attempts("run-sa")
+        b_attempts = await ns_b.list_step_attempts("run-sa")
+        assert len(a_attempts) == 1
+        assert len(b_attempts) == 0
+    finally:
+        await ns_a.close()
+        await ns_b.close()

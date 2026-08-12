@@ -150,6 +150,14 @@ class PostgresRunHistory:
             self.config.namespace_id,
             run_id,
         )
+        step_name = record.checkpoint_task or "workflow"
+        await self.record_step_attempt(
+            run_id,
+            step_name,
+            status=record.status,
+            output=record.output,
+            error=record.error,
+        )
         return record
 
     async def checkpoint(
@@ -173,6 +181,8 @@ class PostgresRunHistory:
             self.config.namespace_id,
             run_id,
         )
+        if record.checkpoint_task:
+            await self.record_step_attempt(run_id, record.checkpoint_task, status="running")
         return record
 
     async def get(self, run_id: str) -> RunRecord:
@@ -259,6 +269,113 @@ class PostgresRunHistory:
             run_id,
         )
         return record
+
+    async def record_step_attempt(
+        self,
+        run_id: str,
+        step_name: str,
+        *,
+        status: str,
+        output: Any = None,
+        error: str | None = None,
+    ) -> dict[str, Any]:
+        """Create or update a step attempt row for ``run_id``/``step_name``."""
+        pool = await self._pool_ref()
+        now = datetime.now(timezone.utc)
+        row = await pool.fetchrow(
+            f"""
+            SELECT id, status FROM {self._table}.step_attempts
+            WHERE namespace_id = $1 AND run_id = $2 AND step_name = $3
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            self.config.namespace_id,
+            run_id,
+            step_name,
+        )
+        if row is None:
+            step_id = self._new_step_attempt_id()
+            await pool.execute(
+                f"""
+                INSERT INTO {self._table}.step_attempts (
+                    namespace_id, id, run_id, step_name, status,
+                    output, error, started_at, finished_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                """,
+                self.config.namespace_id,
+                step_id,
+                run_id,
+                step_name,
+                status,
+                json.dumps(output) if output is not None else None,
+                error,
+                now if status == "running" else None,
+                now if status != "running" else None,
+            )
+            return {"id": step_id, "status": status, "step_name": step_name}
+
+        await pool.execute(
+            f"""
+            UPDATE {self._table}.step_attempts
+            SET status = $1, output = $2, error = $3,
+                finished_at = CASE WHEN $1 != 'running' THEN NOW() ELSE finished_at END,
+                updated_at = NOW()
+            WHERE namespace_id = $4 AND id = $5
+            """,
+            status,
+            json.dumps(output) if output is not None else None,
+            error,
+            self.config.namespace_id,
+            row["id"],
+        )
+        return {"id": row["id"], "status": status, "step_name": step_name}
+
+    async def list_step_attempts(
+        self,
+        run_id: str,
+        *,
+        step_name: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """Return step attempts for a run, newest first."""
+        pool = await self._pool_ref()
+        conditions = ["namespace_id = $1", "run_id = $2"]
+        args: list[Any] = [self.config.namespace_id, run_id]
+        if step_name is not None:
+            args.append(step_name)
+            conditions.append(f"step_name = ${len(args)}")
+        where_clause = " AND ".join(conditions)
+        query = f"""
+            SELECT id, run_id, step_name, status, output, error,
+                   started_at, finished_at, created_at, updated_at
+            FROM {self._table}.step_attempts
+            WHERE {where_clause}
+            ORDER BY created_at DESC
+            LIMIT ${len(args) + 1} OFFSET ${len(args) + 2}
+        """
+        args.extend([limit, offset])
+        rows = await pool.fetch(query, *args)
+        return [
+            {
+                "id": row["id"],
+                "run_id": row["run_id"],
+                "step_name": row["step_name"],
+                "status": row["status"],
+                "output": json.loads(row["output"]) if row["output"] is not None else None,
+                "error": row["error"],
+                "started_at": row["started_at"].isoformat() if row["started_at"] else None,
+                "finished_at": row["finished_at"].isoformat() if row["finished_at"] else None,
+                "created_at": row["created_at"].isoformat(),
+                "updated_at": row["updated_at"].isoformat(),
+            }
+            for row in rows
+        ]
+
+    @staticmethod
+    def _new_step_attempt_id() -> str:
+        import uuid
+
+        return str(uuid.uuid4())
 
     async def list_runs(
         self,
@@ -392,6 +509,31 @@ class PostgresRunHistory:
                 ON {quoted}.workflow_runs (namespace_id, status, created_at DESC);
             CREATE INDEX IF NOT EXISTS workflow_runs_workflow_created_at_idx
                 ON {quoted}.workflow_runs (namespace_id, workflow, created_at DESC);
+            COMMIT;
+            """,
+            f"""
+            BEGIN;
+            CREATE TABLE IF NOT EXISTS {quoted}.step_attempts (
+                namespace_id TEXT NOT NULL,
+                id TEXT NOT NULL,
+                run_id TEXT NOT NULL,
+                step_name TEXT NOT NULL,
+                status TEXT NOT NULL,
+                output JSONB,
+                error TEXT,
+                started_at TIMESTAMPTZ,
+                finished_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (namespace_id, id),
+                FOREIGN KEY (namespace_id, run_id)
+                    REFERENCES {quoted}.workflow_runs (namespace_id, run_id)
+                    ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS step_attempts_run_created_at_idx
+                ON {quoted}.step_attempts (namespace_id, run_id, created_at);
+            CREATE INDEX IF NOT EXISTS step_attempts_run_step_idx
+                ON {quoted}.step_attempts (namespace_id, run_id, step_name, created_at);
             COMMIT;
             """,
         ]
