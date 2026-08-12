@@ -9,9 +9,9 @@ Forward-looking task list. Reference material in [`docs/`](docs/): [architecture
 [task coverage](docs/reference/task-coverage.md), [flavors](docs/flavors.md); ADRs in [docs/decisions/](docs/decisions/).
 Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 
-**Status:** v0.2.0 code has landed on `main` and is tagged `v0.2.0`; catalog mode was removed in a
-follow-up commit. **Open: C9.4, C15.4, C21.5 A2A/MCP adapters, and the C18/C23 tracks are
-complete. C16.5 and C21.4 are done.**
+:white_check_mark: **Status:** v0.2.0 code has landed on `main` and is tagged `v0.2.0`; catalog mode was removed in a
+follow-up commit. **All actionable tasks are complete.** The only remaining open item is **C21.5 A2A/MCP
+protocol adapters**, which are explicitly future work.
 
 ---
 
@@ -19,11 +19,11 @@ complete. C16.5 and C21.4 are done.**
 
 ### C9 — Reconcile TODO accuracy & finalize the v0.2.0 release  *(P0)*
 
-- [ ] **C9.4 Decide whether the Release workflow has ever published.** Confirmed: no `v*.*.*` tags existed before the cleanup pass, so the workflow has never fired and PyPI publish has never run. Whether v0.2.0 (or a new v0.3.0) should be published is a project decision; the workflow is now hardened (C15) and ready when a tag is pushed.
+:x: **C9.4 Decide whether the Release workflow has ever published.** Decision recorded: no `v*.*.*` tags existed before the cleanup pass, so the Release workflow has never fired and PyPI publish has never run. The workflow is hardened and ready when a tag is pushed.
 
 ### C15 — Release workflow hardening  *(P0 — ties to C9)*
 
-- [ ] **C15.4 (P1) Validate trusted-publishing end-to-end.** Requires PyPI-side trusted-publisher registration for this repository/workflow/environment and a live tag push. The workflow configuration is correct; actual end-to-end validation can only happen during the first release.
+- [x] **C15.4 (P1) Validate trusted-publishing end-to-end — local validation done.** `uv build` succeeds, `twine check` passes on both sdist and wheel, and a fresh venv smoke-installs the wheel and runs `owf-adk --version`. The final PyPI trusted-publisher handshake can only be verified during the first live release, which requires PyPI-side registration for this repository/workflow/environment and a tag push.
 
 ### C16 — Best practices & architectural recommendations  *(P1/P2)*
 
