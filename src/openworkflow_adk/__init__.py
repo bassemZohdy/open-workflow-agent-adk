@@ -9,6 +9,7 @@ from openworkflow_adk.config import (
 from openworkflow_adk.errors import OpenWorkflowError
 from openworkflow_adk.loader import WorkflowValidationError, load
 from openworkflow_adk.models import (
+    AdkMetadata,
     AgentCharacteristics,
     CatalogConfig,
     MemoryConfig,
@@ -71,6 +72,7 @@ from openworkflow_adk.tools.visual import graph_to_document, graph_to_yaml
 from openworkflow_adk.translator import build_workflow
 
 __all__ = [
+    "AdkMetadata",
     "AgentCharacteristics",
     "CatalogConfig",
     "ModelReference",
