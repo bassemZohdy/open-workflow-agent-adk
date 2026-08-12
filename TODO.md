@@ -10,8 +10,8 @@ Forward-looking task list. Reference material in [`docs/`](docs/): [architecture
 Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 
 **Status:** v0.2.0 code has landed on `main` and is tagged `v0.2.0`; catalog mode was removed in a
-follow-up commit. **Open: C9.4, C15.4, C16.5, C18, C19.3/C19.7/C19.22, C21.4–C21.5, and the new C23
-PostgreSQL execution-backend track.**
+follow-up commit. **Open: C9.4, C15.4, C16.5, C18, C19.7, C21.4–C21.5, and the new C23 PostgreSQL
+execution-backend track.**
 
 ---
 
@@ -41,7 +41,7 @@ Follow-ups from the legacy-encoding removal audit. These close inconsistencies a
 
 #### Code fixes
 
-- [ ] **C19.3 Resolve/validate sub-agent model references.** Sub-agents inherit `AgentCharacteristics` but their `model: {use: name}` references are not resolved in `tasks/agent.py` or validated in `loader.py`.
+- [x] **C19.3 Resolve/validate sub-agent model references.** `_build_agent()` in `tasks/agent.py` now calls `resolve_agent_characteristics()` on each sub-agent, resolving `model: {use: name}` references. Loader validators now check sub-agent model/provider/memory references recursively.
 - [x] **C19.4 Make memory-service discovery recursive.** Added `_iter_tasks()` helper in `runtime.py`; `memory_service_for_document` now finds memory references in nested `do`, `try`, `catch.do`, and `fork.branches`.
 - [x] **C19.5 Make state-schema derivation recursive and cover switch cases.** `_task_keys()` now collects explicit `output_key` from nested agents via `effective_agent()` and extracts state names from `switch` case `when` expressions.
 - [x] **C19.6 Make diagnostics recursive.** Refactored `lint_workflow()` to recurse into nested task containers and report agent-instruction, switch-route, and duplicate-task diagnostics at the correct paths.
@@ -52,7 +52,7 @@ Follow-ups from the legacy-encoding removal audit. These close inconsistencies a
 #### Tests
 
 - [x] **C19.20–C19.21** Completed — see archive.
-- [ ] **C19.22 Add tests for sub-agent model reference resolution/validation.**
+- [x] **C19.22 Add tests for sub-agent model reference resolution/validation.** Added loader tests for invalid and valid sub-agent `model: {use: ...}` references.
 - [x] **C19.23 Add tests for nested agent memory and state-schema coverage.** Covered by new tests for C19.4 (nested memory) and C19.5 (nested state schema).
 
 ### C20 — Documentation and schema hygiene  *(P1)*
@@ -129,7 +129,7 @@ Per-task detail is in git history + the `v0.1.0`/`v0.2.0` tags; design rationale
 - **C16.1–C16.4** — path traversal, gRPC isolation, worker recovery, cross-platform JSONata timeouts.
 - **C17.1–C17.10** — flavor gaps; superseded by C22 when catalog mode was removed.
 - **C18.1–C18.11** — extended-flavor interoperability: `metadata.adk` encoding, loader validation, translator updates, examples, round-trip tests, export/lint helpers, legacy removal.
-- **C19.1–C19.6, C19.8–C19.11, C19.20–C19.21** — diagnostic path, recursive memory-service discovery, recursive state-schema derivation, recursive diagnostics, agent boolean removal, legacy rejection, CLI catalog-mode reconciliation, rejection tests, agent-boolean tests. **C19.10** hardened metadata access in loader validators.
+- **C19.1–C19.6, C19.8–C19.11, C19.20–C19.23** — diagnostic path, recursive memory-service discovery, recursive state-schema derivation, recursive diagnostics, sub-agent model reference resolution/validation, agent boolean removal, legacy rejection, CLI catalog-mode reconciliation, rejection tests, agent-boolean tests, sub-agent reference tests.
 - **C20.1–C20.11** — VS Code snippet, stale JSON extension schema rewrite, ADR 0001/0005/0008 updates, upstream proposal update, `.env.example` comments, configuration doc fix, CHANGELOG entry, `CLAUDE.md` metadata mention, `AdkMetadata` export.
 - **C21.1–C21.3, C21.6–C21.7** — HTTP/REST server decision, `owf-adk serve`, request/response shape, localhost defaults, server tests.
 - **C22.1–C22.8** — catalog mode removal: runtime/registry, CLI, models, loader, tests, examples, docs, lockfile + green verification.

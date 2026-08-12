@@ -115,23 +115,30 @@ def _build_agent(
 
         if load_memory not in tools:
             tools.append(load_memory)
-    sub_agents = [
-        _build_agent(
-            child.name or f"{name}_sub_{index}",
+    sub_agents = []
+    for index, child in enumerate(config.sub_agents):
+        resolved_child = resolve_agent_characteristics(
             child,
-            model_factory=model_factory,
-            model_specs=model_specs,
             environ=environ,
-            tool_registry=tool_registry,
-            provider_configs=provider_configs,
-            provider_factory=provider_factory,
-            as_sub_agent=True,
-            resume_input=resume_input,
-            route_options=None,
-            depth=depth + 1,
+            models=model_specs,
+            providers=provider_configs,
         )
-        for index, child in enumerate(config.sub_agents)
-    ]
+        sub_agents.append(
+            _build_agent(
+                resolved_child.name or f"{name}_sub_{index}",
+                resolved_child,
+                model_factory=model_factory,
+                model_specs=model_specs,
+                environ=environ,
+                tool_registry=tool_registry,
+                provider_configs=provider_configs,
+                provider_factory=provider_factory,
+                as_sub_agent=True,
+                resume_input=resume_input,
+                route_options=None,
+                depth=depth + 1,
+            )
+        )
     return LlmAgent(
         name=name,
         description=config.description or "",

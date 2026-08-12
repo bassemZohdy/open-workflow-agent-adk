@@ -64,19 +64,76 @@ def _adk_agent_payload(value: dict[str, Any]) -> Any | None:
     return agent if isinstance(agent, dict) else None
 
 
+def _agent_model_reference_errors(agent: Any, models: set[str], path: str) -> list[dict[str, str]]:
+    """Validate model references on an agent and its sub-agents recursively."""
+    errors: list[dict[str, str]] = []
+    if not isinstance(agent, dict):
+        return errors
+    model = agent.get("model")
+    if isinstance(model, dict):
+        reference = model.get("use")
+        if reference not in models:
+            errors.append(
+                {
+                    "path": f"{path}.model.use",
+                    "message": f"unknown model reference {reference!r}",
+                }
+            )
+    for index, child in enumerate(agent.get("sub_agents", [])):
+        if isinstance(child, dict):
+            errors.extend(
+                _agent_model_reference_errors(child, models, f"{path}.sub_agents[{index}]")
+            )
+    return errors
+
+
+def _agent_registry_reference_errors(
+    agent: Any, providers: set[str], memories: set[str], path: str
+) -> list[dict[str, str]]:
+    """Validate provider/memory references on an agent and its sub-agents recursively."""
+    errors: list[dict[str, str]] = []
+    if not isinstance(agent, dict):
+        return errors
+    for field, known, label in (
+        ("memory", memories, "memory"),
+        ("provider", providers, "provider"),
+    ):
+        reference = agent.get(field)
+        if isinstance(reference, dict) and reference.get("use") not in known:
+            errors.append(
+                {
+                    "path": f"{path}.{field}.use",
+                    "message": f"unknown {label} reference {reference.get('use')!r}",
+                }
+            )
+    model = agent.get("model")
+    if isinstance(model, dict):
+        provider = model.get("provider")
+        if isinstance(provider, dict) and provider.get("use") not in providers:
+            errors.append(
+                {
+                    "path": f"{path}.model.provider.use",
+                    "message": f"unknown provider reference {provider.get('use')!r}",
+                }
+            )
+    for index, child in enumerate(agent.get("sub_agents", [])):
+        if isinstance(child, dict):
+            errors.extend(
+                _agent_registry_reference_errors(
+                    child, providers, memories, f"{path}.sub_agents[{index}]"
+                )
+            )
+    return errors
+
+
 def _model_reference_errors(value: Any, models: set[str], path: str = "$") -> list[dict[str, str]]:
     errors: list[dict[str, str]] = []
     if isinstance(value, dict):
-        metadata_adk = _adk_agent_payload(value)
-        if isinstance(metadata_adk, dict) and isinstance(metadata_adk.get("model"), dict):
-            reference = metadata_adk["model"].get("use")
-            if reference not in models:
-                errors.append(
-                    {
-                        "path": f"{path}.metadata.adk.agent.model.use",
-                        "message": f"unknown model reference {reference!r}",
-                    }
-                )
+        agent = _adk_agent_payload(value)
+        if isinstance(agent, dict):
+            errors.extend(
+                _agent_model_reference_errors(agent, models, f"{path}.metadata.adk.agent")
+            )
         for key, item in value.items():
             errors.extend(_model_reference_errors(item, models, f"{path}.{key}"))
     elif isinstance(value, list):
@@ -90,30 +147,13 @@ def _registry_reference_errors(
 ) -> list[dict[str, str]]:
     errors: list[dict[str, str]] = []
     if isinstance(value, dict):
-        metadata_adk = _adk_agent_payload(value)
-        if isinstance(metadata_adk, dict):
-            for field, known, label in (
-                ("memory", memories, "memory"),
-                ("provider", providers, "provider"),
-            ):
-                reference = metadata_adk.get(field)
-                if isinstance(reference, dict) and reference.get("use") not in known:
-                    errors.append(
-                        {
-                            "path": f"{path}.metadata.adk.agent.{field}.use",
-                            "message": f"unknown {label} reference {reference.get('use')!r}",
-                        }
-                    )
-            model = metadata_adk.get("model")
-            if isinstance(model, dict):
-                provider = model.get("provider")
-                if isinstance(provider, dict) and provider.get("use") not in providers:
-                    errors.append(
-                        {
-                            "path": f"{path}.metadata.adk.agent.model.provider.use",
-                            "message": f"unknown provider reference {provider.get('use')!r}",
-                        }
-                    )
+        agent = _adk_agent_payload(value)
+        if isinstance(agent, dict):
+            errors.extend(
+                _agent_registry_reference_errors(
+                    agent, providers, memories, f"{path}.metadata.adk.agent"
+                )
+            )
         for key, item in value.items():
             errors.extend(_registry_reference_errors(item, providers, memories, f"{path}.{key}"))
     elif isinstance(value, list):

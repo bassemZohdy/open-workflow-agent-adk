@@ -123,3 +123,93 @@ def test_non_dict_metadata_does_not_crash_validators() -> None:
     # The failure should come from upstream schema validation, not an AttributeError
     # in our custom reference validators.
     assert raised.value.errors
+
+
+def test_sub_agent_model_reference_is_validated() -> None:
+    """C19.22: loader validates model references on sub-agents recursively."""
+    with pytest.raises(WorkflowValidationError) as raised:
+        load(
+            {
+                "document": {
+                    "dsl": "1.0.3",
+                    "namespace": "demo",
+                    "name": "sub",
+                    "version": "1.0.0",
+                    "metadata": {
+                        "adk": {
+                            "models": {"flash": {"model": "gemini-2.5-flash"}},
+                        }
+                    },
+                },
+                "do": [
+                    {
+                        "parent": {
+                            "wait": {"seconds": 1},
+                            "metadata": {
+                                "adk": {
+                                    "agent": {
+                                        "model": "gemini-2.5-flash",
+                                        "instruction": "hi",
+                                        "sub_agents": [
+                                            {
+                                                "model": {"use": "missing-model"},
+                                                "instruction": "sub",
+                                            }
+                                        ],
+                                    }
+                                }
+                            },
+                        }
+                    }
+                ],
+            }
+        )
+
+    assert any(
+        "missing-model" in error["message"] and "sub_agents" in error["path"]
+        for error in raised.value.errors
+    )
+
+
+def test_sub_agent_model_reference_resolves() -> None:
+    """C19.22: valid sub-agent model references load without error."""
+    document = load(
+        {
+            "document": {
+                "dsl": "1.0.3",
+                "namespace": "demo",
+                "name": "sub",
+                "version": "1.0.0",
+                "metadata": {
+                    "adk": {
+                        "models": {"flash": {"model": "gemini-2.5-flash"}},
+                    }
+                },
+            },
+            "do": [
+                {
+                    "parent": {
+                        "wait": {"seconds": 1},
+                        "metadata": {
+                            "adk": {
+                                "agent": {
+                                    "model": {"use": "flash"},
+                                    "instruction": "hi",
+                                    "sub_agents": [
+                                        {
+                                            "model": {"use": "flash"},
+                                            "instruction": "sub",
+                                        }
+                                    ],
+                                }
+                            }
+                        },
+                    }
+                }
+            ],
+        }
+    )
+
+    agent = document.do[0].task.effective_agent()
+    assert agent is not None
+    assert agent.sub_agents[0].model.use == "flash"
