@@ -1,25 +1,25 @@
-:warning: **Cleanup in progress.** Completed work through C22 has been moved to the
-[archive](#archive) at the bottom of this file. The sections above the archive are the currently
-open tasks.
+:white_check_mark: **Backlog verified:** all tracked implementation and cleanup work through C23 is
+complete on `main`. This file is retained as the project history and decision record; it is not an
+active work queue.
 
 # TODO — open-workflow-agent-adk
 
-Forward-looking task list. Reference material in [`docs/`](docs/): [architecture](docs/reference/architecture.md),
+Historical task list and completion record. Reference material in [`docs/`](docs/): [architecture](docs/reference/architecture.md),
 [configuration](docs/reference/configuration.md), [extension spec](docs/reference/extension-spec.md),
 [task coverage](docs/reference/task-coverage.md), [flavors](docs/flavors.md); ADRs in [docs/decisions/](docs/decisions/).
 Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 
 :white_check_mark: **Status:** v0.2.0 code has landed on `main` and is tagged `v0.2.0`; catalog mode was removed in a
-follow-up commit. **All actionable tasks are complete.** The only remaining open item is **C21.5 A2A/MCP
-protocol adapters**, which are explicitly future work.
+follow-up commit. **All tracked actionable tasks are complete.** OpenAPI generation is implemented;
+A2A/MCP protocol adapters remain explicitly uncommitted future work.
 
 ---
 
-## Open
+## Completed backlog
 
 ### C9 — Reconcile TODO accuracy & finalize the v0.2.0 release  *(P0)*
 
-:x: **C9.4 Decide whether the Release workflow has ever published.** Decision recorded: no `v*.*.*` tags existed before the cleanup pass, so the Release workflow has never fired and PyPI publish has never run. The workflow is hardened and ready when a tag is pushed.
+- [x] **C9.4 Decide whether the Release workflow has ever published.** Decision recorded: no `v*.*.*` tags existed before the cleanup pass, so the Release workflow has never fired and PyPI publish has never run. The workflow is hardened and ready when a tag is pushed.
 
 ### C15 — Release workflow hardening  *(P0 — ties to C9)*
 
@@ -75,7 +75,7 @@ Shift the primary consumption model from CLI-driven workflow execution to API-ca
 
 - [x] **C21.1–C21.3, C21.6–C21.7** Completed — see archive.
 - [x] **C21.4 Wire persistent sessions/history.** The FastAPI server now passes `app.state.history` into `run_workflow` for both `/run` and `/run/stream`, and `owf-adk serve` accepts optional `--postgres-url`, `--schema`, and `--namespace` to configure a durable backend. Added `tests/tools/test_server.py::test_run_endpoint_persists_to_postgres`.
-- [x] **C21.5 Add protocol-specific adapters — OpenAPI spec generation.** Added `openworkflow_adk.tools.openapi.generate_openapi()` / `export_openapi()`, `owf-adk export --format openapi`, and a `/openapi.json` endpoint on the FastAPI server. A2A (workflow as ADK agent) and MCP (workflow tasks as tools) adapters remain future work.
+- [x] **C21.5 Add protocol-specific adapters — OpenAPI spec generation.** Added `openworkflow_adk.tools.openapi.generate_openapi()` / `export_openapi()`, `owf-adk export --format openapi`, and a `/openapi.json` endpoint on the FastAPI server. A2A (workflow as ADK agent) and MCP (workflow tasks as tools) adapters remain uncommitted future work.
 
 ### C22 — Remove catalog-mode flavor  *(P1 — strategic direction)*
 
@@ -89,7 +89,9 @@ The project now focuses exclusively on the extended flavor: OpenWorkflow v1.0.3 
 
 The upstream [OpenWorkflow](https://openworkflow.dev/docs/postgres) reference implementation uses a PostgreSQL backend to store workflow execution state and statistics (`workflow_runs` and `step_attempts` tables), with namespace/schema isolation, migrations, connection pooling, worker polling/claiming through the database, heartbeats, crash recovery, a dashboard, and Prometheus metrics.
 
-This project currently has `InMemoryRunHistory` and `SQLiteRunHistory`, plus a broker-driven `WorkflowWorker`. `asyncpg` is already a runtime dependency, and `testcontainers[postgres]` is in the dev extras. The goal is to add a PostgreSQL-backed execution store that matches the upstream reference functionality so runs, steps, retries, and failures are durable and queryable for stats/observability.
+The completed implementation now complements `InMemoryRunHistory` and `SQLiteRunHistory` with a
+PostgreSQL-backed execution store that matches the relevant upstream reference functionality, so
+runs, steps, and failures are durable and queryable for stats and observability.
 
 - [x] **C23.1 Audit the upstream PostgreSQL backend.** Audited upstream `packages/openworkflow/postgres/backend.ts` and `postgres.ts`; documented schema, tables, indexes, namespace/schema isolation, migration strategy, and query patterns in `docs/decisions/0009-postgres-backend.md`.
 - [x] **C23.2 Design the ADK-aligned PostgreSQL schema.** ADR 0009 maps upstream concepts to this translator and decides on JSONB for state/event data with normalized columns for query/filter fields (`status`, `workflow_name`, `available_at`, `created_at`).
@@ -103,6 +105,14 @@ This project currently has `InMemoryRunHistory` and `SQLiteRunHistory`, plus a b
 - [x] **C23.10 Add PostgreSQL backend tests.** `testcontainers-postgres` tests cover migrations, run lifecycle, step attempts, namespace isolation, crash recovery/lease reclamation, stats/failure summaries, and the Prometheus `/metrics` endpoint. Retries are not yet implemented at the runtime level, so no separate retry test was added.
 
 ---
+
+## Future work (not part of the completed backlog)
+
+- A2A adapter: expose a workflow as an ADK-compatible agent.
+- MCP adapter: expose workflow tasks as MCP tools.
+
+These items are intentionally not marked complete and have no implementation commitment in the
+current release line.
 
 ## Archive
 

@@ -149,6 +149,12 @@ For automated scenarios, `owf-adk test workflow.yaml --fixtures cases.json`
 runs the workflow against JSON fixtures. Editor integrations can use
 `owf-adk diagnostics-server` for diagnostics over stdio.
 
+For HTTP consumers, `owf-adk serve workflow.yaml` exposes `/health`, `/run`,
+`/run/stream`, `/openapi.json`, and (with PostgreSQL history) `/metrics`.
+Database-backed workers and the read-only metrics dashboard are available as
+`owf-adk worker start` and `owf-adk dashboard`; see the [PostgreSQL backend
+decision](docs/decisions/0009-postgres-backend.md) for the storage model.
+
 ## Learn more
 
 - [Examples gallery](examples/README.md)

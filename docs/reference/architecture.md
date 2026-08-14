@@ -21,7 +21,7 @@ Resolved tasks + agent characteristics
    │                  JSONata expressions (${…}) → expression evaluator over ctx.state
    ▼
 adk.Workflow(edges=…, state_schema=…)
-   │  6. run via adk.Runner + InMemorySessionService (dev) / Vertex (prod)
+   │  6. run via adk.Runner + InMemory/SQLite/PostgreSQL session and run-history backends
    ▼
 events / output
 ```
@@ -69,7 +69,8 @@ the optional `brokers` extra; tests can inject a transport client directly.
 
 ## ADK gotchas to honor
 
-- `mode='task'` `LlmAgent`s **cannot** be static graph nodes (validated against in `_workflow.py`).
+- `mode='task'` `LlmAgent`s **cannot** be static graph nodes; the task builders validate this
+  constraint before constructing the workflow graph.
   Task-mode agents must be chat sub-agents or dispatched via `ctx.run_node`. Default agent-tasks to
   `single_turn` when used as graph nodes.
 - A workflow allows **exactly one** terminal output; multiple terminal-node outputs raise. `fork`
