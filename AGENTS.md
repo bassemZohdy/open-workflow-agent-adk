@@ -4,12 +4,12 @@ Guidance for AI coding agents. `CLAUDE.md` holds the architectural baseline
 (spec version, ADK mapping, config-layering precedence, stack) — read it first;
 this file only adds what it doesn't already cover.
 
-## Status: v0.2.0 delivered; restructuring and cleanup in progress
+## Status: v0.2.0 delivered; tracked backlog verified complete
 
 The v1 workflow runtime, production hardening, tests, Docker support, CI, and
-release packaging are implemented. The active cleanup backlog is tracked in
-[`TODO.md`](TODO.md), with the current focus on regrouping source, tests, and
-documentation without changing the public behavior.
+release packaging are implemented. The tracked backlog in [`TODO.md`](TODO.md)
+has been completed and archived; future protocol adapters are recorded there
+as explicitly uncommitted work.
 
 ## Python is auto-formatted on every edit
 
