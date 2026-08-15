@@ -1,6 +1,6 @@
-:white_check_mark: **Backlog verified:** all tracked implementation and cleanup work through C23 is
-complete on `main`. This file is retained as the project history and decision record; it is not an
-active work queue.
+:white_check_mark: **Backlog through C23 verified:** all tracked implementation and cleanup work through C23 is
+complete on `main`. **C24 (post-review hardening)** below is the currently open work; the rest of this
+file is retained as the project history and decision record.
 
 # TODO — open-workflow-agent-adk
 
@@ -10,8 +10,8 @@ Historical task list and completion record. Reference material in [`docs/`](docs
 Spec baseline is v1.0.3 — run `spec-drift-check` before any schema work.
 
 :white_check_mark: **Status:** v0.2.0 code has landed on `main` and is tagged `v0.2.0`; catalog mode was removed in a
-follow-up commit. **All tracked actionable tasks are complete.** OpenAPI generation is implemented;
-A2A/MCP protocol adapters remain explicitly uncommitted future work.
+follow-up commit. **The currently open work is C24 (post-review hardening)**; A2A/MCP protocol
+adapters remain explicitly uncommitted future work.
 
 ---
 
@@ -106,6 +106,64 @@ runs, steps, and failures are durable and queryable for stats and observability.
 
 ---
 
+## Open
+
+### C24 — Post-review hardening  *(P0–P2 — from the v0.2.0 code/security/architecture review)*
+
+Findings from a three-track review (code correctness, security audit, architecture) of the v0.2.0 tree.
+Sequencing recommendation at the bottom; security items in C24.1–C24.4 should land before any
+non-loopback deployment or release publicity.
+
+#### Security *(P0)*
+
+- [ ] **C24.1 Add authentication to the HTTP server.** All endpoints (`/run`, `/run/stream`, `/openapi.json`, `/metrics`) in `server.py` are unauthenticated, and `/run` executes full workflows (shell/container/MCP) with a client-supplied `user_id`. Wire the existing `AccessPolicy`/`Principal`/OIDC primitives into the FastAPI app: reject unauthenticated requests with 401, derive identity from credentials (API key/OIDC) instead of the request body, and document that `--host` other than 127.0.0.1 requires auth.
+- [ ] **C24.2 Make the egress guard fail closed.** `security/security.py` bypasses private/loopback/link-local blocking for any non-IP hostname unless `WORKFLOW_EGRESS_RESOLVE_DNS=1` is set — an SSRF window via DNS names (e.g. a name resolving to `169.254.169.254`). Default to resolve-and-block, validate at connect time (httpx event hooks, closing the resolve-then-connect rebinding gap), and re-validate every redirect hop including OAuth token URLs (`tasks/simple.py`, `security/auth.py`).
+- [ ] **C24.3 Harden container tasks.** `tasks/run.py` runs containers with no volume allowlist by default (empty `WORKFLOW_CONTAINER_VOLUME_ALLOWLIST` permits any host path, `rw` mode), no `network_mode` restriction, no CPU/memory/pids limits, and host port publishing. Default to deny-all volume mounts, `network_mode: none` unless explicitly overridden, and hard resource caps.
+- [ ] **C24.4 Block the prompt-injection → code-execution chain.** Workflow state (which includes HTTP/tool/MCP/LLM output written via `output_key`) is expression-bound into exec-family configs (`run.command`, `run.container`, MCP `command`) with no trust-boundary check. Reject expression-bound exec configs at translate time (static analysis) and gate agent-derived values before they reach exec/egress config.
+- [ ] **C24.5 Sandbox and bound MCP stdio transports.** `tasks/events.py` spawns a document/state-controlled `command` with no allowlist and an unbounded `await proc.wait()`. Allowlist MCP server commands and enforce a kill timeout.
+- [ ] **C24.6 Confine local resource reads in `call` tasks.** `_read_resource`/`_read_resource_bytes` (`tasks/call.py`) read any local file with no base-dir confinement (unlike script resolution in `run.py`). Mirror the `_resolve_script_source` confinement.
+- [ ] **C24.7 Egress-check and encrypt gRPC calls.** `tasks/call.py` uses `insecure_channel` (plaintext) and never runs `validate_egress` on `service.host`; proto sources are fetched from URLs and compiled with a trusted-input assumption. Egress-check the host, support TLS, and pin proto sources.
+- [ ] **C24.8 Parse SAML metadata with `defusedxml`.** `security/sso.py` uses stdlib `ET.fromstring` (entity-expansion/XXE). Switch to `defusedxml.ElementTree`.
+- [ ] **C24.9 Stop returning `str(exc)` to HTTP/SSE clients.** `/run` and `/run/stream` surface internal exception text (paths, URLs, response fragments). Return a generic error with a correlation ID and log the detail server-side through the redaction path.
+- [ ] **C24.10 Redact persisted event logs.** Per-event history records (`_event_log_entry` in `runtime.py`) store output/state deltas unredacted while checkpoints are redacted — secrets fetched mid-run land in SQLite/Postgres, and resumed runs consume redacted state. Apply `redact()` to event-log entries and keep secrets out of resumable state by reference.
+
+#### Correctness *(P0/P1)*
+
+- [ ] **C24.11 Make `PostgresRunHistory.record_event` atomic.** Current read-modify-write on the whole `event_log` JSONB (`postgres_history.py`) loses events under concurrent callers and re-serializes the full log per append. Use `UPDATE ... SET event_log = event_log || $1::jsonb`.
+- [ ] **C24.12 Get blocking I/O out of async paths.** `SQLiteRunHistory` (sync `sqlite3`) called from async `run_workflow` blocks the event loop; the container builder uses the blocking Docker SDK inside `async def`. Wrap in `asyncio.to_thread()` (or document sync-only) and null-check `attach_socket()` results.
+- [ ] **C24.13 Support resume for nested tasks.** Resume matches `prior.checkpoint_task` against top-level `document.do` names only and slices linearly — checkpoints inside nested `do`/`fork`/`switch` raise `KeyError`, inconsistent with the recursive discovery added under C19. Reuse `_iter_tasks()` recursion or document resume as top-level-only.
+- [ ] **C24.14 Fix `sys.path` race in the gRPC builder.** `tasks/call.py` inserts/removes `sys.path` entries without guarding concurrent calls; wrap the removal in `try/except ValueError`.
+- [ ] **C24.15 Add a method allowlist to `_call_history_method`.** `runtime.py` dispatches history calls by unvalidated string `getattr`. Allowlist known method names.
+- [ ] **C24.16 Add a timeout to the AsyncAPI consumer loop.** `tasks/events.py` `while True: await broker.consume()` hangs forever if no matching event arrives. Wrap in `asyncio.wait_for` using `task.timeout` or a default.
+- [ ] **C24.17 Verify the expression budget actually interrupts on POSIX.** The `SIGALRM` handler in `expressions.py` uses a generator-throw lambda that may not raise in the evaluating frame. Test with a pathological expression; fix via a flag-check or setitimer pattern if it doesn't fire.
+
+#### Architecture & maintainability *(P1/P2)*
+
+- [ ] **C24.18 Fix the inverted dependency direction and enforce layering.** `runtime.py`/`translator.py` import `tools.registry` while other `tools/*` and `ops/*` modules import `runtime`/`translator` — the intended layering survives by accident. Move `WorkflowRegistry` to core, split `ops` into infra (below core) and services (above core), and add an `import-linter` contract wired into CI.
+- [ ] **C24.19 Add an ADK compatibility seam and a real canary.** 9 modules import private `google.adk.workflow._*` APIs; the compatibility-matrix CI job only tests the pinned version against itself (zero information). Consolidate ADK imports behind one `adk_compat.py` and add a nightly canary job running the suite against latest ADK.
+- [ ] **C24.20 Introduce a `RunConfig` dataclass.** `run_workflow` takes 27 keyword params re-threaded through `build_workflow` and `NodeBuilderRegistry`; every new capability costs 4 signature edits. Consolidate into one frozen config object and extract resume/session-backend logic.
+- [ ] **C24.21 Triage the public API before v1.0.** `__init__.py` exports ~68 names including SSO/RBAC/audit/interop surfaces — each a semver promise for a solo-maintained project. Cut to ~20 core symbols (load/validate/run/translate/history); demote the rest to `internal` or extras.
+- [ ] **C24.22 Verify OIDC tokens or demote the API.** `OidcClient` exchanges codes and returns token JSON with no JWKS/signature verification; SAML support is metadata parsing only. Either implement verification or move both behind an "unverified" internal namespace with docstring warnings.
+- [ ] **C24.23 Move heavy dependencies behind extras.** `boto3`, `docker`, `grpcio-tools`, `redis`, `sqlalchemy` are hard dependencies for what is primarily a translator library. Split into `bedrock`, `containers`, `grpc`, `redis` extras.
+- [ ] **C24.24 Add a root `conftest.py` and integration test markers.** The Docker/testcontainers skip dance is copy-pasted across ≥6 test files with a second, inconsistent env-var gate; without Docker, Postgres tests silently skip while coverage gates stay green. Centralize the skip helper, register `pytest.mark.integration`, split CI into fast-unit and integration jobs, and track skip counts.
+- [ ] **C24.25 Split the `tools/` package.** 16 modules spanning ≥5 concerns (core infra, diagnostics/devUX, interop, AI tooling, extension). Split into `interop/` and `devtools/`; keep `plugins`/`patterns` near core.
+- [ ] **C24.26 Use a `deque` for translator BFS.** `pending.pop(0)` in `build_workflow` is O(n²) for large task lists.
+- [ ] **C24.27 Add a `(namespace_id, created_at DESC)` index.** `list_runs` without a status filter falls back to a sequential scan in `postgres_history.py`.
+- [ ] **C24.28 Declare `catch`/`while` as explicit `Task` fields.** Currently accessed via `getattr` on Pydantic extras — verified working on pydantic 2.13, but explicit fields would be cleaner and resilient to a Pydantic upgrade.
+
+#### Security tests to add alongside C24.1–C24.10
+
+- SSRF suite: hostname resolving to `127.0.0.1`/`169.254.169.254`, redirect-to-blocked-range with `redirect: true`, gRPC host bypass — all denied by default config.
+- Prompt-injection regression: agent output containing exec-targeting instructions must not reach `run.command`/MCP command bindings.
+- Container harness: volume mount outside allowlist with allowlist unset must be denied; assert `network_mode`/limit defaults.
+- Auth: 401 on `/run`, `/metrics`, `/openapi.json` without credentials; `user_id` from body ignored.
+- Fuzz: SAML entity expansion, oversized/deep expressions, SSE error payloads free of exception text.
+
+**Suggested sequencing:** C24.1–C24.4 (auth + fail-closed egress, before any non-loopback binding) →
+C24.11 → C24.24 → C24.18 → C24.19 → C24.20 → C24.21/C24.23 (before v1.0/PyPI publicity).
+
+---
+
 ## Future work (not part of the completed backlog)
 
 - A2A adapter: expose a workflow as an ADK-compatible agent.
@@ -113,6 +171,8 @@ runs, steps, and failures are durable and queryable for stats and observability.
 
 These items are intentionally not marked complete and have no implementation commitment in the
 current release line.
+
+---
 
 ## Archive
 
