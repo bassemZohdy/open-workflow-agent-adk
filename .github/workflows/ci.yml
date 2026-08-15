@@ -34,8 +34,28 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      # Measured coverage is ~82%; keep a small margin for platform variance.
-      - run: uv run pytest --cov=openworkflow_adk --cov-report=term-missing --cov-report=xml --cov-fail-under=80
+      # Architecture layering contract: the translator/runtime must never pull
+      # tools/ops into core (C24.18).
+      - run: uv run lint-imports
+      # Fast unit job: Docker-backed integration tests run in the separate
+      # `integration` job below. Unit coverage gate is set lower because the
+      # Docker-covered modules (postgres history, polling worker) are excluded.
+      - run: uv run pytest -m "not integration" --cov=openworkflow_adk --cov-report=term-missing --cov-report=xml --cov-fail-under=70
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-owf
+        with:
+          python-version: "3.12"
+      - name: Run Docker-backed integration suite
+        run: uv run pytest -m integration --cov=openworkflow_adk --cov-report=xml
       - uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
@@ -55,7 +75,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv run python -c "import importlib.metadata as m; assert m.version('google-adk') == '${{ matrix.adk-version }}'"
-      - run: uv run pytest
+      - run: uv run pytest -m "not integration"
 
   security:
     runs-on: ubuntu-latest

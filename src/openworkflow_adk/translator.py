@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Callable
 from typing import Any
 
-from google.adk.workflow import Workflow
-from google.adk.workflow._function_node import FunctionNode
-from google.adk.workflow._graph import DEFAULT_ROUTE
-from google.adk.workflow._join_node import JoinNode
-
+from openworkflow_adk.adk_compat import DEFAULT_ROUTE, FunctionNode, JoinNode, Workflow
 from openworkflow_adk.models import TASK_KEYS, OpenWorkflowDocument, ProviderConfig, Task, TaskItem
+from openworkflow_adk.registry import WorkflowRegistry
 from openworkflow_adk.resources.broker import Broker
+from openworkflow_adk.run_config import RunConfig
 from openworkflow_adk.state import derive_state_schema
-from openworkflow_adk.tools.registry import WorkflowRegistry
 
 from .tasks import common as _task_common
 from .tasks.agent import _agent_builder
@@ -208,35 +206,57 @@ def build_workflow(
     workflow_registry: WorkflowRegistry | None = None,
     provider_configs: dict[str, ProviderConfig] | None = None,
     provider_factory: Callable[[str, ProviderConfig], Any] | None = None,
-    suspend_long_waits: bool = False,
-    suspend_after: float = 3600,
+    suspend_long_waits: bool | None = None,
+    suspend_after: float | None = None,
     resume_input: Any = None,
     suspend_listens: bool = False,
     memoization: Any = None,
     self_healer: Callable[[Exception, dict[str, Any]], Any] | None = None,
+    config: RunConfig | None = None,
 ) -> Workflow:
-    """Build a linear ADK Workflow from a top-level `do` task list."""
+    """Build a linear ADK Workflow from a top-level `do` task list.
+
+    Explicit arguments take precedence over ``config``; ``config`` supplies the
+    remaining defaults so a :class:`RunConfig` can be threaded through without
+    repeating every field.
+    """
     state_schema = derive_state_schema(document)
     registry = registry or NodeBuilderRegistry(
         state_schema,
-        broker,
+        broker=broker if broker is not None else (config.broker if config else None),
         auth_policies=document.use.authentications,
-        model_factory=model_factory,
-        function_registry=function_registry,
+        model_factory=model_factory
+        if model_factory is not None
+        else (config.model_factory if config else None),
+        function_registry=function_registry
+        if function_registry is not None
+        else (config.function_registry if config else None),
         function_tasks={
             function_name: Task.model_validate(function_task)
             for function_name, function_task in document.use.functions.items()
         },
         model_specs=document.effective_models(),
-        workflow_registry=workflow_registry,
+        workflow_registry=workflow_registry
+        if workflow_registry is not None
+        else (config.workflow_registry if config else None),
         provider_configs=provider_configs or document.effective_providers(),
         provider_factory=provider_factory,
-        suspend_long_waits=suspend_long_waits,
-        suspend_after=suspend_after,
-        resume_input=resume_input,
+        suspend_long_waits=suspend_long_waits
+        if suspend_long_waits is not None
+        else (config.suspend_long_waits if config else False) or False,
+        suspend_after=suspend_after
+        if suspend_after is not None
+        else (config.suspend_after if config else 3600) or 3600,
+        resume_input=resume_input
+        if resume_input is not None
+        else (config.resume_input if config else None),
         suspend_listens=suspend_listens,
-        memoization=memoization,
-        self_healer=self_healer,
+        memoization=memoization
+        if memoization is not None
+        else (config.memoization if config else None),
+        self_healer=self_healer
+        if self_healer is not None
+        else (config.self_healer if config else None),
     )
     items: list[TaskItem] = document.do
     nodes = {item.name: registry.build(item.name, item.task) for item in items}
@@ -259,10 +279,10 @@ def build_workflow(
     if items:
         edges.append(("START", nodes[items[0].name]))
     by_name = {item.name: index for index, item in enumerate(items)}
-    pending = [0] if items else []
+    pending = deque([0]) if items else deque()
     visited: set[int] = set()
     while pending:
-        index = pending.pop(0)
+        index = pending.popleft()
         if index in visited:
             continue
         visited.add(index)

@@ -1,25 +1,11 @@
-"""Opt-in, privacy-preserving usage counters."""
+"""Backward-compatible facade for :mod:`openworkflow_adk.devtools.usage`.
 
-from __future__ import annotations
+The ``tools`` package was split into ``interop`` (cross-runtime formats) and
+``devtools`` (diagnostics/devUX) under C24.25. This module re-exports the
+implementation for existing callers; new code should import from the new
+location.
+"""
 
-from collections import Counter
-from typing import Any
+from openworkflow_adk.devtools.usage import UsageMetrics
 
-
-class UsageMetrics:
-    """Collect aggregate counters only when explicitly enabled."""
-
-    def __init__(self, *, enabled: bool = False) -> None:
-        self.enabled = enabled
-        self.counters: Counter[str] = Counter()
-
-    def record(self, event: str, **dimensions: Any) -> None:
-        if not self.enabled:
-            return
-        # Do not accept user identifiers or workflow payloads as dimensions.
-        safe = {key: str(value) for key, value in dimensions.items() if key in {"kind", "status"}}
-        key = event + (":" + ":".join(f"{k}={safe[k]}" for k in sorted(safe)) if safe else "")
-        self.counters[key] += 1
-
-    def snapshot(self) -> dict[str, int]:
-        return dict(self.counters)
+__all__ = ["UsageMetrics"]

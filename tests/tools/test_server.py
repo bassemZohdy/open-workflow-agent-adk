@@ -3,19 +3,14 @@
 from __future__ import annotations
 
 import importlib.util
-import os
 
 import pytest
 
 from openworkflow_adk import load
 from openworkflow_adk.ops.postgres_history import PostgresRunHistory, PostgresRunHistoryConfig
+from tests.conftest import require_docker
 
-pytestmark = [
-    pytest.mark.skipif(
-        os.environ.get("DOCKER_TESTS") == "0",
-        reason="Docker-based tests disabled via DOCKER_TESTS=0",
-    ),
-]
+pytestmark = [require_docker()]
 
 
 def test_create_app_requires_server_extras(monkeypatch) -> None:
@@ -125,6 +120,7 @@ def postgres_url():
     importlib.util.find_spec("fastapi") is None or importlib.util.find_spec("uvicorn") is None,
     reason="server extras not installed",
 )
+@pytest.mark.integration
 async def test_run_endpoint_persists_to_postgres(postgres_url) -> None:
     from fastapi.testclient import TestClient
 

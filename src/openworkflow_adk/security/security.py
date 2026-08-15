@@ -5,7 +5,11 @@ from __future__ import annotations
 import ipaddress
 import os
 import socket
+from collections.abc import Mapping
+from typing import Any
 from urllib.parse import urlparse
+
+import httpx
 
 
 class EgressDeniedError(PermissionError):
@@ -57,11 +61,19 @@ def _block_address(address: ipaddress.IPv4Address | ipaddress.IPv6Address, host:
 def validate_egress(url: str, environ: dict[str, str] | None = None) -> None:
     """Reject loopback/private/link-local targets unless explicitly allowlisted.
 
-    By default non-IP hostnames pass through unchanged (the legacy behavior) so
-    that deployments without reliable DNS or with mocked hosts keep working. Set
-    ``WORKFLOW_EGRESS_RESOLVE_DNS=1`` to resolve every hostname and check all
-    resulting addresses; in that mode DNS failures are treated as blocked unless
-    ``WORKFLOW_EGRESS_ALLOW_UNRESOLVED=1`` is also set.
+    The guard fails closed: every hostname is resolved and every resulting
+    address is checked, so a DNS name that resolves to a blocked range (for
+    example ``169.254.169.254``) is denied even when the workflow only knows the
+    name. DNS failures are treated as blocked unless
+    ``WORKFLOW_EGRESS_ALLOW_UNRESOLVED=1`` is set.
+
+    Two escape hatches exist for controlled deployments:
+
+    - ``WORKFLOW_EGRESS_ALLOWLIST`` — a comma-separated list of exact hosts that
+      bypass the address check (intended for trusted internal services).
+    - ``WORKFLOW_EGRESS_SKIP_DNS=1`` — restore the legacy behavior of passing
+      non-IP hostnames through without resolution (needed by test doubles and
+      offline mocks; never enable it on an untrusted boundary).
     """
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"}:
@@ -82,7 +94,7 @@ def validate_egress(url: str, environ: dict[str, str] | None = None) -> None:
     try:
         address = ipaddress.ip_address(host)
     except ValueError:
-        if values.get("WORKFLOW_EGRESS_RESOLVE_DNS", "").lower() not in {"1", "true", "yes"}:
+        if values.get("WORKFLOW_EGRESS_SKIP_DNS", "").lower() in {"1", "true", "yes"}:
             return
         try:
             infos = socket.getaddrinfo(host, None)
@@ -94,3 +106,40 @@ def validate_egress(url: str, environ: dict[str, str] | None = None) -> None:
             _block_address(ipaddress.ip_address(info[4][0]), host)
         return
     _block_address(address, host)
+
+
+def _egress_request_hook(environ: Mapping[str, str] | None) -> Any:
+    """Return a sync httpx request hook that validates the target URL.
+
+    The hook fires immediately before every request is dispatched, which for
+    redirect-following clients means every redirect hop is re-validated against
+    the (possibly rebound) DNS answer, closing the resolve-then-connect window.
+    """
+
+    def hook(request: httpx.Request) -> None:
+        validate_egress(str(request.url), dict(environ) if environ is not None else None)
+
+    return hook
+
+
+def _egress_request_hook_async(environ: Mapping[str, str] | None) -> Any:
+    """Return an async httpx request hook (required by ``AsyncClient``)."""
+
+    async def hook(request: httpx.Request) -> None:
+        validate_egress(str(request.url), dict(environ) if environ is not None else None)
+
+    return hook
+
+
+def guarded_client(environ: dict[str, str] | None = None, **kwargs: Any) -> httpx.Client:
+    """Build a sync httpx client whose every request hop passes the egress guard."""
+    hooks = dict(kwargs.pop("event_hooks", {}) or {})
+    hooks.setdefault("request", []).append(_egress_request_hook(environ))
+    return httpx.Client(event_hooks=hooks, **kwargs)
+
+
+def guarded_async_client(environ: dict[str, str] | None = None, **kwargs: Any) -> httpx.AsyncClient:
+    """Build an async httpx client whose every request hop passes the egress guard."""
+    hooks = dict(kwargs.pop("event_hooks", {}) or {})
+    hooks.setdefault("request", []).append(_egress_request_hook_async(environ))
+    return httpx.AsyncClient(event_hooks=hooks, **kwargs)

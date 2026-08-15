@@ -262,20 +262,24 @@ class PostgresRunHistory:
         return record
 
     async def record_event(self, run_id: str, event: dict[str, Any]) -> RunRecord:
+        """Atomically append an event to the run's JSONB event log.
+
+        The append uses a single ``||`` concatenation inside the UPDATE so
+        concurrent callers never lose events through a read-modify-write race,
+        and the full log is not re-serialized per append.
+        """
         pool = await self._pool_ref()
-        record = await self.get(run_id)
-        record.event_log.append(dict(event))
         await pool.execute(
             f"""
             UPDATE {self._table}.workflow_runs
-            SET event_log = $1, updated_at = NOW()
+            SET event_log = event_log || $1::jsonb, updated_at = NOW()
             WHERE namespace_id = $2 AND run_id = $3
             """,
-            json.dumps(record.event_log, default=str),
+            json.dumps([dict(event)], default=str),
             self.config.namespace_id,
             run_id,
         )
-        return record
+        return await self.get(run_id)
 
     async def record_step_attempt(
         self,
@@ -848,6 +852,12 @@ class PostgresRunHistory:
                 ADD COLUMN IF NOT EXISTS workflow_namespace TEXT NOT NULL DEFAULT 'default';
             CREATE INDEX IF NOT EXISTS workflow_runs_available_at_idx
                 ON {quoted}.workflow_runs (namespace_id, status, available_at, created_at);
+            COMMIT;
+            """,
+            f"""
+            BEGIN;
+            CREATE INDEX IF NOT EXISTS workflow_runs_namespace_created_at_idx
+                ON {quoted}.workflow_runs (namespace_id, created_at DESC);
             COMMIT;
             """,
         ]

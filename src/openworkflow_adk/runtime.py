@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import os
 import time
-from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import Any
 
@@ -16,16 +16,12 @@ from google.genai import types
 
 from openworkflow_adk.models import OpenWorkflowDocument
 from openworkflow_adk.ops import replay as _replay
-from openworkflow_adk.ops.history import InMemoryRunHistory, SQLiteRunHistory
-from openworkflow_adk.ops.logging import JsonRunLogger
-from openworkflow_adk.ops.postgres_history import PostgresRunHistory
 from openworkflow_adk.ops.schedule import trigger_events
-from openworkflow_adk.ops.suspension import WorkflowSuspended
-from openworkflow_adk.ops.telemetry import WorkflowTelemetry
 from openworkflow_adk.resources.broker import Broker, InMemoryBroker
 from openworkflow_adk.resources.memory import create_memory_service
+from openworkflow_adk.run_config import RunConfig
 from openworkflow_adk.security.security import redact, resolve_secret
-from openworkflow_adk.tools.registry import WorkflowRegistry
+from openworkflow_adk.suspension import WorkflowSuspended
 from openworkflow_adk.translator import build_workflow
 
 replay_event_log = _replay.replay_event_log
@@ -59,54 +55,50 @@ replay_from_task = _replay.replay_from_task
 verify_replay_determinism = _replay.verify_replay_determinism
 
 
+_HISTORY_METHODS = frozenset({"start", "get", "finish", "checkpoint", "record_event", "suspend"})
+
+
 async def _call_history_method(history: Any, method: str, *args: Any, **kwargs: Any) -> Any:
-    """Invoke a sync or async history method and await the result if needed."""
-    result = getattr(history, method)(*args, **kwargs)
-    if inspect.isawaitable(result):
-        return await result
-    return result
+    """Invoke a sync or async history method and await the result if needed.
+
+    Only a fixed set of lifecycle methods may be dispatched, and synchronous
+    (blocking) implementations such as :class:`SQLiteRunHistory` are executed in
+    a worker thread so the event loop is never blocked.
+    """
+    if method not in _HISTORY_METHODS:
+        raise ValueError(f"history method {method!r} is not allowed")
+    callable_method = getattr(history, method, None)
+    if callable_method is None:
+        raise AttributeError(f"history backend has no method {method!r}")
+    if inspect.iscoroutinefunction(callable_method):
+        return await callable_method(*args, **kwargs)
+    return await asyncio.to_thread(callable_method, *args, **kwargs)
 
 
 async def run_workflow(
     document: OpenWorkflowDocument,
     input: dict[str, Any] | None = None,
     *,
-    user_id: str = "workflow-user",
-    session_id: str = "workflow-session",
-    broker: Broker | None = None,
-    model_factory: Callable[[str], Any] | None = None,
-    function_registry: dict[str, Callable[..., Any]] | None = None,
-    session_backend: str | None = None,
-    workflow_registry: WorkflowRegistry | None = None,
-    history: InMemoryRunHistory | SQLiteRunHistory | PostgresRunHistory | None = None,
-    run_logger: JsonRunLogger | Callable[[dict[str, Any]], None] | None = None,
-    telemetry: WorkflowTelemetry | None = None,
-    memory_service: BaseMemoryService | None = None,
-    checkpoint_interval: int | None = None,
-    resume: bool = False,
-    suspend_long_waits: bool | None = None,
-    suspend_after: float | None = None,
-    resume_input: Any = None,
-    message: types.Content | None = None,
-    event_sink: Callable[[Any], None | Awaitable[None]] | None = None,
-    token_budget: int | None = None,
-    memoization: Any = None,
-    self_healer: Callable[[Exception, dict[str, Any]], Any] | None = None,
-    region: str | None = None,
-    mode: str = "auto",
+    config: RunConfig | None = None,
+    **kwargs: Any,
 ) -> list[Any]:
-    """Run a translated workflow using the selected ADK session backend."""
-    if resume and history is None:
+    """Run a translated workflow using the selected ADK session backend.
+
+    Pass a frozen :class:`RunConfig` for repeated runs, or keep using the
+    keyword arguments (backward compatible); the keywords are consolidated into
+    a ``RunConfig`` when ``config`` is omitted.
+    """
+    cfg = config if config is not None else RunConfig(**kwargs)
+    if cfg.mode not in {"auto", "extended"}:
+        raise ValueError("mode must be auto or extended")
+    if cfg.resume and cfg.history is None:
         raise ValueError("resume requires a persistent run history")
-    if resume and history is not None:
-        try:
-            prior = await _call_history_method(history, "get", session_id)
-        except KeyError:
-            prior = None
+    if cfg.resume and cfg.history is not None:
+        prior = await _load_prior_run(cfg.history, cfg.session_id)
         if prior is not None and prior.checkpoint_task:
-            if region is not None and prior.region is not None and prior.region != region:
+            if cfg.region is not None and prior.region is not None and prior.region != cfg.region:
                 raise RuntimeError(
-                    f"run region {prior.region!r} does not match requested region {region!r}"
+                    f"run region {prior.region!r} does not match requested region {cfg.region!r}"
                 )
             if prior.status == "suspended" and prior.resume_at:
                 resume_at = datetime.fromisoformat(prior.resume_at)
@@ -115,92 +107,72 @@ async def run_workflow(
                         f"workflow timer has not elapsed; resume_at={prior.resume_at}"
                     )
             start_at_checkpoint = prior.suspension_reason not in {"human_input", "broker_listen"}
-            for index, item in enumerate(document.do):
-                if item.name == prior.checkpoint_task:
-                    if start_at_checkpoint:
-                        document = document.model_copy(update={"do": document.do[index + 1 :]})
-                    input = prior.state
-                    break
-            else:
+            resumed_do = _resume_task_list(document.do, prior.checkpoint_task)
+            if resumed_do is None:
                 raise KeyError(f"checkpoint task {prior.checkpoint_task!r} is not in workflow")
-    if mode not in {"auto", "extended"}:
-        raise ValueError("mode must be auto or extended")
+            if start_at_checkpoint:
+                document = document.model_copy(update={"do": resumed_do})
+            input = prior.state
     workflow = build_workflow(
         document,
-        broker=broker or InMemoryBroker(),
-        model_factory=model_factory,
-        function_registry=function_registry,
-        workflow_registry=workflow_registry,
-        suspend_long_waits=history is not None
-        if suspend_long_waits is None
-        else suspend_long_waits,
+        config=cfg,
+        broker=cfg.broker or InMemoryBroker(),
+        suspend_long_waits=cfg.history is not None
+        if cfg.suspend_long_waits is None
+        else cfg.suspend_long_waits,
         suspend_after=(
             float(os.environ.get("WORKFLOW_SUSPEND_WAIT_SECONDS", "3600"))
-            if suspend_after is None
-            else suspend_after
+            if cfg.suspend_after is None
+            else cfg.suspend_after
         ),
-        resume_input=resume_input,
-        suspend_listens=history is not None and not resume,
-        memoization=memoization,
-        self_healer=self_healer,
+        resume_input=cfg.resume_input,
+        suspend_listens=cfg.history is not None and not cfg.resume,
+        memoization=cfg.memoization,
+        self_healer=cfg.self_healer,
     )
-    if history is not None and not resume:
+    if cfg.history is not None and not cfg.resume:
         await _call_history_method(
-            history, "start", session_id, document.document.name, input or {}, region=region
+            cfg.history,
+            "start",
+            cfg.session_id,
+            document.document.name,
+            input or {},
+            region=cfg.region,
         )
     secret_values = [
         value for name in document.use.secrets if (value := resolve_secret(name)) is not None
     ]
-    if run_logger:
-        run_logger(
+    if cfg.run_logger:
+        cfg.run_logger(
             {
                 "event": "run.started",
-                "run_id": session_id,
+                "run_id": cfg.session_id,
                 "workflow": document.document.name,
             }
         )
         for task in document.do:
-            run_logger({"event": "task.enter", "run_id": session_id, "task": task.name})
-    backend = session_backend or os.environ.get("WORKFLOW_SESSION_BACKEND", "inmemory")
-    if backend == "inmemory":
-        sessions = InMemorySessionService()
-    elif backend in {"database", "sqlite"}:
-        from google.adk.sessions.database_session_service import DatabaseSessionService
-
-        database_url = os.environ.get(
-            "WORKFLOW_SESSION_DATABASE_URL", "sqlite+aiosqlite:///workflow-sessions.db"
-        )
-        sessions = DatabaseSessionService(db_url=database_url)
-    elif backend == "vertex":
-        from google.adk.sessions.vertex_ai_session_service import VertexAiSessionService
-
-        sessions = VertexAiSessionService(
-            project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
-            location=os.environ.get("GOOGLE_CLOUD_LOCATION"),
-            agent_engine_id=os.environ.get("WORKFLOW_VERTEX_AGENT_ENGINE_ID"),
-        )
-    else:
-        raise ValueError(f"unsupported session backend: {backend!r}")
+            cfg.run_logger({"event": "task.enter", "run_id": cfg.session_id, "task": task.name})
+    sessions = _session_service_for(cfg)
     existing = await sessions.get_session(
         app_name=document.document.name,
-        user_id=user_id,
-        session_id=session_id,
+        user_id=cfg.user_id,
+        session_id=cfg.session_id,
     )
     if existing is None:
         await sessions.create_session(
             app_name=document.document.name,
-            user_id=user_id,
-            session_id=session_id,
+            user_id=cfg.user_id,
+            session_id=cfg.session_id,
             state=input or {},
         )
-    active_memory_service = memory_service or memory_service_for_document(document)
+    active_memory_service = cfg.memory_service or memory_service_for_document(document)
     runner = Runner(
         node=workflow,
         app_name=document.document.name,
         session_service=sessions,
         memory_service=active_memory_service,
     )
-    message = message or types.Content(
+    message = cfg.message or types.Content(
         role="user",
         parts=[types.Part(text="Run workflow")],
     )
@@ -208,46 +180,49 @@ async def run_workflow(
         started = time.monotonic()
         events: list[Any] = []
         state = dict(input or {})
-        interval = checkpoint_interval
+        interval = cfg.checkpoint_interval
         if interval is None:
             interval = int(os.environ.get("WORKFLOW_CHECKPOINT_INTERVAL", "1"))
         if interval < 0:
             raise ValueError("checkpoint_interval must be non-negative")
-        if token_budget is not None and token_budget < 0:
+        if cfg.token_budget is not None and cfg.token_budget < 0:
             raise ValueError("token_budget must be non-negative")
         consumed_tokens = 0
         async for event in runner.run_async(
-            user_id=user_id,
-            session_id=session_id,
+            user_id=cfg.user_id,
+            session_id=cfg.session_id,
             new_message=message,
         ):
             events.append(event)
             consumed_tokens += _event_token_count(event)
-            if token_budget is not None and consumed_tokens > token_budget:
+            if cfg.token_budget is not None and consumed_tokens > cfg.token_budget:
                 raise RuntimeError(
-                    f"workflow token budget exceeded: {consumed_tokens}>{token_budget}"
+                    f"workflow token budget exceeded: {consumed_tokens}>{cfg.token_budget}"
                 )
-            if event_sink is not None:
-                delivered = event_sink(event)
+            if cfg.event_sink is not None:
+                delivered = cfg.event_sink(event)
                 if hasattr(delivered, "__await__"):
                     await delivered
             if event.actions:
                 state.update(event.actions.state_delta or {})
-            if history is not None:
+            if cfg.history is not None:
                 await _call_history_method(
-                    history, "record_event", session_id, _event_log_entry(event)
+                    cfg.history,
+                    "record_event",
+                    cfg.session_id,
+                    _event_log_entry(event, secret_values),
                 )
             if (
-                history is not None
+                cfg.history is not None
                 and interval
                 and len(events) % interval == 0
                 and not event.error_code
                 and not event.error_message
             ):
                 await _call_history_method(
-                    history,
+                    cfg.history,
                     "checkpoint",
-                    session_id,
+                    cfg.session_id,
                     state=redact(state, secret_values),
                     index=len(events),
                     task=_event_task_name(event),
@@ -255,29 +230,29 @@ async def run_workflow(
         if active_memory_service is not None:
             session = await sessions.get_session(
                 app_name=document.document.name,
-                user_id=user_id,
-                session_id=session_id,
+                user_id=cfg.user_id,
+                session_id=cfg.session_id,
             )
             if session is not None:
                 await active_memory_service.add_session_to_memory(session)
     except WorkflowSuspended as suspension:
-        if history is None:
+        if cfg.history is None:
             raise
         await _call_history_method(
-            history,
+            cfg.history,
             "suspend",
-            session_id,
+            cfg.session_id,
             state=redact(state, secret_values),
             index=len(events),
             task=suspension.task,
             resume_at=suspension.resume_at.isoformat(),
             reason=suspension.reason,
         )
-        if run_logger:
-            run_logger(
+        if cfg.run_logger:
+            cfg.run_logger(
                 {
                     "event": "run.suspended",
-                    "run_id": session_id,
+                    "run_id": cfg.session_id,
                     "task": suspension.task,
                     "resume_at": suspension.resume_at.isoformat(),
                 }
@@ -285,38 +260,38 @@ async def run_workflow(
         return events
     except Exception as error:
         safe_error = RuntimeError(str(redact(str(error), secret_values)))
-        if history is not None:
+        if cfg.history is not None:
             await _call_history_method(
-                history,
+                cfg.history,
                 "finish",
-                session_id,
+                cfg.session_id,
                 state=redact(state, secret_values),
                 error=safe_error,
             )
-        if run_logger:
-            run_logger(
+        if cfg.run_logger:
+            cfg.run_logger(
                 {
                     "event": "run.failed",
-                    "run_id": session_id,
+                    "run_id": cfg.session_id,
                     "error": str(safe_error),
                     "duration_ms": round((time.monotonic() - started) * 1000, 3),
                 }
             )
         raise
-    if history is not None:
+    if cfg.history is not None:
         await _call_history_method(
-            history,
+            cfg.history,
             "finish",
-            session_id,
+            cfg.session_id,
             state=redact(state, secret_values),
             output=redact(events[-1].output if events else None, secret_values),
         )
-    if run_logger:
+    if cfg.run_logger:
         for event in events:
-            run_logger(
+            cfg.run_logger(
                 {
                     "event": "task.exit",
-                    "run_id": session_id,
+                    "run_id": cfg.session_id,
                     "task": event.author,
                     "output": redact(event.output, secret_values),
                     "state_delta": redact(
@@ -326,17 +301,48 @@ async def run_workflow(
                     "route": getattr(event.actions, "escalate", None) if event.actions else None,
                 }
             )
-        run_logger(
+        cfg.run_logger(
             {
                 "event": "run.completed",
-                "run_id": session_id,
+                "run_id": cfg.session_id,
                 "workflow": document.document.name,
                 "duration_ms": round((time.monotonic() - started) * 1000, 3),
             }
         )
-    if telemetry:
-        telemetry.record_run(document.document.name, session_id, events)
+    if cfg.telemetry:
+        cfg.telemetry.record_run(document.document.name, cfg.session_id, events)
     return events
+
+
+async def _load_prior_run(history: Any, session_id: str) -> Any | None:
+    """Fetch a prior run record, returning ``None`` when it does not exist."""
+    try:
+        return await _call_history_method(history, "get", session_id)
+    except KeyError:
+        return None
+
+
+def _session_service_for(config: RunConfig) -> Any:
+    """Build the ADK session service for the configured backend."""
+    backend = config.session_backend or os.environ.get("WORKFLOW_SESSION_BACKEND", "inmemory")
+    if backend == "inmemory":
+        return InMemorySessionService()
+    if backend in {"database", "sqlite"}:
+        from google.adk.sessions.database_session_service import DatabaseSessionService
+
+        database_url = os.environ.get(
+            "WORKFLOW_SESSION_DATABASE_URL", "sqlite+aiosqlite:///workflow-sessions.db"
+        )
+        return DatabaseSessionService(db_url=database_url)
+    if backend == "vertex":
+        from google.adk.sessions.vertex_ai_session_service import VertexAiSessionService
+
+        return VertexAiSessionService(
+            project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
+            location=os.environ.get("GOOGLE_CLOUD_LOCATION"),
+            agent_engine_id=os.environ.get("WORKFLOW_VERTEX_AGENT_ENGINE_ID"),
+        )
+    raise ValueError(f"unsupported session backend: {backend!r}")
 
 
 def _event_task_name(event: Any) -> str | None:
@@ -355,13 +361,80 @@ def _event_token_count(event: Any) -> int:
     return int(getattr(usage, "total_token_count", 0) or 0)
 
 
-def _event_log_entry(event: Any) -> dict[str, Any]:
+def _event_log_entry(event: Any, secrets: list[str] | tuple[str, ...] = ()) -> dict[str, Any]:
+    """Build a redacted event-log entry.
+
+    Event logs are persisted (SQLite/PostgreSQL), so secrets that appear in
+    outputs or state deltas are redacted before storage. Resumed runs read only
+    checkpoint state, which is already redacted, so secrets stay out of
+    resumable state by reference rather than by value.
+    """
     return {
         "task": _event_task_name(event),
-        "output": event.output,
-        "state_delta": event.actions.state_delta if event.actions else {},
-        "error": event.error_message or event.error_code,
+        "output": redact(event.output, secrets),
+        "state_delta": redact(event.actions.state_delta if event.actions else {}, secrets),
+        "error": redact(event.error_message or event.error_code, secrets),
     }
+
+
+def _resume_task_list(items: list[Any], checkpoint: str) -> list[Any] | None:
+    """Slice a task list so execution resumes after ``checkpoint``.
+
+    The checkpoint may live inside a nested ``do``/``try``/``fork``/``switch``
+    body; the containing list is sliced at the checkpoint and every ancestor is
+    kept (with its body replaced) so the surrounding control flow is preserved.
+    Returns ``None`` when the checkpoint is not found.
+    """
+    from openworkflow_adk.models import TaskItem
+
+    for index, item in enumerate(items):
+        if item.name == checkpoint:
+            return items[index + 1 :]
+        task = item.task
+        for key in ("do", "try_"):
+            children = getattr(task, key, None)
+            if children and (sliced := _resume_task_list(children, checkpoint)) is not None:
+                replacement = item.model_copy(deep=True)
+                setattr(replacement.task, key, sliced)
+                return [replacement, *items[index + 1 :]]
+        catch = task.catch
+        if isinstance(catch, dict):
+            children = catch.get("do", [])
+            if children and (sliced := _resume_task_list(children, checkpoint)) is not None:
+                replacement = item.model_copy(deep=True)
+                replacement.task.catch = {**catch, "do": sliced}
+                return [replacement, *items[index + 1 :]]
+        fork = task.fork
+        if isinstance(fork, dict):
+            for branch_index, branch in enumerate(fork.get("branches", [])):
+                branch_item = TaskItem.model_validate(branch)
+                if (sliced := _resume_task_list([branch_item], checkpoint)) is not None:
+                    replacement = item.model_copy(deep=True)
+                    branches = [
+                        TaskItem.model_validate(candidate) for candidate in fork.get("branches", [])
+                    ]
+                    branches[branch_index] = sliced[0]
+                    replacement.task.fork = {
+                        **fork,
+                        "branches": [
+                            branch.model_dump(by_alias=True, exclude_none=True)
+                            for branch in branches
+                        ],
+                    }
+                    return [replacement, *items[index + 1 :]]
+        for case in task.switch or []:
+            if not isinstance(case, dict):
+                continue
+            case_name, configuration = next(iter(case.items()))
+            children = configuration.get("do", []) if isinstance(configuration, dict) else []
+            if children and (sliced := _resume_task_list(children, checkpoint)) is not None:
+                replacement = item.model_copy(deep=True)
+                updated_case = {**case, case_name: {**configuration, "do": sliced}}
+                replacement.task.switch = [
+                    updated_case if candidate is case else candidate for candidate in task.switch
+                ]
+                return [replacement, *items[index + 1 :]]
+    return None
 
 
 async def run(document: OpenWorkflowDocument, input: dict[str, Any] | None = None) -> list[Any]:
@@ -380,7 +453,7 @@ def _iter_tasks(items: list[Any]) -> Any:
         task = item.task
         for child in [*(task.do or []), *(task.try_ or [])]:
             yield from _iter_tasks([child])
-        catch = getattr(task, "catch", None)
+        catch = task.catch
         if isinstance(catch, dict):
             yield from _iter_tasks(catch.get("do", []))
         if isinstance(task.fork, dict):

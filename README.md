@@ -151,9 +151,31 @@ runs the workflow against JSON fixtures. Editor integrations can use
 
 For HTTP consumers, `owf-adk serve workflow.yaml` exposes `/health`, `/run`,
 `/run/stream`, `/openapi.json`, and (with PostgreSQL history) `/metrics`.
-Database-backed workers and the read-only metrics dashboard are available as
-`owf-adk worker start` and `owf-adk dashboard`; see the [PostgreSQL backend
-decision](docs/decisions/0009-postgres-backend.md) for the storage model.
+The `/health` endpoint is public; all other endpoints require authentication
+once `WORKFLOW_SERVER_API_KEY` is set, and serving on a non-loopback host
+*requires* it. Database-backed workers and the read-only metrics dashboard are
+available as `owf-adk worker start` and `owf-adk dashboard`; see the
+[PostgreSQL backend decision](docs/decisions/0009-postgres-backend.md) for the
+storage model.
+
+## Extras
+
+The base install is deliberately small. Optional capability groups:
+
+```bash
+pip install "open-workflow-agent-adk[server]"   # FastAPI/uvicorn HTTP serving
+pip install "open-workflow-agent-adk[brokers]"  # Kafka, RabbitMQ, NATS adapters
+pip install "open-workflow-agent-adk[containers]"  # run: container tasks
+pip install "open-workflow-agent-adk[grpc]"     # call: grpc tasks
+pip install "open-workflow-agent-adk[bedrock]"  # Bedrock provider adapter
+pip install "open-workflow-agent-adk[redis]"    # Redis memory/broker adapters
+pip install "open-workflow-agent-adk[database]" # SQLAlchemy-backed memory
+pip install "open-workflow-agent-adk[all]"      # everything above
+```
+
+Security hardening (fail-closed egress, container isolation, server
+authentication, static exec configs) is documented in the [security
+reference](docs/reference/security.md).
 
 ## Learn more
 

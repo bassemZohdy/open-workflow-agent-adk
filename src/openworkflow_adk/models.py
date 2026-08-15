@@ -220,6 +220,8 @@ class Task(TaskBase):
     try_: list[TaskItem] | None = Field(default=None, alias="try")
     wait: Any = None
     with_: dict[str, Any] | None = Field(default=None, alias="with")
+    catch: dict[str, Any] | None = None
+    while_: dict[str, Any] | None = Field(default=None, alias="while")
 
     @model_validator(mode="after")
     def has_one_task_kind(self) -> Task:

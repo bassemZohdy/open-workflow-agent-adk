@@ -57,3 +57,86 @@ async def test_sqlite_checkpoint_resumes_after_failed_run(tmp_path, monkeypatch)
     assert events
     assert restarted_history.get("run-1").status == "completed"
     restarted_history.close()
+
+
+async def test_nested_checkpoint_resumes_inside_branch(tmp_path) -> None:
+    """C24.13: checkpoints inside nested do/try bodies resume at the branch."""
+    history_path = tmp_path / "nested-history.db"
+    document = load(
+        {
+            "document": {
+                "dsl": "1.0.3",
+                "namespace": "demo",
+                "name": "nested-resume",
+                "version": "1.0.0",
+            },
+            "do": [
+                {"prepare": {"set": {"prepared": '"yes"'}}},
+                {
+                    "branch": {
+                        "do": [
+                            {"first": {"set": {"step": '"one"'}}},
+                            {"second": {"call": "fail"}},
+                            {"third": {"set": {"step": '"three"'}}},
+                        ]
+                    }
+                },
+                {"after": {"set": {"done": '"yes"'}}},
+            ],
+        }
+    )
+
+    def fail() -> None:
+        raise RuntimeError("boom")
+
+    history = SQLiteRunHistory(str(history_path))
+    with pytest.raises(RuntimeError, match="boom"):
+        await run_workflow(
+            document,
+            session_id="nested-1",
+            history=history,
+            function_registry={"fail": fail},
+        )
+    history.close()
+
+    restarted = SQLiteRunHistory(str(history_path))
+    events = await run_workflow(
+        document,
+        session_id="nested-1",
+        history=restarted,
+        function_registry={"fail": lambda: "recovered"},
+        resume=True,
+    )
+    try:
+        assert events
+        assert restarted.get("nested-1").status == "completed"
+    finally:
+        restarted.close()
+
+
+async def test_run_config_object_drives_execution(tmp_path) -> None:
+    """C24.20: the frozen RunConfig path behaves like the keyword path."""
+    from openworkflow_adk import RunConfig
+
+    history_path = tmp_path / "config-history.db"
+    from openworkflow_adk import SQLiteRunHistory
+
+    history = SQLiteRunHistory(str(history_path))
+    document = load(
+        {
+            "document": {
+                "dsl": "1.0.3",
+                "namespace": "demo",
+                "name": "config-run",
+                "version": "1.0.0",
+            },
+            "do": [{"finish": {"set": {"value": '"ok"'}}}],
+        }
+    )
+    config = RunConfig(session_id="config-1", history=history)
+    try:
+        events = await run_workflow(document, config=config)
+        assert events
+        assert history.get("config-1").status == "completed"
+    finally:
+        history.close()

@@ -6,19 +6,19 @@ import json
 import os
 from pathlib import Path
 
-from openworkflow_adk.loader import _contains_adk_extension, _to_pure_openworkflow, load, load_raw
-from openworkflow_adk.models import OpenWorkflowDocument
-from openworkflow_adk.ops.polling_worker import PostgresPollingWorker
-from openworkflow_adk.ops.postgres_history import PostgresRunHistory, PostgresRunHistoryConfig
-from openworkflow_adk.runtime import run_workflow
-from openworkflow_adk.tools.diagnostics import (
+from openworkflow_adk.devtools.diagnostics import (
     Diagnostic,
     lint_workflow,
     workflow_mermaid,
     workflow_plan,
 )
-from openworkflow_adk.tools.diagnostics_server import serve_stdio
-from openworkflow_adk.tools.registry import WorkflowRegistry
+from openworkflow_adk.devtools.diagnostics_server import serve_stdio
+from openworkflow_adk.loader import _contains_adk_extension, _to_pure_openworkflow, load, load_raw
+from openworkflow_adk.models import OpenWorkflowDocument
+from openworkflow_adk.ops.polling_worker import PostgresPollingWorker
+from openworkflow_adk.ops.postgres_history import PostgresRunHistory, PostgresRunHistoryConfig
+from openworkflow_adk.registry import WorkflowRegistry
+from openworkflow_adk.runtime import run_workflow
 
 
 def _add_file_and_mode_args(parser: argparse.ArgumentParser) -> None:
@@ -144,7 +144,7 @@ def main() -> int:
         return 1 if any(item.severity == "error" for item in diagnostics) else 0
     if args.command == "export":
         if args.format == "openapi":
-            from openworkflow_adk.tools.openapi import export_openapi
+            from openworkflow_adk.interop.openapi import export_openapi
 
             output = export_openapi(_load_document(args), base_url=args.base_url)
         else:

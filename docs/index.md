@@ -6,6 +6,7 @@
 - [Task coverage](reference/task-coverage.md)
 - [Security](reference/security.md)
 - [PostgreSQL backend decision](decisions/0009-postgres-backend.md)
+- [Security hardening decision](decisions/0010-security-hardening.md)
 - [Generation](guides/generation.md)
 - [Support window](reference/support-window.md)
 - [Upstream sync](guides/upstream-sync.md)

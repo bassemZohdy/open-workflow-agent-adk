@@ -11,6 +11,7 @@ from openworkflow_adk.config import (
     resolve_model_spec,
     resolve_provider_config,
 )
+from openworkflow_adk.devtools.diagnostics_server import DiagnosticsServer, serve_stdio
 from openworkflow_adk.ops.backpressure import BackpressureController
 from openworkflow_adk.ops.logging import JsonRunLogger
 from openworkflow_adk.ops.polling_worker import PostgresPollingWorker
@@ -29,7 +30,6 @@ from openworkflow_adk.resources.memory import create_memory_service
 from openworkflow_adk.resources.providers import create_llm
 from openworkflow_adk.runtime import memory_service_for_document
 from openworkflow_adk.schema import load_schema, spec_drift_check
-from openworkflow_adk.tools.diagnostics_server import DiagnosticsServer, serve_stdio
 from openworkflow_adk.translator import NodeBuilderRegistry, build_workflow
 
 __all__ = [

@@ -3,38 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import re
 from collections.abc import AsyncIterator
 from datetime import datetime, timedelta, timezone
-from typing import Any
 
+from openworkflow_adk.durations import duration_seconds
 from openworkflow_adk.models import OpenWorkflowDocument
 from openworkflow_adk.resources.broker import Broker
-
-
-def duration_seconds(value: Any) -> float:
-    """Convert the spec's common duration forms to seconds."""
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, dict):
-        return sum(
-            float(value.get(unit, 0)) * factor
-            for unit, factor in {
-                "seconds": 1,
-                "minutes": 60,
-                "hours": 3600,
-                "days": 86400,
-            }.items()
-        )
-    match = re.fullmatch(
-        r"P(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?"
-        r"(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?",
-        str(value),
-    )
-    if not match:
-        raise ValueError(f"unsupported workflow duration: {value!r}")
-    days, hours, minutes, seconds = (float(part or 0) for part in match.groups())
-    return days * 86400 + hours * 3600 + minutes * 60 + seconds
 
 
 def _cron_matches(expression: str, instant: datetime) -> bool:

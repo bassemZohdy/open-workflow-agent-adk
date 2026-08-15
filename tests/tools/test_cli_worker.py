@@ -2,19 +2,14 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
 
 from openworkflow_adk.cli import main
+from tests.conftest import require_docker
 
-pytestmark = [
-    pytest.mark.skipif(
-        os.environ.get("DOCKER_TESTS") == "0",
-        reason="Docker-based tests disabled via DOCKER_TESTS=0",
-    ),
-]
+pytestmark = [pytest.mark.integration, require_docker()]
 
 
 @pytest.fixture(scope="module")

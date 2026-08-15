@@ -1,16 +1,23 @@
-"""Protocol adapters for enterprise OIDC and SAML sign-in flows."""
+"""Protocol adapters for enterprise OIDC and SAML sign-in flows.
+
+.. warning::
+   These adapters are intentionally ``unverified``: ``OidcClient`` performs no
+   JWKS/signature verification of exchanged tokens, and ``SamlMetadata`` is a
+   metadata parser only (no SAML response assertion validation). They are kept
+   behind this internal namespace for integrations that accept the risk; do not
+   rely on them for production-grade authentication without adding verification.
+"""
 
 from __future__ import annotations
 
 import base64
 import urllib.parse
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Any
 
-import httpx
+from defusedxml import ElementTree as ET
 
-from openworkflow_adk.security.security import validate_egress
+from openworkflow_adk.security.security import guarded_async_client, validate_egress
 
 
 @dataclass(frozen=True)
@@ -32,7 +39,7 @@ class OidcClient:
         self.metadata: OidcMetadata | None = None
 
     async def discover(self) -> OidcMetadata:
-        async with httpx.AsyncClient() as client:
+        async with guarded_async_client() as client:
             response = await client.get(f"{self.issuer}/.well-known/openid-configuration")
             response.raise_for_status()
         data = response.json()
@@ -71,7 +78,8 @@ class OidcClient:
             "redirect_uri": redirect_uri,
         }
         auth = (self.client_id, self.client_secret) if self.client_secret else None
-        async with httpx.AsyncClient() as client:
+        validate_egress(self.metadata.token_endpoint)
+        async with guarded_async_client() as client:
             response = await client.post(self.metadata.token_endpoint, data=form, auth=auth)
             response.raise_for_status()
             return response.json()

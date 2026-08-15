@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import importlib
 import inspect
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -13,13 +15,12 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import httpx
 import yaml
-from google.adk.workflow._function_node import FunctionNode
 
+from openworkflow_adk.adk_compat import FunctionNode
 from openworkflow_adk.expressions import bind
 from openworkflow_adk.models import Task
-from openworkflow_adk.security.security import validate_egress
+from openworkflow_adk.security.security import guarded_async_client, validate_egress
 
 from .simple import _dynamic
 
@@ -57,6 +58,27 @@ def _function_builder(
     return _dynamic(FunctionNode(func=call_function, name=name))
 
 
+def _resource_base_dir() -> Path:
+    """Return the directory local resource reads are confined to."""
+    return Path(os.environ.get("WORKFLOW_RESOURCE_BASE_DIR", str(Path.cwd()))).resolve()
+
+
+def _resolve_resource_path(source: str) -> Path:
+    """Resolve a local resource path and ensure it stays inside the base dir."""
+    base_dir = _resource_base_dir()
+    path = Path(source)
+    if not path.is_absolute():
+        path = base_dir / path
+    path = path.resolve()
+    try:
+        path.relative_to(base_dir)
+    except ValueError as exc:
+        raise ValueError(
+            f"resource path {source!r} escapes the configured resource base directory"
+        ) from exc
+    return path
+
+
 async def _read_resource(resource: Any) -> dict[str, Any]:
     source = resource
     if isinstance(source, dict):
@@ -67,11 +89,11 @@ async def _read_resource(resource: Any) -> dict[str, Any]:
         raise ValueError("OpenAPI document requires a URI or local path")
     if source.startswith(("http://", "https://")):
         validate_egress(source)
-        async with httpx.AsyncClient(follow_redirects=False) as client:
+        async with guarded_async_client(follow_redirects=False) as client:
             response = await client.get(source)
             response.raise_for_status()
             return response.json()
-    path = Path(source)
+    path = _resolve_resource_path(source)
     text = path.read_text()
     return json.loads(text) if path.suffix.lower() == ".json" else yaml.safe_load(text)
 
@@ -86,11 +108,19 @@ async def _read_resource_bytes(resource: Any) -> bytes:
         raise ValueError("protocol resource requires an endpoint URI or local path")
     if source.startswith(("http://", "https://")):
         validate_egress(source)
-        async with httpx.AsyncClient(follow_redirects=False) as client:
+        async with guarded_async_client(follow_redirects=False) as client:
             response = await client.get(source)
             response.raise_for_status()
-            return response.content
-    return Path(source).read_bytes()
+            content = response.content
+    else:
+        content = _resolve_resource_path(source).read_bytes()
+    if isinstance(resource, dict) and resource.get("sha256"):
+        digest = hashlib.sha256(content).hexdigest()
+        if digest != resource["sha256"]:
+            raise ValueError(
+                f"protocol resource digest mismatch: expected {resource['sha256']}, got {digest}"
+            )
+    return content
 
 
 def _grpc_message_class(descriptor: Any) -> Any:
@@ -165,14 +195,28 @@ def _grpc_builder(name: str, task: Task) -> FunctionNode:
                 request = ParseDict(arguments.get("arguments") or {}, request_class())
                 host = service.get("host")
                 port = service.get("port", 443)
-                channel = grpc.aio.insecure_channel(f"{host}:{port}")
+                if not host:
+                    raise ValueError("gRPC call requires service.host")
+                validate_egress(f"https://{host}:{port}")
+                target = f"{host}:{port}"
+                if service.get("tls", False):
+                    credentials = grpc.ssl_channel_credentials()
+                    channel = grpc.aio.secure_channel(target, credentials)
+                else:
+                    channel = grpc.aio.insecure_channel(target)
                 try:
                     stub_class = getattr(service_module, f"{service_name}Stub")
-                    response = await getattr(stub_class(channel), method_name)(request)
+                    response = await asyncio.wait_for(
+                        getattr(stub_class(channel), method_name)(request),
+                        float(service.get("timeout", 30)),
+                    )
                 finally:
                     await channel.close()
                 return MessageToDict(response, preserving_proto_field_name=True)
             finally:
-                sys.path.remove(directory)
+                try:
+                    sys.path.remove(directory)
+                except ValueError:
+                    pass
 
     return _dynamic(FunctionNode(func=call_grpc, name=name))

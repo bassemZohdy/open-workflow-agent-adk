@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 
-from openworkflow_adk.security.security import resolve_secret
+from openworkflow_adk.security.security import guarded_async_client, resolve_secret, validate_egress
 
 
 def _secret(value: Any, environ: Mapping[str, str]) -> str | None:
@@ -62,7 +62,8 @@ class OAuth2ClientCredentialsAuth(httpx.Auth):
             auth = httpx.BasicAuth(self.client_id, self.client_secret or "")
         else:
             form["client_secret"] = self.client_secret or ""
-        async with httpx.AsyncClient() as client:
+        validate_egress(self.token_url)
+        async with guarded_async_client() as client:
             response = await client.post(self.token_url, data=form, auth=auth)
             response.raise_for_status()
         token = response.json().get("access_token")

@@ -5,8 +5,7 @@ from __future__ import annotations
 import inspect
 from typing import TYPE_CHECKING, Any
 
-from google.adk.workflow._function_node import FunctionNode
-
+from openworkflow_adk.adk_compat import FunctionNode
 from openworkflow_adk.errors import OpenWorkflowError
 from openworkflow_adk.expressions import evaluate
 from openworkflow_adk.models import Task, TaskItem
@@ -34,7 +33,7 @@ def _run_nested_builder(
 def _try_builder(name: str, task: Task, registry: NodeBuilderRegistry) -> FunctionNode:
     try_node = _run_nested_builder(name, task.try_ or [], registry)
     _dynamic(try_node)
-    catch = getattr(task, "catch", None)
+    catch = task.catch
     catch_children = []
     if isinstance(catch, dict):
         catch_children = [TaskItem.model_validate(item) for item in catch.get("do", [])]
@@ -75,7 +74,7 @@ def _for_builder(name: str, task: Task, registry: NodeBuilderRegistry) -> Functi
     each_name = configuration.get("each", "item")
     index_name = configuration.get("at")
     collection_expression = configuration.get("in", "[]")
-    while_expression = getattr(task, "while", None)
+    while_expression = task.while_
 
     async def run_for(ctx: Any) -> list[Any]:
         state = ctx.state.to_dict()

@@ -10,11 +10,10 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from google.adk.workflow._function_node import FunctionNode
-
+from openworkflow_adk.adk_compat import FunctionNode
+from openworkflow_adk.durations import duration_seconds
 from openworkflow_adk.expressions import bind
 from openworkflow_adk.models import Task
-from openworkflow_adk.ops.schedule import duration_seconds
 
 from .common import _kill_process_tree, _sandbox_preexec
 from .simple import _dynamic
@@ -60,66 +59,103 @@ def _container_builder(name: str, task: Task) -> FunctionNode:
         process = configuration.get("container")
         if not isinstance(process, dict) or not process.get("image"):
             raise ValueError(f"container task {name!r} requires container.image")
-        client = docker.from_env()
-        image = process["image"]
-        pull_policy = process.get("pullPolicy", "ifNotPresent")
-        if pull_policy == "always":
-            client.images.pull(image)
-        elif pull_policy == "ifNotPresent":
-            try:
-                client.images.get(image)
-            except docker.errors.ImageNotFound:
-                client.images.pull(image)
-        elif pull_policy != "never":
-            raise ValueError(f"unsupported container pull policy: {pull_policy!r}")
 
-        command = process.get("command")
-        arguments = list(process.get("arguments") or [])
-        if command:
-            command = [*shlex.split(command), *arguments]
-        elif arguments:
-            command = arguments
-        raw_allowlist = os.environ.get("WORKFLOW_CONTAINER_VOLUME_ALLOWLIST", "")
-        volume_allowlist = [
-            Path(item.strip()).resolve() for item in raw_allowlist.split(",") if item.strip()
-        ]
-        volumes: dict[str, dict[str, Any]] = {}
-        for host, target in (process.get("volumes") or {}).items():
-            resolved_host = str(_resolve_container_volume(host, volume_allowlist))
-            if isinstance(target, dict):
-                bind = target["bind"]
-                mode = target.get("mode", "ro")
-            else:
-                bind = target
-                mode = "ro"
-            volumes[resolved_host] = {"bind": bind, "mode": mode}
-        client_ports = {
-            container_port: host_port
-            for container_port, host_port in (process.get("ports") or {}).items()
-        }
-        container = client.containers.run(
-            image,
-            command=command,
-            name=process.get("name"),
-            environment=process.get("environment") or {},
-            volumes=volumes,
-            ports=client_ports,
-            stdin_open=process.get("stdin") is not None,
-            detach=True,
-            remove=False,
+        def _docker() -> tuple[Any, Any, Any, dict[str, Any]]:
+            client = docker.from_env()
+            image = process["image"]
+            pull_policy = process.get("pullPolicy", "ifNotPresent")
+            if pull_policy == "always":
+                client.images.pull(image)
+            elif pull_policy == "ifNotPresent":
+                try:
+                    client.images.get(image)
+                except docker.errors.ImageNotFound:
+                    client.images.pull(image)
+            elif pull_policy != "never":
+                raise ValueError(f"unsupported container pull policy: {pull_policy!r}")
+
+            command = process.get("command")
+            arguments = list(process.get("arguments") or [])
+            if command:
+                command = [*shlex.split(command), *arguments]
+            elif arguments:
+                command = arguments
+
+            volume_allowlist = _container_volume_allowlist()
+            volumes: dict[str, dict[str, Any]] = {}
+            for host, target in (process.get("volumes") or {}).items():
+                resolved_host = str(_resolve_container_volume(host, volume_allowlist))
+                if isinstance(target, dict):
+                    bind = target["bind"]
+                    mode = target.get("mode", "ro")
+                else:
+                    bind = target
+                    mode = "ro"
+                volumes[resolved_host] = {"bind": bind, "mode": mode}
+
+            ports: dict[str, Any] = {}
+            if process.get("ports"):
+                if not _container_ports_allowed():
+                    raise PermissionError(
+                        "container host port publishing is disabled; set "
+                        "WORKFLOW_CONTAINER_PORTS_ALLOWED=1 to enable it"
+                    )
+                ports = {
+                    container_port: host_port
+                    for container_port, host_port in process.get("ports") or {}.items()
+                }
+
+            network_mode = _container_network_mode(process.get("network"))
+            limits = _container_limits()
+            return (
+                client,
+                command,
+                ports,
+                {
+                    "volumes": volumes or None,
+                    "network_mode": network_mode,
+                    "cpuset_cpus": limits.get("cpus"),
+                    "mem_limit": limits.get("memory"),
+                    "pids_limit": limits.get("pids"),
+                },
+            )
+
+        def _wait_for_container(
+            client: Any,
+            process_config: dict[str, Any],
+            command: Any,
+            ports: dict[str, Any],
+            run_kwargs: dict[str, Any],
+        ) -> tuple[int, str, str]:
+            container = client.containers.run(
+                process_config["image"],
+                command=command,
+                name=process_config.get("name"),
+                environment=process_config.get("environment") or {},
+                ports=ports or None,
+                stdin_open=process_config.get("stdin") is not None,
+                detach=True,
+                remove=False,
+                **run_kwargs,
+            )
+            try:
+                if process_config.get("stdin") is not None:
+                    socket_ = container.attach_socket(params={"stdin": 1, "stream": 1})
+                    if socket_ is not None:
+                        socket_._sock.send(str(process_config["stdin"]).encode())
+                status = container.wait()
+                stdout = container.logs(stdout=True, stderr=False).decode()
+                stderr = container.logs(stdout=False, stderr=True).decode()
+            finally:
+                container.remove(force=True)
+                client.close()
+            return status.get("StatusCode", 1), stdout, stderr
+
+        client, command, ports, run_kwargs = await asyncio.to_thread(_docker)
+        code, stdout, stderr = await asyncio.to_thread(
+            _wait_for_container, client, process, command, ports, run_kwargs
         )
-        try:
-            if process.get("stdin") is not None:
-                container.attach_socket(params={"stdin": 1, "stream": 1})._sock.send(
-                    str(process["stdin"]).encode()
-                )
-            status = container.wait()
-            stdout = container.logs(stdout=True, stderr=False).decode()
-            stderr = container.logs(stdout=False, stderr=True).decode()
-        finally:
-            container.remove(force=True)
-            client.close()
-        values = {"stdout": stdout, "stderr": stderr, "code": status.get("StatusCode", 1)}
+        values = {"stdout": stdout, "stderr": stderr, "code": code}
         return (
             None
             if configuration.get("return", "stdout") == "none"
@@ -131,6 +167,54 @@ def _container_builder(name: str, task: Task) -> FunctionNode:
         )
 
     return _dynamic(FunctionNode(func=run_container, name=name))
+
+
+def _container_volume_allowlist() -> list[Path]:
+    raw = os.environ.get("WORKFLOW_CONTAINER_VOLUME_ALLOWLIST", "")
+    return [Path(item.strip()).resolve() for item in raw.split(",") if item.strip()]
+
+
+def _container_ports_allowed() -> bool:
+    return os.environ.get("WORKFLOW_CONTAINER_PORTS_ALLOWED", "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+def _container_network_mode(requested: Any) -> str:
+    """Return the container network mode, defaulting to the isolated ``none``.
+
+    Any non-``none`` mode must be explicitly requested in the workflow and
+    present on ``WORKFLOW_CONTAINER_NETWORK_ALLOWLIST`` (comma-separated).
+    """
+    if requested in {None, "", "none"}:
+        return "none"
+    allowlist = {
+        item.strip()
+        for item in os.environ.get("WORKFLOW_CONTAINER_NETWORK_ALLOWLIST", "").split(",")
+        if item.strip()
+    }
+    if requested not in allowlist:
+        raise PermissionError(
+            f"container network mode {requested!r} is not on WORKFLOW_CONTAINER_NETWORK_ALLOWLIST"
+        )
+    return str(requested)
+
+
+def _container_limits() -> dict[str, Any]:
+    """Read hard resource caps for containers from the environment."""
+    limits: dict[str, Any] = {}
+    cpus = os.environ.get("WORKFLOW_CONTAINER_CPU_LIMIT")
+    if cpus:
+        limits["cpus"] = cpus
+    memory = os.environ.get("WORKFLOW_CONTAINER_MEMORY_LIMIT")
+    if memory:
+        limits["memory"] = memory
+    pids = os.environ.get("WORKFLOW_CONTAINER_PIDS_LIMIT")
+    if pids:
+        limits["pids"] = int(pids)
+    return limits
 
 
 def _resolve_script_source(source: str, base_dir: Path) -> Path:
@@ -149,10 +233,18 @@ def _resolve_script_source(source: str, base_dir: Path) -> Path:
 
 
 def _resolve_container_volume(host: str, allowlist: list[Path]) -> Path:
-    """Resolve a container host volume path and ensure it is within the allowlist."""
-    path = Path(host).resolve()
+    """Resolve a container host volume path and ensure it is within the allowlist.
+
+    With an empty allowlist the guard fails closed: any host volume mount is
+    denied because an unconstrained mount exposes arbitrary host paths to the
+    container (and ``rw`` mode permits host writes).
+    """
     if not allowlist:
-        return path
+        raise PermissionError(
+            "container volume mounts are disabled: set WORKFLOW_CONTAINER_VOLUME_ALLOWLIST "
+            "to the allowed host root path(s)"
+        )
+    path = Path(host).resolve()
     for root in allowlist:
         try:
             path.relative_to(root)

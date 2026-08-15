@@ -11,8 +11,8 @@ from google.adk.agents import LlmAgent
 
 from openworkflow_adk.config import resolve_agent_characteristics, resolve_provider_config
 from openworkflow_adk.models import AgentCharacteristics, ProviderConfig, Task
-from openworkflow_adk.ops.suspension import WorkflowSuspended
 from openworkflow_adk.resources.providers import create_llm
+from openworkflow_adk.suspension import WorkflowSuspended
 
 
 def _agent_builder(

@@ -9,8 +9,8 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from openworkflow_adk.ops.postgres_history import PostgresRunHistory
+from openworkflow_adk.registry import WorkflowRegistry
 from openworkflow_adk.runtime import run_workflow
-from openworkflow_adk.tools.registry import WorkflowRegistry
 
 
 class PostgresPollingWorker:

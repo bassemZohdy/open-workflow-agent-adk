@@ -7,16 +7,15 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
-from google.adk.workflow._function_node import FunctionNode
-from google.adk.workflow._graph import DEFAULT_ROUTE
 
+from openworkflow_adk.adk_compat import DEFAULT_ROUTE, FunctionNode
 from openworkflow_adk.errors import OpenWorkflowError
 from openworkflow_adk.expressions import bind, evaluate
 from openworkflow_adk.models import Task
-from openworkflow_adk.ops.suspension import WorkflowSuspended
 from openworkflow_adk.resources.broker import Broker
 from openworkflow_adk.security.auth import resolve_authentication
-from openworkflow_adk.security.security import validate_egress
+from openworkflow_adk.security.security import guarded_async_client, validate_egress
+from openworkflow_adk.suspension import WorkflowSuspended
 
 from .common import _noop
 
@@ -82,7 +81,7 @@ def _http_builder(
         auth, auth_headers = resolve_authentication(endpoint_auth, policies, environ)
         headers = dict(arguments.get("headers") or {})
         headers.update(auth_headers)
-        async with httpx.AsyncClient(follow_redirects=follow_redirects) as client:
+        async with guarded_async_client(environ, follow_redirects=follow_redirects) as client:
             response = await client.request(
                 method,
                 endpoint,

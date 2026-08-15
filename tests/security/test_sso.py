@@ -5,7 +5,10 @@ from openworkflow_adk import OidcClient, SamlMetadata
 
 
 @respx.mock
-async def test_oidc_discovery_and_code_exchange() -> None:
+async def test_oidc_discovery_and_code_exchange(monkeypatch) -> None:
+    # respx intercepts the transport; allow the unresolvable test host through
+    # the egress guard.
+    monkeypatch.setenv("WORKFLOW_EGRESS_SKIP_DNS", "1")
     respx.get("https://id.example/.well-known/openid-configuration").mock(
         return_value=Response(
             200,

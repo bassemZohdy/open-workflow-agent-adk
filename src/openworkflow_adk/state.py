@@ -47,7 +47,7 @@ def _task_keys(task: Task) -> set[str]:
                 for configuration in case.values():
                     if isinstance(configuration, dict):
                         keys.update(_names(configuration.get("when")))
-    catch = getattr(task, "catch", None)
+    catch = task.catch
     if isinstance(catch, dict) and isinstance(catch.get("as"), str):
         keys.add(catch["as"])
     for child in [*(task.do or []), *(task.try_ or [])]:

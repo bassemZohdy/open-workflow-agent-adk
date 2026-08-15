@@ -39,3 +39,16 @@ def test_hostile_expression_corpus_is_bounded(monkeypatch, expression: str) -> N
     except ExpressionError:
         pass
     assert monotonic() - started < 1
+
+
+@pytest.mark.skipif(
+    __import__("os").name != "posix",
+    reason="POSIX SIGALRM budget test",
+)
+def test_pathological_expression_is_interrupted_by_time_budget(monkeypatch) -> None:
+    """C24.17: the SIGALRM budget must interrupt pure-Python evaluation."""
+    monkeypatch.setenv("WORKFLOW_EXPRESSION_TIMEOUT_SECONDS", "0.2")
+    started = monotonic()
+    with pytest.raises(ExpressionError, match="time budget"):
+        evaluate("$map([1..1000000], function($v) { $v * 2 })")
+    assert monotonic() - started < 5

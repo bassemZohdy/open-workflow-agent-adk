@@ -107,3 +107,29 @@ resumed, so the broker must retain it between suspension and resume.
 Agent tasks can request external approval/input with
 `metadata.adk.agent.request_input: {question: ...}`. The runtime records a `human_input`
 suspension and resumes it with `resume=True` plus `resume_input=<value>`.
+
+## Security-related environment variables
+
+The egress guard, container hardening, and server authentication introduced
+under C24 are configured through the environment. See
+[`security.md`](security.md) for the full security reference.
+
+| Variable | Default | Effect |
+|---|---|---|
+| `WORKFLOW_EGRESS_ALLOWLIST` | *(none)* | Comma-separated exact hosts that bypass the egress address check |
+| `WORKFLOW_EGRESS_ALLOW_UNRESOLVED` | *(off)* | `1` allows hostnames that fail DNS resolution |
+| `WORKFLOW_EGRESS_SKIP_DNS` | *(off)* | `1` restores legacy pass-through for non-IP hostnames (test doubles only) |
+| `WORKFLOW_AIRGAPPED` | *(off)* | `1` blocks all network egress |
+| `WORKFLOW_CONTAINER_VOLUME_ALLOWLIST` | *(deny all)* | Comma-separated host roots that may be mounted into containers |
+| `WORKFLOW_CONTAINER_NETWORK_ALLOWLIST` | *(none only)* | Comma-separated network modes a container may request |
+| `WORKFLOW_CONTAINER_PORTS_ALLOWED` | *(off)* | `1` enables container host port publishing |
+| `WORKFLOW_CONTAINER_CPU_LIMIT` / `_MEMORY_LIMIT` / `_PIDS_LIMIT` | *(unset)* | Hard container resource caps |
+| `WORKFLOW_MCP_COMMAND_ALLOWLIST` | *(deny all)* | Comma-separated MCP stdio server commands |
+| `WORKFLOW_MCP_ALLOW_UNLISTED` | *(off)* | `1` disables the MCP command allowlist |
+| `WORKFLOW_MCP_TIMEOUT_SECONDS` | `60` | Kill timeout for MCP stdio servers |
+| `WORKFLOW_CONSUME_TIMEOUT_SECONDS` | `3600` | Bound on AsyncAPI consumer waits (task timeout wins when set) |
+| `WORKFLOW_RESOURCE_BASE_DIR` | cwd | Base directory for local resource reads in `call` tasks |
+| `WORKFLOW_SERVER_API_KEY` | *(none)* | Comma-separated API keys for the HTTP server (required for non-loopback binds) |
+| `WORKFLOW_EXPRESSION_TIMEOUT_SECONDS` | `0.25` | Wall-clock budget for JSONata evaluation |
+| `WORKFLOW_EXPRESSION_MAX_LENGTH` | `10000` | Maximum expression length |
+| `WORKFLOW_EXPRESSION_MAX_DEPTH` | `100` | Maximum expression nesting depth |

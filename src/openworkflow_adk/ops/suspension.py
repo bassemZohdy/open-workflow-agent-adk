@@ -1,18 +1,10 @@
-"""Durable workflow suspension signals."""
+"""Backward-compatible facade for the workflow suspension signal.
 
-from __future__ import annotations
+``WorkflowSuspended`` moved to core :mod:`openworkflow_adk.suspension` under
+C24.18 so task builders do not depend on ``ops``. This module re-exports the
+exception for existing callers.
+"""
 
-from dataclasses import dataclass
-from datetime import datetime
+from openworkflow_adk.suspension import WorkflowSuspended
 
-
-@dataclass
-class WorkflowSuspended(Exception):
-    """Raised by a task that has persisted its continuation point elsewhere."""
-
-    task: str
-    resume_at: datetime
-    reason: str = "timer"
-
-    def __str__(self) -> str:
-        return f"workflow suspended at {self.task!r} until {self.resume_at.isoformat()}"
+__all__ = ["WorkflowSuspended"]

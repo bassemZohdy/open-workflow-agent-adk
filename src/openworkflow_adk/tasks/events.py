@@ -7,14 +7,13 @@ import json
 import os
 from typing import Any
 
-import httpx
-from google.adk.workflow._function_node import FunctionNode
-
+from openworkflow_adk.adk_compat import FunctionNode
+from openworkflow_adk.durations import duration_seconds
 from openworkflow_adk.errors import OpenWorkflowError
 from openworkflow_adk.expressions import bind, evaluate
 from openworkflow_adk.models import Task
 from openworkflow_adk.resources.broker import Broker
-from openworkflow_adk.security.security import validate_egress
+from openworkflow_adk.security.security import guarded_async_client, validate_egress
 
 from .call import _read_resource
 from .simple import _dynamic, _response_content
@@ -59,7 +58,7 @@ def _openapi_builder(name: str, task: Task) -> FunctionNode:
             elif location == "header":
                 headers[parameter_name] = str(value)
         body = values if operation_spec.get("requestBody") else None
-        async with httpx.AsyncClient(
+        async with guarded_async_client(
             follow_redirects=bool(arguments.get("redirect", False))
         ) as client:
             validate_egress(endpoint)
@@ -114,8 +113,14 @@ def _asyncapi_builder(name: str, task: Task, broker: Broker | None) -> FunctionN
             return message.get("payload")
         subscription = arguments.get("subscription") or {}
         filter_expression = subscription.get("filter") if isinstance(subscription, dict) else None
+        timeout = _consume_timeout(task)
         while True:
-            event = await broker.consume()
+            try:
+                event = await asyncio.wait_for(broker.consume(), timeout)
+            except asyncio.TimeoutError as error:
+                raise TimeoutError(
+                    f"AsyncAPI task {name!r} timed out waiting for channel {channel!r}"
+                ) from error
             if event.get("channel") != channel:
                 continue
             if filter_expression and not evaluate(
@@ -125,6 +130,20 @@ def _asyncapi_builder(name: str, task: Task, broker: Broker | None) -> FunctionN
             return event.get("data")
 
     return _dynamic(FunctionNode(func=call_asyncapi, name=name))
+
+
+def _consume_timeout(task: Task) -> float:
+    """Resolve the consumer wait budget from the task timeout or the environment."""
+    configured = task.timeout
+    if isinstance(configured, dict):
+        after = configured.get("after")
+        return duration_seconds(after) if after is not None else duration_seconds(configured)
+    if isinstance(configured, (int, float)):
+        return float(configured)
+    if isinstance(configured, str) and configured:
+        return duration_seconds(configured)
+    default = float(os.environ.get("WORKFLOW_CONSUME_TIMEOUT_SECONDS", "3600"))
+    return default
 
 
 def _endpoint_uri(endpoint: Any) -> str | None:
@@ -152,7 +171,7 @@ def _a2a_builder(name: str, task: Task) -> FunctionNode:
             "method": method,
             "params": arguments.get("parameters", {}),
         }
-        async with httpx.AsyncClient(follow_redirects=False) as client:
+        async with guarded_async_client() as client:
             response = await client.post(server, json=request)
             response.raise_for_status()
             result = response.json()
@@ -165,6 +184,7 @@ def _a2a_builder(name: str, task: Task) -> FunctionNode:
 
 async def _mcp_stdio_call(process: dict[str, Any], request: dict[str, Any]) -> Any:
     command = [process["command"], *(process.get("arguments") or [])]
+    _check_mcp_command(process["command"])
     environment = {
         key: value
         for key, value in {**os.environ, **(process.get("environment") or {})}.items()
@@ -178,14 +198,54 @@ async def _mcp_stdio_call(process: dict[str, Any], request: dict[str, Any]) -> A
         env=environment,
     )
     assert proc.stdin is not None and proc.stdout is not None
-    proc.stdin.write((json.dumps(request) + "\n").encode())
-    await proc.stdin.drain()
-    line = await proc.stdout.readline()
-    proc.stdin.close()
-    await proc.wait()
-    if not line:
-        raise RuntimeError("MCP stdio server returned no JSON-RPC response")
-    return json.loads(line)
+    try:
+        proc.stdin.write((json.dumps(request) + "\n").encode())
+        await proc.stdin.drain()
+        line = await proc.stdout.readline()
+        if not line:
+            raise RuntimeError("MCP stdio server returned no JSON-RPC response")
+        return json.loads(line)
+    finally:
+        proc.stdin.close()
+        await _terminate_mcp_process(proc)
+
+
+def _check_mcp_command(command: str) -> None:
+    """Reject MCP stdio commands that are not on the configured allowlist.
+
+    MCP stdio servers execute a document- or state-controlled command, so the
+    set of permitted commands must be explicit. Configure
+    ``WORKFLOW_MCP_COMMAND_ALLOWLIST`` as a comma-separated list of executable
+    names or paths; set ``WORKFLOW_MCP_ALLOW_UNLISTED=1`` to disable the check
+    (not recommended on untrusted boundaries).
+    """
+    if os.environ.get("WORKFLOW_MCP_ALLOW_UNLISTED", "").lower() in {"1", "true", "yes"}:
+        return
+    allowlist = {
+        item.strip()
+        for item in os.environ.get("WORKFLOW_MCP_COMMAND_ALLOWLIST", "").split(",")
+        if item.strip()
+    }
+    if not allowlist:
+        raise PermissionError(
+            "MCP stdio servers are disabled: set WORKFLOW_MCP_COMMAND_ALLOWLIST "
+            "to the allowed server command(s)"
+        )
+    name = command.split()[0]
+    if name not in allowlist and os.path.basename(name) not in allowlist:
+        raise PermissionError(
+            f"MCP stdio command {name!r} is not on WORKFLOW_MCP_COMMAND_ALLOWLIST"
+        )
+
+
+async def _terminate_mcp_process(proc: Any) -> None:
+    """Kill an MCP stdio process, bounded by the configured timeout."""
+    timeout = float(os.environ.get("WORKFLOW_MCP_TIMEOUT_SECONDS", "60"))
+    try:
+        await asyncio.wait_for(proc.wait(), timeout)
+    except asyncio.TimeoutError:
+        proc.kill()
+        await asyncio.wait_for(proc.wait(), 5)
 
 
 def _mcp_builder(name: str, task: Task) -> FunctionNode:
@@ -208,7 +268,7 @@ def _mcp_builder(name: str, task: Task) -> FunctionNode:
                 raise ValueError("MCP HTTP transport requires endpoint.uri")
             validate_egress(endpoint)
             headers = dict(configuration.get("headers") or {})
-            async with httpx.AsyncClient(follow_redirects=False) as client:
+            async with guarded_async_client() as client:
                 initialized = await client.post(
                     endpoint,
                     headers=headers,

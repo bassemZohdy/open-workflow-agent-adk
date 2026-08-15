@@ -3,20 +3,15 @@
 from __future__ import annotations
 
 import importlib.util
-import os
 
 import pytest
 
 from openworkflow_adk import PostgresRunHistory, load
 from openworkflow_adk.ops.postgres_history import PostgresRunHistoryConfig
 from openworkflow_adk.server import _prometheus_metrics
+from tests.conftest import require_docker
 
-pytestmark = [
-    pytest.mark.skipif(
-        os.environ.get("DOCKER_TESTS") == "0",
-        reason="Docker-based tests disabled via DOCKER_TESTS=0",
-    ),
-]
+pytestmark = [pytest.mark.integration, require_docker()]
 
 
 @pytest.fixture(scope="module")

@@ -53,6 +53,17 @@ def _raise_in_thread(thread_id: int, exception: type[BaseException]) -> None:
         raise RuntimeError("PyThreadState_SetAsyncExc failed")
 
 
+def _alarm_handler(_signum: int, _frame: Any) -> None:
+    """Raise directly in the evaluating frame when the POSIX alarm fires.
+
+    The previous implementation threw ``TimeoutError`` from inside a discarded
+    generator frame, which never reached the code under evaluation. Raising
+    directly from the signal handler interrupts pure-Python evaluation at the
+    next bytecode boundary, which reliably breaks pathological expressions.
+    """
+    raise TimeoutError
+
+
 @contextmanager
 def _evaluation_budget() -> Any:
     """Bound synchronous evaluation with a cross-platform timeout."""
@@ -65,7 +76,7 @@ def _evaluation_budget() -> Any:
     timer: threading.Timer | None = None
     if use_signal:
         previous = signal.getsignal(signal.SIGALRM)
-        signal.signal(signal.SIGALRM, lambda _signum, _frame: (_ for _ in ()).throw(TimeoutError))
+        signal.signal(signal.SIGALRM, _alarm_handler)
         signal.setitimer(signal.ITIMER_REAL, seconds)
     else:
         thread_id = threading.current_thread().ident

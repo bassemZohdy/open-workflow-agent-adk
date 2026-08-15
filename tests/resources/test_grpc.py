@@ -19,7 +19,10 @@ message PingReply { string message = 1; }
 SERVER_PROTO = PROTO.replace("service Echo", "package server;\nservice Echo")
 
 
-async def test_grpc_call_compiles_proto_and_invokes_reflected_method(tmp_path) -> None:
+async def test_grpc_call_compiles_proto_and_invokes_reflected_method(tmp_path, monkeypatch) -> None:
+    # The egress guard blocks loopback by default; the in-process test server
+    # is explicitly allowlisted for this test.
+    monkeypatch.setenv("WORKFLOW_EGRESS_ALLOWLIST", "127.0.0.1")
     proto_path = tmp_path / "echo.proto"
     proto_path.write_text(SERVER_PROTO)
     assert (

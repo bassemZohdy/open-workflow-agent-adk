@@ -1,18 +1,13 @@
 import asyncio
-import os
 
 import pytest
 
 from openworkflow_adk import WorkflowRegistry, load
 from openworkflow_adk.internal import PostgresPollingWorker
 from openworkflow_adk.ops.postgres_history import PostgresRunHistory, PostgresRunHistoryConfig
+from tests.conftest import require_docker
 
-pytestmark = [
-    pytest.mark.skipif(
-        os.environ.get("DOCKER_TESTS") == "0",
-        reason="Docker-based tests disabled via DOCKER_TESTS=0",
-    ),
-]
+pytestmark = [pytest.mark.integration, require_docker()]
 
 
 @pytest.fixture(scope="module")

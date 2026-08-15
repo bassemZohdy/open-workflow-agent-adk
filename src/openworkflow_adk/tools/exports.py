@@ -1,34 +1,11 @@
-"""Source exporters for portable workflow runtimes."""
+"""Backward-compatible facade for :mod:`openworkflow_adk.interop.exports`.
 
-from __future__ import annotations
+The ``tools`` package was split into ``interop`` (cross-runtime formats) and
+``devtools`` (diagnostics/devUX) under C24.25. This module re-exports the
+implementation for existing callers; new code should import from the new
+location.
+"""
 
-from openworkflow_adk.models import OpenWorkflowDocument
+from openworkflow_adk.interop.exports import export_temporal
 
-
-def export_temporal(document: OpenWorkflowDocument) -> str:
-    """Generate a deterministic Temporal Python workflow skeleton."""
-    safe_name = "".join(char if char.isalnum() else "_" for char in document.document.name)
-    lines = [
-        '"""Generated from OpenWorkflow; implement activities before deployment."""',
-        "from datetime import timedelta",
-        "from temporalio import workflow",
-        "",
-        "",
-        "@workflow.defn",
-        f"class {safe_name.title().replace('_', '')}Workflow:",
-        "    @workflow.run",
-        "    async def run(self, input: dict) -> dict:",
-        "        state = dict(input)",
-    ]
-    for item in document.do:
-        activity_name = "".join(char if char.isalnum() else "_" for char in item.name)
-        lines.extend(
-            [
-                f"        # OpenWorkflow task: {item.name}",
-                f"        state['{activity_name}'] = await workflow.execute_activity(",
-                f"            {activity_name}, state, start_to_close_timeout=timedelta(minutes=5)",
-                "        )",
-            ]
-        )
-    lines.append("        return state")
-    return "\n".join(lines) + "\n"
+__all__ = ["export_temporal"]

@@ -173,6 +173,76 @@ def _contains_adk_extension(value: Any) -> bool:
     return False
 
 
+def _contains_expression(value: Any) -> bool:
+    """Return True when any string in a structure contains an expression binding."""
+    if isinstance(value, str):
+        return "${" in value
+    if isinstance(value, list):
+        return any(_contains_expression(item) for item in value)
+    if isinstance(value, dict):
+        return any(_contains_expression(item) for item in value.values())
+    return False
+
+
+def _exec_expression_errors(value: Any, path: str = "$") -> list[dict[str, str]]:
+    """Reject expression-bound exec configs at translate time.
+
+    Workflow state can hold attacker-controlled content (HTTP responses, tool
+    output, LLM output written via ``output_key``). Binding such state into a
+    ``run.command``/``run.container``/MCP ``command`` would turn prompt
+    injection into code execution, so exec-family configs must be static.
+    """
+    errors: list[dict[str, str]] = []
+    if not isinstance(value, dict):
+        return errors
+    if isinstance(value.get("run"), dict):
+        run = value["run"]
+        exec_fields: list[tuple[str, Any]] = []
+        if isinstance(run.get("shell"), dict):
+            exec_fields.append(("run.shell.command", run["shell"].get("command")))
+        if isinstance(run.get("script"), dict):
+            script = run["script"]
+            exec_fields.append(("run.script.code", script.get("code")))
+            source = script.get("source")
+            if isinstance(source, dict):
+                exec_fields.append(("run.script.source.uri", source.get("uri")))
+        if isinstance(run.get("container"), dict):
+            container = run["container"]
+            exec_fields.append(("run.container.image", container.get("image")))
+            exec_fields.append(("run.container.command", container.get("command")))
+        for field_name, field_value in exec_fields:
+            if _contains_expression(field_value):
+                errors.append(
+                    {
+                        "path": f"{path}.{field_name}",
+                        "message": f"exec config {field_name} must not contain expressions",
+                    }
+                )
+    if isinstance(value.get("with"), dict):
+        transport = value["with"].get("transport")
+        if isinstance(transport, dict) and isinstance(transport.get("stdio"), dict):
+            command = transport["stdio"].get("command")
+            if _contains_expression(command):
+                errors.append(
+                    {
+                        "path": f"{path}.with.transport.stdio.command",
+                        "message": (
+                            "exec config with.transport.stdio.command must not contain expressions"
+                        ),
+                    }
+                )
+    for key, child in value.items():
+        if key in {"run", "with", "metadata", "document", "use", "input", "output", "export"}:
+            continue
+        if isinstance(child, list):
+            for index, item in enumerate(child):
+                if isinstance(item, dict):
+                    errors.extend(_exec_expression_errors(item, f"{path}.{key}[{index}]"))
+        elif isinstance(child, dict):
+            errors.extend(_exec_expression_errors(child, f"{path}.{key}"))
+    return errors
+
+
 def _registries(raw: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Return model/provider/memory registries from ``document.metadata.adk``."""
     document = raw.get("document")
@@ -294,6 +364,7 @@ def load(source: str | Path | dict[str, Any], *, mode: str = "auto") -> OpenWork
     raw = _parse_source(source)
     errors = _legacy_extension_errors(raw)
     errors.extend(_extension_errors(raw))
+    errors.extend(_exec_expression_errors(raw))
     model_registry, provider_registry, memory_registry = _registries(raw)
     errors.extend(_model_reference_errors(raw, set(model_registry)))
     errors.extend(_registry_reference_errors(raw, provider_registry, memory_registry))

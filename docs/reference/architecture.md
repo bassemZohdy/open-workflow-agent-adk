@@ -2,7 +2,38 @@
 
 Detailed translation reference for `open-workflow-agent-adk`. [`CLAUDE.md`](../CLAUDE.md) holds the
 concise baseline (project, config precedence, stack); this doc expands the pipeline, the task→ADK
-mapping, and the ADK gotchas implementers must honor. Task status lives in [`TODO.md`](../TODO.md).
+mapping, the package layout, and the ADK gotchas implementers must honor. Task status lives in
+[`TODO.md`](../TODO.md).
+
+## Package layout and layering
+
+The translator is organized in layers, enforced by an `import-linter` contract wired into CI
+(`uv run lint-imports`):
+
+```text
+core (no imports from ops/tools/interop/devtools)
+    openworkflow_adk/            loader, models, state, expressions, translator, runtime, …
+    openworkflow_adk/registry.py WorkflowRegistry + WorkflowSearchResult (moved from tools under C24)
+    openworkflow_adk/durations.py, suspension.py, run_config.py  infra primitives
+    openworkflow_adk/adk_compat.py  sole seam over google.adk.workflow._* private APIs
+    openworkflow_adk/tasks/      per-task builders (translate into ADK nodes)
+services (may import core and each other)
+    openworkflow_adk/ops/        history, telemetry, scheduling, polling workers, management
+    openworkflow_adk/interop/    cross-runtime formats: Temporal (exports), Airflow/Argo (importers), OpenAPI
+    openworkflow_adk/devtools/   diagnostics, generation, optimization, portability, usage, visual
+    openworkflow_adk/security/   egress guards, auth, audit, SSO adapters
+    openworkflow_adk/resources/  brokers, memory, providers, templates
+    openworkflow_adk/tools/      backward-compatible facades + plugins/patterns
+```
+
+The `tools` package was split into `interop` and `devtools` under C24; `tools/` now re-exports the
+moved modules for existing callers. All private `google.adk.workflow._*` imports route through
+`adk_compat.py`, and the nightly canary CI job runs the suite against the latest ADK to detect
+upstream drift.
+
+Workflow execution settings are consolidated in the frozen `RunConfig` dataclass
+(`openworkflow_adk.run_config`); `run_workflow(..., config=...)` is the modern entry point and the
+keyword form remains backward compatible.
 
 ## Pipeline
 
