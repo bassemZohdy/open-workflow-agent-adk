@@ -99,8 +99,16 @@ def _unwrap(expression: str) -> str:
     expression = expression.strip()
     if expression.startswith("${") and expression.endswith("}"):
         expression = expression[2:-1].strip()
-    # OpenWorkflow uses `.` for the current input; JSONata uses `$`.
-    expression = "$" + expression if expression.startswith(".") else expression
+    # OpenWorkflow uses `.` for the current input; JSONata uses `$`. A leading
+    # dot is rewritten directly; a standalone dot (not part of a path such as
+    # `.foo` or `a.b`, e.g. in `( . | length ) > 2`) is rewritten in place.
+    if expression.startswith("."):
+        expression = "$" + expression
+    else:
+        expression = re.sub(r"(?<![\w$])\.(?![\w$])", "$", expression)
+    # The spec's canonical `( x | length )` idiom counts the current context;
+    # translate it to the equivalent (and portable) `$count( x )`.
+    expression = re.sub(r"\(\s*([^()]*?)\s*\|\s*length\s*\)", r"$count(\1)", expression)
     # OpenWorkflow examples commonly use JavaScript-style equality; JSONata
     # spells equality with a single equals sign.
     return re.sub(r"(?<![=!])==(?!=)", "=", expression)

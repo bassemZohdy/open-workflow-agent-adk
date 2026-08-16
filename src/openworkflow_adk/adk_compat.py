@@ -12,8 +12,28 @@ detect drift here early.
 from __future__ import annotations
 
 from google.adk.workflow import Workflow
+from google.adk.workflow._errors import DynamicNodeFailError
 from google.adk.workflow._function_node import FunctionNode
 from google.adk.workflow._graph import DEFAULT_ROUTE
 from google.adk.workflow._join_node import JoinNode
 
-__all__ = ["Workflow", "FunctionNode", "DEFAULT_ROUTE", "JoinNode"]
+__all__ = [
+    "Workflow",
+    "FunctionNode",
+    "DEFAULT_ROUTE",
+    "JoinNode",
+    "DynamicNodeFailError",
+    "unwrap_dynamic_error",
+]
+
+
+def unwrap_dynamic_error(error: BaseException) -> BaseException:
+    """Unwrap ``ctx.run_node`` failures to the original user exception.
+
+    ADK wraps dynamic-child failures in ``DynamicNodeFailError``; workflow
+    semantics (catch filters, retry policies, error ``as`` mappings) must
+    inspect the underlying error, not the wrapper.
+    """
+    while isinstance(error, DynamicNodeFailError) and error.error is not None:
+        error = error.error
+    return error

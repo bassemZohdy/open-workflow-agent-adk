@@ -19,6 +19,7 @@ def duration_seconds(value: Any) -> float:
         return sum(
             float(value.get(unit, 0)) * factor
             for unit, factor in {
+                "milliseconds": 0.001,
                 "seconds": 1,
                 "minutes": 60,
                 "hours": 3600,

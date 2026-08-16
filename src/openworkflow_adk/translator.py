@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import Any
 
 from openworkflow_adk.adk_compat import DEFAULT_ROUTE, FunctionNode, JoinNode, Workflow
+from openworkflow_adk.expressions import condition
 from openworkflow_adk.models import TASK_KEYS, OpenWorkflowDocument, ProviderConfig, Task, TaskItem
 from openworkflow_adk.registry import WorkflowRegistry
 from openworkflow_adk.resources.broker import Broker
@@ -15,6 +16,7 @@ from openworkflow_adk.state import derive_state_schema
 
 from .tasks import common as _task_common
 from .tasks.agent import _agent_builder
+from .tasks.base_semantics import task_base_marks, wrap_task_base
 from .tasks.call import _function_builder, _grpc_builder
 from .tasks.common import NodeBuilder, _adk_name
 from .tasks.control_flow import _for_builder, _run_nested_builder, _try_builder
@@ -35,6 +37,18 @@ from .tasks.simple import (
 
 _kill_process_tree = _task_common._kill_process_tree
 _sandbox_preexec = _task_common._sandbox_preexec
+
+
+def _parse_extensions(raw: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """Normalize ``use.extensions`` entries to bare extension mappings."""
+    parsed: list[dict[str, Any]] = []
+    for entry in raw or []:
+        extension: Any = entry
+        if isinstance(entry, dict) and len(entry) == 1 and not {"extend", "when"} & set(entry):
+            _, extension = next(iter(entry.items()))
+        if isinstance(extension, dict):
+            parsed.append(extension)
+    return parsed
 
 
 class NodeBuilderRegistry:
@@ -60,6 +74,11 @@ class NodeBuilderRegistry:
         memoization: Any = None,
         self_healer: Callable[[Exception, dict[str, Any]], Any] | None = None,
         agent_defaults: Any = None,
+        retry_policies: dict[str, Any] | None = None,
+        error_definitions: dict[str, Any] | None = None,
+        extensions: list[dict[str, Any]] | None = None,
+        timeouts: dict[str, Any] | None = None,
+        document_reference: dict[str, Any] | None = None,
     ) -> None:
         self.state_schema = state_schema
         self.broker = broker
@@ -79,6 +98,11 @@ class NodeBuilderRegistry:
         self.memoization = memoization
         self.self_healer = self_healer
         self.agent_defaults = agent_defaults
+        self.retry_policies = retry_policies or {}
+        self.error_definitions = error_definitions or {}
+        self.extensions = extensions or []
+        self.timeouts = timeouts or {}
+        self.document_reference = document_reference or {}
         self._call_builders: dict[str, NodeBuilder] = {}
         self._builders: dict[str, NodeBuilder] = {key: _generic_builder for key in TASK_KEYS}
         self._builders.update(
@@ -89,7 +113,12 @@ class NodeBuilderRegistry:
                     suspend_long_waits=self.suspend_long_waits,
                     suspend_after=self.suspend_after,
                 ),
-                "raise": _raise_builder,
+                "raise": lambda name, task: _raise_builder(
+                    name,
+                    task,
+                    error_definitions=self.error_definitions,
+                    document_reference=self.document_reference,
+                ),
                 "set": _set_builder,
                 "switch": _switch_builder,
                 "call:http": _http_builder,
@@ -108,6 +137,7 @@ class NodeBuilderRegistry:
         self._call_builders[scheme] = builder
 
     def build(self, name: str, task: Task) -> Any:
+        kind = task_kind(task)
         agent_config = task.effective_agent()
         if agent_config is not None:
             agent = _agent_builder(
@@ -131,6 +161,7 @@ class NodeBuilderRegistry:
                 else None,
                 self.agent_defaults,
             )
+            agent = self._apply_base_semantics(name, kind, agent, task)
             if task.switch:
 
                 async def routed(ctx: Any) -> Any:
@@ -141,8 +172,6 @@ class NodeBuilderRegistry:
 
                 return _dynamic(FunctionNode(func=routed, name=name))
             return agent
-        kind = task_kind(task)
-        key = f"call:{task.call}" if kind == "call" and task.call == "http" else kind
         plugin_builder = self._call_builders.get(task.call or "") if kind == "call" else None
         if kind == "do":
             node = _run_nested_builder(name, task.do or [], self)
@@ -176,14 +205,77 @@ class NodeBuilderRegistry:
         elif kind == "emit":
             node = _emit_builder(name, task, self.broker)
         elif kind == "listen":
-            node = _listen_builder(name, task, self.broker, suspend_listens=self.suspend_listens)
-        elif key == "call:http":
+            node = _listen_builder(
+                name,
+                task,
+                self.broker,
+                self,
+                suspend_listens=self.suspend_listens,
+            )
+        elif kind == "call" and task.call == "http":
             node = _http_builder(name, task, self.auth_policies, self.environ)
         else:
-            node = self._builders[key](name, task)
+            node = self._builders[kind](name, task)
+        node = self._apply_base_semantics(name, kind, node, task)
         if isinstance(node, FunctionNode) and self.state_schema is not None:
             node.state_schema = self.state_schema
         return node
+
+    def _apply_base_semantics(self, name: str, kind: str, node: Any, task: Task) -> Any:
+        """Apply `use.extensions` injection and taskBase fields to a node.
+
+        Switch tasks are excluded: they route by setting ``ctx.route`` directly
+        and a wrapper would drop the route when running the switch as a child
+        node. A conditional switch keeps its own ``if`` handling.
+        """
+        if kind == "switch":
+            return node
+        node = self._apply_extensions(name, kind, node)
+        if task_base_marks(task):
+            if isinstance(node, FunctionNode) and self.state_schema is not None:
+                node.state_schema = self.state_schema
+            node = wrap_task_base(name, task, node, self.timeouts)
+        return node
+
+    def _apply_extensions(self, name: str, kind: str, node: Any) -> Any:
+        for extension in self.extensions:
+            target = extension.get("extend")
+            if target not in {kind, "all"}:
+                continue
+            before = extension.get("before") or []
+            after = extension.get("after") or []
+            when = extension.get("when")
+            if not before and not after:
+                continue
+            before_nodes = [self._build_extension_task(name, "b", entry) for entry in before]
+            after_nodes = [self._build_extension_task(name, "a", entry) for entry in after]
+            node = self._wrap_extension(name, node, when, before_nodes, after_nodes)
+        return node
+
+    def _build_extension_task(self, parent: str, phase: str, entry: dict[str, Any]) -> Any:
+        item = TaskItem.model_validate(entry)
+        saved, self.extensions = self.extensions, []
+        try:
+            return _dynamic(self.build(f"{parent}__ext{phase}_{item.name}", item.task))
+        finally:
+            self.extensions = saved
+
+    @staticmethod
+    def _wrap_extension(
+        name: str, node: Any, when: str | None, before_nodes: list[Any], after_nodes: list[Any]
+    ) -> Any:
+        async def extended(ctx: Any) -> Any:
+            state = ctx.state.to_dict()
+            if when is None or condition(when, state):
+                for before_node in before_nodes:
+                    await ctx.run_node(before_node)
+                result = await ctx.run_node(node)
+                for after_node in after_nodes:
+                    await ctx.run_node(after_node)
+                return result
+            return await ctx.run_node(node)
+
+        return _dynamic(FunctionNode(func=extended, name=name))
 
     def keys(self) -> tuple[str, ...]:
         return tuple(self._builders)
@@ -261,6 +353,15 @@ def build_workflow(
         self_healer=self_healer
         if self_healer is not None
         else (config.self_healer if config else None),
+        retry_policies=document.use.retries,
+        error_definitions=document.use.errors,
+        extensions=_parse_extensions(document.use.extensions),
+        timeouts=document.use.timeouts,
+        document_reference={
+            "name": document.document.name,
+            "namespace": document.document.namespace,
+            "version": document.document.version,
+        },
     )
     items: list[TaskItem] = document.do
     nodes = {item.name: registry.build(item.name, item.task) for item in items}

@@ -16,6 +16,7 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 from openworkflow_adk.config import resolve_memory_config
+from openworkflow_adk.expressions import evaluate
 from openworkflow_adk.models import OpenWorkflowDocument
 from openworkflow_adk.ops import replay as _replay
 from openworkflow_adk.ops.schedule import trigger_events
@@ -95,6 +96,7 @@ async def run_workflow(
         raise ValueError("mode must be auto or extended")
     if cfg.resume and cfg.history is None:
         raise ValueError("resume requires a persistent run history")
+    resumed_from_history = False
     if cfg.resume and cfg.history is not None:
         prior = await _load_prior_run(cfg.history, cfg.session_id)
         if prior is not None and prior.checkpoint_task:
@@ -115,6 +117,18 @@ async def run_workflow(
             if start_at_checkpoint:
                 document = document.model_copy(update={"do": resumed_do})
             input = prior.state
+            resumed_from_history = True
+    if (
+        not resumed_from_history
+        and isinstance(document.input, dict)
+        and document.input.get("from") is not None
+        and input is not None
+    ):
+        # Document-level `input.from` filters the raw run input before the
+        # workflow starts; resumed state is already filtered and is kept as-is.
+        filtered = evaluate(document.input["from"], input)
+        if filtered is not None:
+            input = filtered
     workflow = build_workflow(
         document,
         config=cfg,
@@ -231,6 +245,12 @@ async def run_workflow(
             )
             if session is not None:
                 await active_memory_service.add_session_to_memory(session)
+        if isinstance(document.output, dict) and document.output.get("as") is not None and events:
+            # Document-level `output.as` shapes the workflow's final output;
+            # the expression sees the accumulated context and the raw output.
+            events[-1].output = evaluate(
+                document.output["as"], {**state, "output": events[-1].output}
+            )
     except WorkflowSuspended as suspension:
         if cfg.history is None:
             raise

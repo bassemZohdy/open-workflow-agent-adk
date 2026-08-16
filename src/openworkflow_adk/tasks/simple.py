@@ -4,19 +4,22 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from openworkflow_adk._utils import response_body
 from openworkflow_adk.adk_compat import DEFAULT_ROUTE, FunctionNode
 from openworkflow_adk.errors import OpenWorkflowError
-from openworkflow_adk.expressions import bind, evaluate
-from openworkflow_adk.models import Task
+from openworkflow_adk.expressions import bind, condition, evaluate
+from openworkflow_adk.models import Task, TaskItem
 from openworkflow_adk.resources.broker import Broker
 from openworkflow_adk.security.auth import resolve_authentication
 from openworkflow_adk.security.security import guarded_async_client, validate_egress
 from openworkflow_adk.suspension import WorkflowSuspended
 
 from .common import _noop
+
+if TYPE_CHECKING:
+    from openworkflow_adk.translator import NodeBuilderRegistry
 
 
 def _generic_builder(name: str, _task: Task) -> FunctionNode:
@@ -42,17 +45,47 @@ def _wait_builder(
     return FunctionNode(func=wait, name=name)
 
 
-def _raise_builder(name: str, task: Task) -> FunctionNode:
+def _is_expression(value: Any) -> bool:
+    """Whether the value is a `${...}` runtime expression string."""
+    return isinstance(value, str) and value.strip().startswith("${")
+
+
+def _raise_builder(
+    name: str,
+    task: Task,
+    error_definitions: dict[str, Any] | None = None,
+    document_reference: dict[str, Any] | None = None,
+) -> FunctionNode:
     async def raise_error(ctx: Any) -> None:
         error = (task.raise_ or {}).get("error", task.raise_ or {})
+        if isinstance(error, str):
+            definition = (error_definitions or {}).get(error)
+            if not isinstance(definition, dict):
+                raise ValueError(
+                    f"raise references unknown error {error!r}; define it under use.errors"
+                )
+            error = definition
         if not isinstance(error, dict):
             error = {"detail": str(error)}
+        data = {
+            "context": ctx.state.to_dict(),
+            "workflow": {"definition": {"document": dict(document_reference or {})}},
+        }
+
+        def resolve(value: Any) -> Any:
+            # Only `${...}` strings are runtime expressions; plain strings such
+            # as error type URIs and titles are literals.
+            return evaluate(value, data) if _is_expression(value) else value
+
+        status = error.get("status")
+        if _is_expression(status):
+            status = evaluate(status, data)
         raise OpenWorkflowError(
-            type=str(error.get("type", "about:blank")),
-            status=error.get("status"),
-            title=error.get("title"),
-            detail=error.get("detail"),
-            instance=error.get("instance"),
+            type=str(resolve(error.get("type", "about:blank"))),
+            status=int(status) if status is not None else None,
+            title=resolve(error.get("title")),
+            detail=resolve(error.get("detail")),
+            instance=resolve(error.get("instance")),
         )
 
     return FunctionNode(func=raise_error, name=name)
@@ -129,15 +162,39 @@ def _emit_builder(name: str, task: Task, broker: Broker | None) -> FunctionNode:
 
 
 def _listen_builder(
-    name: str, task: Task, broker: Broker | None, *, suspend_listens: bool = False
+    name: str,
+    task: Task,
+    broker: Broker | None,
+    registry: NodeBuilderRegistry | None = None,
+    *,
+    suspend_listens: bool = False,
 ) -> FunctionNode:
+    # foreach children are resolved at build time: the listen node itself must
+    # be marked dynamic (`rerun_on_resume=True`) because it schedules child
+    # nodes via `ctx.run_node`.
+    foreach_config = (task.model_extra or {}).get("foreach")
+    if not isinstance(foreach_config, dict):
+        foreach_config = None
+    child_nodes: list[Any] = []
+    item_name, index_name = "event", "index"
+    if foreach_config is not None:
+        if registry is None:
+            raise ValueError(f"listen task {name!r} foreach requires the translator registry")
+        item_name = str(foreach_config.get("item", "event"))
+        index_name = str(foreach_config.get("at", "index"))
+        for entry in foreach_config.get("do", []):
+            item = TaskItem.model_validate(entry)
+            child_nodes.append(_dynamic(registry.build(f"{name}__each_{item.name}", item.task)))
+
     async def listen(ctx: Any) -> Any:
         if broker is None:
             return None
-        configuration = (task.listen or {}).get("to", {})
-        read_mode = (task.listen or {}).get("read", "data")
+        listen_config = task.listen or {}
+        configuration = listen_config.get("to", {})
+        read_mode = listen_config.get("read", "data")
         filters: list[dict[str, Any]] = []
         strategy = "one"
+        until: str | None = None
         if isinstance(configuration, dict):
             if "one" in configuration:
                 filters = [configuration["one"]]
@@ -145,9 +202,13 @@ def _listen_builder(
                 strategy, filters = "any", configuration["any"]
             elif "all" in configuration:
                 strategy, filters = "all", configuration["all"]
-        types_to_match = {
-            (item.get("with") or {}).get("type") for item in filters if isinstance(item, dict)
-        }
+            maybe_until = configuration.get("until")
+            if isinstance(maybe_until, str):
+                until = maybe_until
+            elif maybe_until is not None:
+                raise NotImplementedError(
+                    "listen.to.until only supports runtime expression conditions"
+                )
         if suspend_listens:
             raise WorkflowSuspended(
                 task=name,
@@ -155,29 +216,109 @@ def _listen_builder(
                 reason="broker_listen",
             )
 
-        async def next_event() -> dict[str, Any]:
+        correlations: dict[str, Any] = {}
+
+        def _matches_filter(event: dict[str, Any], event_filter: Any) -> bool:
+            if not isinstance(event_filter, dict):
+                return True
+            properties = event_filter.get("with") or {}
+            if not isinstance(properties, dict):
+                properties = {}
+            if properties.get("type") is not None and event.get("type") != properties.get("type"):
+                return False
+            if properties.get("source") is not None and event.get("source") != properties.get(
+                "source"
+            ):
+                return False
+            for correlate_name, rule in (event_filter.get("correlate") or {}).items():
+                if not isinstance(rule, dict):
+                    continue
+                value = evaluate(rule.get("from"), event) if rule.get("from") is not None else None
+                if correlate_name not in correlations:
+                    correlations[correlate_name] = value
+                expected = rule.get("expect")
+                if expected is not None:
+                    expected = (
+                        evaluate(expected, {"event": event, "context": ctx.state.to_dict()})
+                        if isinstance(expected, str)
+                        else expected
+                    )
+                    if value != expected:
+                        return False
+                elif correlations.get(correlate_name) != value:
+                    return False
+            return True
+
+        def _matches_any(event: dict[str, Any]) -> bool:
+            if not filters:
+                return True
+            return any(_matches_filter(event, event_filter) for event_filter in filters)
+
+        async def consume_one(event_filter: Any = None) -> dict[str, Any]:
             while True:
                 event = await broker.consume()
-                if not types_to_match or event.get("type") in types_to_match:
+                matched = (
+                    _matches_any(event)
+                    if event_filter is None
+                    else _matches_filter(event, event_filter)
+                )
+                if matched:
                     return event
 
-        if strategy == "all":
-            events = [await next_event() for _ in filters]
-            result: Any = events
-        else:
-            result = await next_event()
-        if read_mode == "data":
-            if isinstance(result, list):
-                return [event.get("data") for event in result]
-            return result.get("data")
-        return result
+        def read(event: dict[str, Any]) -> Any:
+            return event.get("data") if read_mode == "data" else event
 
-    return FunctionNode(func=listen, name=name)
+        consumed: list[Any] = []
+        results: list[Any] = []
+        while True:
+            if strategy == "all" and until is None and len(filters) > len(consumed):
+                event = await consume_one(filters[len(consumed)])
+            else:
+                event = await consume_one()
+            value = read(event)
+            consumed.append(value)
+            index = len(consumed) - 1
+            if child_nodes:
+                ctx.state[item_name] = value
+                ctx.session.state[item_name] = value
+                ctx.state[index_name] = index
+                ctx.session.state[index_name] = index
+                for child in child_nodes:
+                    results.append(
+                        await ctx.run_node(child, node_input={item_name: value, index_name: index})
+                    )
+            else:
+                results.append(value)
+            if until is not None:
+                if evaluate(until, consumed):
+                    break
+            elif strategy == "all":
+                if len(consumed) >= len(filters):
+                    break
+            else:
+                break
+        if until is not None and not child_nodes:
+            return consumed
+        if strategy == "all" and not child_nodes and until is None:
+            return results
+        return results[-1] if results else None
+
+    node = FunctionNode(func=listen, name=name)
+    if child_nodes:
+        # The listen closure schedules child nodes via `ctx.run_node`; ADK
+        # requires such coordinators to be resumable (`rerun_on_resume=True`).
+        return _dynamic(node)
+    return node
 
 
 def _switch_builder(name: str, task: Task) -> FunctionNode:
     async def route(ctx: Any) -> None:
         state = ctx.state.to_dict()
+        if task.if_ is not None and not condition(task.if_, state):
+            # A skipped conditional switch still needs a valid route; follow the
+            # default route so the graph remains well-formed.
+            ctx.route = DEFAULT_ROUTE
+            return
         default = DEFAULT_ROUTE
         for case in task.switch or []:
             if not isinstance(case, dict):
