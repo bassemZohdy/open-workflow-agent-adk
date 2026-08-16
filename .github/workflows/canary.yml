@@ -25,7 +25,7 @@ jobs:
         run: pip install uv
       - name: Sync with latest google-adk (unpinned)
         run: |
-          uv sync --extra dev --extra server
+          uv sync --all-extras
           uv pip install --reinstall --upgrade "google-adk"
           uv run python -c "import importlib.metadata as m; print('google-adk', m.version('google-adk'))"
       - name: Run unit suite against latest ADK
