@@ -54,6 +54,39 @@ v0.2.0 review.
 
 ## Unreleased
 
+- **Added spec-parity features** (gap analysis against the OpenWorkflow v1.0.3
+  schema and other implementors — SonataFlow, Synapse, Lemline, EventMesh):
+  - **taskBase semantics for every task kind**: `if` conditional execution,
+    `input.from` input filtering, `output.as` output transformation,
+    `export.as` context export, and `timeout` enforcement (inline or
+    `use.timeouts` reference) via a uniform translator wrapper
+    (`tasks/base_semantics.py`).
+  - **Spec retry policies**: `catch.retry` supports inline policies and
+    `use.retries` references with `delay`, `backoff` (constant/linear/
+    exponential), `jitter`, `limit.attempt.count`, `limit.duration`, and
+    `when`/`exceptWhen` runtime expressions.
+  - **Catch error filters**: `catch.errors.with` matches on error
+    `type`/`status`/`title`/`instance`; non-matching errors propagate.
+  - **Reusable error definitions**: `raise.error` accepts `use.errors`
+    references; `${...}` fields are evaluated against `$workflow.definition`
+    and `$context`.
+  - **Listen consume policies**: `until` conditions (including the spec's
+    `( . | length ) > n` idiom), `foreach` per-event iteration with child
+    tasks, and `correlate` filters with first-value and `expect` matching.
+  - **`use.extensions` task injection**: `extend` (task kind or `all`),
+    `when` gating, and `before`/`after` task injection around matching tasks.
+  - **Document-level I/O filters**: workflow `input.from` (resume-aware) and
+    `output.as`.
+- **Fixed**: ADK `DynamicNodeFailError` wrappers are unwrapped before catch
+  filters and retry policies inspect them (`adk_compat.unwrap_dynamic_error`).
+- **Fixed**: expression rewrites — standalone `.` (current input) is
+  translated mid-expression, and `( x | length )` becomes `$count(x)` so
+  spec-canonical examples evaluate on the vendored JSONata engine.
+- **Fixed**: state-schema derivation now declares keys written by
+  `output.as`/`export.as` object literals, listen `foreach` iterators, and
+  `use.extensions` tasks, so ADK state validation accepts them.
+- **Docs**: rewrote `docs/reference/task-coverage.md` as an accurate
+  feature matrix (the previous table understated shipped coverage).
 - **Breaking**: ADK extensions now live in OpenWorkflow-compatible metadata
   containers. Task-level config goes in `task.metadata.adk` (`agent`,
   `self_heal`); project-level registries go in `document.metadata.adk`

@@ -14,6 +14,10 @@ needs repeatable steps, control flow, integrations, or human decisions.
   it in application code.
 - Mix ordinary operations such as setting state, calling HTTP services, waiting,
   looping, branching, and emitting events with ADK agent tasks.
+- Run full OpenWorkflow v1.0.3 task semantics: conditional tasks (`if`), input/
+  output/export filters, timeouts, catch retry policies with backoff, error
+  filters, event correlations, and `use.extensions` task injection — see the
+  [task coverage matrix](docs/reference/task-coverage.md).
 - Compose multiple agents into a predictable sequence and pass state between
   them.
 - Pause for an event or human input and resume later, including after a process

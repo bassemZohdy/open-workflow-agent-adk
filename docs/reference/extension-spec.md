@@ -99,6 +99,16 @@ metadata:
       max_attempts: 3
 ```
 
+On a failing `try` task, error handling applies in this order:
+
+1. the spec `catch.errors.with` filter (non-matching errors propagate),
+2. the spec `catch.retry` policy (inline or `use.retries` reference),
+3. the ADK `self_heal` extension (its diagnosis may patch state and retry),
+4. the `catch.do` fallback tasks, capturing the error as `catch.as` if set.
+
+The self-healer receives the unwrapped error (ADK's `DynamicNodeFailError`
+wrapper is stripped), plus the current workflow state as context.
+
 
 
 ## Registries
