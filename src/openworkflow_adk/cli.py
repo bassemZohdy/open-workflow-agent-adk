@@ -33,7 +33,7 @@ def _load_document(args: argparse.Namespace) -> OpenWorkflowDocument:
 def main() -> int:
     """Run the command-line interface."""
     parser = argparse.ArgumentParser(prog="owf-adk")
-    parser.add_argument("--version", action="version", version="%(prog)s 0.2.0")
+    parser.add_argument("--version", action="version", version="%(prog)s 0.2.1")
     commands = parser.add_subparsers(dest="command")
 
     run_parser = commands.add_parser("run", help="run a workflow document")

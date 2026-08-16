@@ -11,6 +11,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from openworkflow_adk.interop.openapi import generate_openapi
 from openworkflow_adk.loader import load
 from openworkflow_adk.models import OpenWorkflowDocument
 from openworkflow_adk.ops.history import InMemoryRunHistory, SQLiteRunHistory
@@ -18,7 +19,6 @@ from openworkflow_adk.ops.postgres_history import PostgresRunHistory, PostgresRu
 from openworkflow_adk.run_config import RunConfig
 from openworkflow_adk.runtime import run_workflow
 from openworkflow_adk.security.access import AccessPolicy, Principal
-from openworkflow_adk.tools.openapi import generate_openapi
 
 try:
     from fastapi import HTTPException, Request

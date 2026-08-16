@@ -59,6 +59,7 @@ class NodeBuilderRegistry:
         suspend_listens: bool = False,
         memoization: Any = None,
         self_healer: Callable[[Exception, dict[str, Any]], Any] | None = None,
+        agent_defaults: Any = None,
     ) -> None:
         self.state_schema = state_schema
         self.broker = broker
@@ -77,6 +78,7 @@ class NodeBuilderRegistry:
         self.suspend_listens = suspend_listens
         self.memoization = memoization
         self.self_healer = self_healer
+        self.agent_defaults = agent_defaults
         self._call_builders: dict[str, NodeBuilder] = {}
         self._builders: dict[str, NodeBuilder] = {key: _generic_builder for key in TASK_KEYS}
         self._builders.update(
@@ -127,6 +129,7 @@ class NodeBuilderRegistry:
                 }
                 if task.switch
                 else None,
+                self.agent_defaults,
             )
             if task.switch:
 
@@ -236,6 +239,7 @@ def build_workflow(
             for function_name, function_task in document.use.functions.items()
         },
         model_specs=document.effective_models(),
+        agent_defaults=document.effective_agent_defaults(),
         workflow_registry=workflow_registry
         if workflow_registry is not None
         else (config.workflow_registry if config else None),

@@ -116,6 +116,7 @@ class DocumentAdkMetadata(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    agent_defaults: AgentCharacteristics | None = None
     models: dict[str, ModelSpec] | None = None
     providers: dict[str, ProviderConfig] | None = None
     memories: dict[str, MemoryConfig] | None = None
@@ -295,3 +296,8 @@ class OpenWorkflowDocument(BaseModel):
         """Memory registry read from ``document.metadata.adk.memories``."""
         adk = self.adk_metadata()
         return adk.memories if adk else {}
+
+    def effective_agent_defaults(self) -> AgentCharacteristics | None:
+        """Default agent characteristics read from ``document.metadata.adk.agent_defaults``."""
+        adk = self.adk_metadata()
+        return adk.agent_defaults if adk else None

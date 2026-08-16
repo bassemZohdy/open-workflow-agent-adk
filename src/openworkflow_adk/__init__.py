@@ -25,6 +25,12 @@ from openworkflow_adk.devtools.optimization import (  # noqa: E402,F401
     SimplificationResult,
     simplify_workflow,
 )
+from openworkflow_adk.devtools.patterns import (  # noqa: E402,F401
+    debate_pattern,
+    hierarchical_pattern,
+    map_reduce_pattern,
+)
+from openworkflow_adk.devtools.plugins import PluginManifest, PluginRegistry  # noqa: E402,F401
 from openworkflow_adk.devtools.portability import portability_report  # noqa: E402,F401
 from openworkflow_adk.devtools.usage import UsageMetrics  # noqa: E402,F401
 from openworkflow_adk.devtools.visual import graph_to_document, graph_to_yaml  # noqa: E402,F401
@@ -86,12 +92,6 @@ from openworkflow_adk.security.audit import AuditEntry, AuditLog  # noqa: E402,F
 from openworkflow_adk.security.sso import OidcClient, OidcMetadata, SamlMetadata  # noqa: E402,F401
 from openworkflow_adk.state import derive_state_schema
 from openworkflow_adk.suspension import WorkflowSuspended
-from openworkflow_adk.tools.patterns import (  # noqa: E402,F401
-    debate_pattern,
-    hierarchical_pattern,
-    map_reduce_pattern,
-)
-from openworkflow_adk.tools.plugins import PluginManifest, PluginRegistry  # noqa: E402,F401
 
 __all__ = [
     # errors & validation

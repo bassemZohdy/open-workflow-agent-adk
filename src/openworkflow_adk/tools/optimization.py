@@ -6,6 +6,15 @@ implementation for existing callers; new code should import from the new
 location.
 """
 
+import warnings
+
 from openworkflow_adk.devtools.optimization import SimplificationResult, simplify_workflow
 
 __all__ = ["SimplificationResult", "simplify_workflow"]
+
+warnings.warn(
+    "openworkflow_adk.tools.optimization is deprecated; "
+    "import from openworkflow_adk.devtools.optimization.",
+    DeprecationWarning,
+    stacklevel=2,
+)

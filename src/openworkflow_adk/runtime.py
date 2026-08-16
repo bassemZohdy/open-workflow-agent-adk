@@ -6,6 +6,7 @@ import asyncio
 import inspect
 import os
 import time
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any
 
@@ -14,6 +15,7 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
+from openworkflow_adk.config import resolve_memory_config
 from openworkflow_adk.models import OpenWorkflowDocument
 from openworkflow_adk.ops import replay as _replay
 from openworkflow_adk.ops.schedule import trigger_events
@@ -120,11 +122,7 @@ async def run_workflow(
         suspend_long_waits=cfg.history is not None
         if cfg.suspend_long_waits is None
         else cfg.suspend_long_waits,
-        suspend_after=(
-            float(os.environ.get("WORKFLOW_SUSPEND_WAIT_SECONDS", "3600"))
-            if cfg.suspend_after is None
-            else cfg.suspend_after
-        ),
+        suspend_after=cfg.suspend_after,
         resume_input=cfg.resume_input,
         suspend_listens=cfg.history is not None and not cfg.resume,
         memoization=cfg.memoization,
@@ -165,7 +163,7 @@ async def run_workflow(
             session_id=cfg.session_id,
             state=input or {},
         )
-    active_memory_service = cfg.memory_service or memory_service_for_document(document)
+    active_memory_service = cfg.memory_service or memory_service_for_document(document, os.environ)
     runner = Runner(
         node=workflow,
         app_name=document.document.name,
@@ -181,8 +179,6 @@ async def run_workflow(
         events: list[Any] = []
         state = dict(input or {})
         interval = cfg.checkpoint_interval
-        if interval is None:
-            interval = int(os.environ.get("WORKFLOW_CHECKPOINT_INTERVAL", "1"))
         if interval < 0:
             raise ValueError("checkpoint_interval must be non-negative")
         if cfg.token_budget is not None and cfg.token_budget < 0:
@@ -461,7 +457,10 @@ def _iter_tasks(items: list[Any]) -> Any:
                 yield from _iter_tasks([branch])
 
 
-def memory_service_for_document(document: OpenWorkflowDocument) -> BaseMemoryService | None:
+def memory_service_for_document(
+    document: OpenWorkflowDocument,
+    environ: Mapping[str, str] | None = None,
+) -> BaseMemoryService | None:
     """Build the first referenced memory backend for a workflow host.
 
     ADK's Runner exposes one memory service per run. Workflows that need
@@ -471,10 +470,11 @@ def memory_service_for_document(document: OpenWorkflowDocument) -> BaseMemorySer
     for item in _iter_tasks(document.do):
         agent_config = item.task.effective_agent()
         if agent_config and agent_config.memory:
-            reference = agent_config.memory.use
-            config = document.effective_memories().get(reference)
-            if config is None:
-                raise ValueError(f"unknown memory reference {reference!r}")
+            config = resolve_memory_config(
+                agent_config.memory,
+                document.effective_memories(),
+                environ=environ,
+            )
             return create_memory_service(config)
     return None
 

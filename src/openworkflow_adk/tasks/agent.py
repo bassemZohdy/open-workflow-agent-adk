@@ -27,9 +27,14 @@ def _agent_builder(
     provider_factory: Callable[[str, ProviderConfig], Any] | None = None,
     resume_input: Any = None,
     route_options: set[str] | None = None,
+    agent_defaults: Any = None,
 ) -> LlmAgent:
     config = resolve_agent_characteristics(
-        agent_config, models=model_specs, environ=environ, providers=provider_configs
+        agent_config,
+        defaults=agent_defaults,
+        models=model_specs,
+        environ=environ,
+        providers=provider_configs,
     )
     return _build_agent(
         name,
@@ -62,6 +67,7 @@ def _build_agent(
     as_sub_agent: bool,
     resume_input: Any = None,
     route_options: set[str] | None = None,
+    agent_defaults: Any = None,
     depth: int = 0,
 ) -> LlmAgent:
     """Build one ADK agent and recursively assemble its coordinator tree."""
@@ -119,6 +125,7 @@ def _build_agent(
     for index, child in enumerate(config.sub_agents):
         resolved_child = resolve_agent_characteristics(
             child,
+            defaults=agent_defaults,
             environ=environ,
             models=model_specs,
             providers=provider_configs,
@@ -136,6 +143,7 @@ def _build_agent(
                 as_sub_agent=True,
                 resume_input=resume_input,
                 route_options=None,
+                agent_defaults=agent_defaults,
                 depth=depth + 1,
             )
         )

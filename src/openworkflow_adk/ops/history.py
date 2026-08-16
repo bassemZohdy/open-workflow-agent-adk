@@ -6,12 +6,9 @@ import json
 import sqlite3
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any
 
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from openworkflow_adk._utils import utc_now_iso
 
 
 @dataclass
@@ -19,7 +16,7 @@ class RunRecord:
     run_id: str
     workflow: str
     status: str = "running"
-    started_at: str = field(default_factory=_now)
+    started_at: str = field(default_factory=utc_now_iso)
     finished_at: str | None = None
     state: dict[str, Any] = field(default_factory=dict)
     output: Any = None
@@ -56,7 +53,7 @@ class InMemoryRunHistory:
     ) -> RunRecord:
         record = self.records[run_id]
         record.status = "failed" if error else "completed"
-        record.finished_at = _now()
+        record.finished_at = utc_now_iso()
         record.state = dict(state)
         record.output = output
         record.error = str(error) if error else None
@@ -188,7 +185,7 @@ class SQLiteRunHistory:
     ) -> RunRecord:
         record = self.get(run_id)
         record.status = "failed" if error else "completed"
-        record.finished_at = _now()
+        record.finished_at = utc_now_iso()
         record.state = dict(state)
         record.output = output
         record.error = str(error) if error else None

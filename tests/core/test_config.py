@@ -51,3 +51,59 @@ def test_each_configuration_layer_can_supply_the_model(
     task, defaults, environ, expected_model
 ) -> None:
     assert resolve_agent_characteristics(task, defaults, environ).model == expected_model
+
+
+def test_named_model_reference_is_resolved_to_spec_model() -> None:
+    result = resolve_agent_characteristics(
+        {"model": {"use": "flash"}, "instruction": "task"},
+        models={"flash": {"model": "gemini-2.5-flash"}},
+    )
+    assert result.model == "gemini-2.5-flash"
+
+
+def test_environment_can_override_named_model_reference() -> None:
+    result = resolve_agent_characteristics(
+        {"model": {"use": "flash"}, "instruction": "task"},
+        environ={"WORKFLOW_AGENT__MODEL": "env-model"},
+        models={"flash": {"model": "gemini-2.5-flash"}},
+    )
+    assert result.model == "env-model"
+
+
+def test_environment_can_redirect_named_model_reference() -> None:
+    result = resolve_agent_characteristics(
+        {"model": {"use": "flash"}, "instruction": "task"},
+        environ={"WORKFLOW_AGENT__MODEL": '{"use": "pro"}'},
+        models={
+            "flash": {"model": "gemini-2.5-flash"},
+            "pro": {"model": "gemini-2.5-pro"},
+        },
+    )
+    assert result.model == "gemini-2.5-pro"
+
+
+def test_document_defaults_supply_missing_agent_fields() -> None:
+    result = resolve_agent_characteristics(
+        {"instruction": "task"},
+        defaults={"model": "default-model", "description": "default desc"},
+    )
+    assert result.model == "default-model"
+    assert result.instruction == "task"
+    assert result.description == "default desc"
+
+
+def test_task_overrides_document_default_model() -> None:
+    result = resolve_agent_characteristics(
+        {"model": "task-model"},
+        defaults={"model": "default-model"},
+    )
+    assert result.model == "task-model"
+
+
+def test_environment_overrides_document_default_model() -> None:
+    result = resolve_agent_characteristics(
+        None,
+        defaults={"model": "default-model"},
+        environ={"WORKFLOW_AGENT__MODEL": "env-model"},
+    )
+    assert result.model == "env-model"

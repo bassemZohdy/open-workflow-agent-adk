@@ -6,6 +6,14 @@ implementation for existing callers; new code should import from the new
 location.
 """
 
+import warnings
+
 from openworkflow_adk.devtools.usage import UsageMetrics
 
 __all__ = ["UsageMetrics"]
+
+warnings.warn(
+    "openworkflow_adk.tools.usage is deprecated; import from openworkflow_adk.devtools.usage.",
+    DeprecationWarning,
+    stacklevel=2,
+)

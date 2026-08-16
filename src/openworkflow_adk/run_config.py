@@ -9,6 +9,7 @@ config. The keyword form is still accepted for backward compatibility.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -55,3 +56,18 @@ class RunConfig:
     region: str | None = None
     mode: str = "auto"
     extra: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # Frozen dataclass: apply environment defaults via object.__setattr__.
+        if self.checkpoint_interval is None:
+            object.__setattr__(
+                self,
+                "checkpoint_interval",
+                int(os.environ.get("WORKFLOW_CHECKPOINT_INTERVAL", "1")),
+            )
+        if self.suspend_after is None:
+            object.__setattr__(
+                self,
+                "suspend_after",
+                float(os.environ.get("WORKFLOW_SUSPEND_WAIT_SECONDS", "3600")),
+            )

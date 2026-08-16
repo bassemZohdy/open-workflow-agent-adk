@@ -58,7 +58,7 @@ jobs:
       - name: Smoke-test built wheel
         run: |
           uv venv /tmp/owf-smoke --python python3.12
-          /tmp/owf-smoke/bin/pip install dist/*.whl
+          uv pip install --python /tmp/owf-smoke/bin/python dist/*.whl
           /tmp/owf-smoke/bin/owf-adk --version
           /tmp/owf-smoke/bin/python -c "import openworkflow_adk"
       - name: Publish to PyPI with trusted publishing

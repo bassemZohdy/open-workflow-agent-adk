@@ -10,26 +10,6 @@ from tests.conftest import require_docker
 pytestmark = [pytest.mark.integration, require_docker()]
 
 
-@pytest.fixture(scope="module")
-def postgres_url():
-    try:
-        from testcontainers.postgres import PostgresContainer  # noqa: PLC0415
-    except ImportError as exc:
-        pytest.skip(f"testcontainers-postgres not available: {exc}")
-
-    container = PostgresContainer("postgres:16")
-    try:
-        container.start()
-        yield container.get_connection_url().replace("+psycopg2", "").replace("+asyncpg", "")
-    except Exception as exc:
-        pytest.skip(f"Could not start PostgreSQL container: {exc}")
-    finally:
-        try:
-            container.stop()
-        except Exception:
-            pass
-
-
 @pytest.fixture
 async def history(postgres_url):
     config = PostgresRunHistoryConfig(url=postgres_url, schema="polling", namespace_id="ns")

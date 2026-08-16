@@ -1,6 +1,6 @@
 # Examples gallery
 
-- `hello.yaml` — deterministic state update and container smoke-test input.
+- `hello.yaml` — deterministic state update; sets a message in workflow state.
 - `echo.yaml` — HTTP call against the compose echo service.
   **Prerequisite:** run `docker compose up --wait` so `http://echo:8080` resolves.
 - `approval.yaml` — event-driven approval using `listen` and `switch`.

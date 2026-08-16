@@ -3,7 +3,18 @@
 Agent values use three layers, with later entries overriding earlier ones:
 
 ```text
-project defaults < task.metadata.adk.agent < environment
+document.metadata.adk.agent_defaults < task.metadata.adk.agent < environment
+```
+
+Project-wide agent defaults live in `document.metadata.adk.agent_defaults`:
+
+```yaml
+document:
+  metadata:
+    adk:
+      agent_defaults:
+        model: gemini-2.5-flash
+        instruction: Default agent instruction.
 ```
 
 Environment variables use the `WORKFLOW_` prefix and `__` for nesting:

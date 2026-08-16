@@ -34,6 +34,29 @@ def require_docker(reason: str = "requires Docker") -> pytest.MarkDecorator:
     return pytest.mark.skipif(not docker_enabled(), reason=reason)
 
 
+@pytest.fixture(scope="module")
+def postgres_url() -> str:
+    """Start a PostgreSQL testcontainer and yield an asyncpg-compatible URL."""
+    if not docker_enabled():
+        pytest.skip("requires Docker")
+    try:
+        from testcontainers.postgres import PostgresContainer  # noqa: PLC0415
+    except ImportError as exc:
+        pytest.skip(f"testcontainers-postgres not available: {exc}")
+
+    container = PostgresContainer("postgres:16")
+    try:
+        container.start()
+        yield container.get_connection_url().replace("+psycopg2", "").replace("+asyncpg", "")
+    except Exception as exc:
+        pytest.skip(f"Could not start PostgreSQL container: {exc}")
+    finally:
+        try:
+            container.stop()
+        except Exception:
+            pass
+
+
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "integration: Docker/service-backed integration tests")
 

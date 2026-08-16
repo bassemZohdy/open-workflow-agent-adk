@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import BaseModel
 
 from openworkflow_adk.models import (
     AgentCharacteristics,
@@ -29,10 +30,14 @@ def _deep_merge(base: dict[str, Any], override: Mapping[str, Any]) -> dict[str, 
     return result
 
 
-def load_defaults(source: Mapping[str, Any] | str | Path | None = None) -> dict[str, Any]:
-    """Load project defaults from a mapping or YAML/JSON file."""
+def load_defaults(
+    source: Mapping[str, Any] | BaseModel | str | Path | None = None,
+) -> dict[str, Any]:
+    """Load project defaults from a mapping, Pydantic model, or YAML/JSON file."""
     if source is None:
         return {}
+    if isinstance(source, BaseModel):
+        return source.model_dump(exclude_none=True)
     if isinstance(source, Mapping):
         return dict(source)
     path = Path(source)
@@ -117,12 +122,20 @@ def named_registry_config(
     return result
 
 
+def _reference_dict(reference: str | Mapping[str, Any] | BaseModel) -> dict[str, Any] | str:
+    """Normalize a Pydantic reference model to a plain dict for resolution."""
+    if isinstance(reference, BaseModel):
+        return reference.model_dump(exclude_none=True)
+    return reference
+
+
 def resolve_provider_config(
-    reference: str | Mapping[str, Any],
+    reference: str | Mapping[str, Any] | BaseModel,
     providers: Mapping[str, ProviderConfig] | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> ProviderConfig:
     """Resolve a named or inline provider with environment overrides."""
+    reference = _reference_dict(reference)
     if isinstance(reference, Mapping) and "use" in reference:
         name = str(reference["use"])
         if name not in (providers or {}):
@@ -143,11 +156,12 @@ def resolve_provider_config(
 
 
 def resolve_memory_config(
-    reference: str | Mapping[str, Any],
+    reference: str | Mapping[str, Any] | BaseModel,
     memories: Mapping[str, MemoryConfig] | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> MemoryConfig:
     """Resolve a named or inline memory backend with environment overrides."""
+    reference = _reference_dict(reference)
     if isinstance(reference, Mapping) and "use" in reference:
         name = str(reference["use"])
         if name not in (memories or {}):
@@ -167,7 +181,7 @@ def resolve_memory_config(
 
 def resolve_model_spec(
     reference: ModelReference | str | None,
-    models: Mapping[str, ModelSpec] | None = None,
+    models: Mapping[str, ModelSpec | dict[str, Any]] | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> ModelSpec | None:
     """Resolve a named model reference while preserving literal model support."""
@@ -178,37 +192,62 @@ def resolve_model_spec(
     registry = models or {}
     if reference.use not in registry:
         raise ValueError(f"unknown model reference {reference.use!r}")
-    named = registry[reference.use].model_dump(exclude_none=True)
+    entry = registry[reference.use]
+    named = entry.model_dump(exclude_none=True) if isinstance(entry, BaseModel) else dict(entry)
     overrides = model_registry_config(environ).get(reference.use, {})
     named = _deep_merge(named, overrides)
     return ModelSpec.model_validate(named)
 
 
+def _coalesce_model(*candidates: Any) -> Any:
+    """Return the first non-None model value from highest to lowest precedence."""
+    for candidate in candidates:
+        if candidate is not None:
+            return candidate
+    return None
+
+
 def resolve_agent_characteristics(
     task: AgentCharacteristics | Mapping[str, Any] | None = None,
-    defaults: Mapping[str, Any] | str | Path | None = None,
+    defaults: Mapping[str, Any] | BaseModel | str | Path | None = None,
     environ: Mapping[str, str] | None = None,
-    models: Mapping[str, ModelSpec] | None = None,
+    models: Mapping[str, ModelSpec | dict[str, Any]] | None = None,
     providers: Mapping[str, ProviderConfig] | None = None,
 ) -> AgentCharacteristics:
-    """Resolve defaults, task configuration, and environment overrides."""
+    """Resolve defaults, task configuration, and environment overrides.
+
+    Precedence (highest wins): environment > task > document defaults > named model spec.
+    When the final model is a named reference it is resolved to its spec so the agent
+    builder receives a concrete model string (and inherited provider/generation config).
+    """
     task_values = (
         task.model_dump(exclude_none=True)
         if isinstance(task, AgentCharacteristics)
         else dict(task or {})
     )
     default_values = load_defaults(defaults)
-    model = task_values.get("model")
-    if isinstance(model, Mapping) and "use" in model:
-        spec = resolve_model_spec(ModelReference.model_validate(model), models, environ)
-        task_values = dict(task_values)
-        task_values.pop("model", None)
-        merged = _deep_merge(default_values, spec.model_dump(exclude_none=True))
-        merged = _deep_merge(merged, task_values)
-    else:
-        merged = _deep_merge(default_values, task_values)
     env_values = environment_config(environ).get("agent", {})
-    resolved = AgentCharacteristics.model_validate(_deep_merge(merged, env_values))
+
+    # Determine the winning model reference across layers.
+    final_model = _coalesce_model(
+        env_values.get("model"),
+        task_values.get("model"),
+        default_values.get("model"),
+    )
+
+    # Start from the resolved named model spec when applicable.
+    if isinstance(final_model, Mapping) and "use" in final_model:
+        spec = resolve_model_spec(ModelReference.model_validate(final_model), models, environ)
+        merged = spec.model_dump(exclude_none=True)
+    else:
+        merged = {"model": final_model} if final_model is not None else {}
+
+    # Apply non-model fields: defaults < task < env.
+    merged = _deep_merge(merged, {k: v for k, v in default_values.items() if k != "model"})
+    merged = _deep_merge(merged, {k: v for k, v in task_values.items() if k != "model"})
+    merged = _deep_merge(merged, {k: v for k, v in env_values.items() if k != "model"})
+
+    resolved = AgentCharacteristics.model_validate(merged)
     if resolved.provider:
         resolve_provider_config(resolved.provider.model_dump(), providers, environ)
     return resolved

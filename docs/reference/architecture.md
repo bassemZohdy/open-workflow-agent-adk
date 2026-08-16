@@ -8,7 +8,7 @@ mapping, the package layout, and the ADK gotchas implementers must honor. Task s
 ## Package layout and layering
 
 The translator is organized in layers, enforced by an `import-linter` contract wired into CI
-(`uv run lint-imports`):
+(`uv run import-linter lint`):
 
 ```text
 core (no imports from ops/tools/interop/devtools)

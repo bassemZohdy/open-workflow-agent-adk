@@ -6,6 +6,15 @@ implementation for existing callers; new code should import from the new
 location.
 """
 
+import warnings
+
 from openworkflow_adk.devtools.benchmark import benchmark
 
 __all__ = ["benchmark"]
+
+warnings.warn(
+    "openworkflow_adk.tools.benchmark is deprecated; "
+    "import from openworkflow_adk.devtools.benchmark.",
+    DeprecationWarning,
+    stacklevel=2,
+)

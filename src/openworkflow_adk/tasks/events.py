@@ -7,6 +7,7 @@ import json
 import os
 from typing import Any
 
+from openworkflow_adk._utils import response_body
 from openworkflow_adk.adk_compat import FunctionNode
 from openworkflow_adk.durations import duration_seconds
 from openworkflow_adk.errors import OpenWorkflowError
@@ -16,7 +17,7 @@ from openworkflow_adk.resources.broker import Broker
 from openworkflow_adk.security.security import guarded_async_client, validate_egress
 
 from .call import _read_resource
-from .simple import _dynamic, _response_content
+from .simple import _dynamic
 
 
 def _openapi_builder(name: str, task: Task) -> FunctionNode:
@@ -73,9 +74,9 @@ def _openapi_builder(name: str, task: Task) -> FunctionNode:
                 return {
                     "status": response.status_code,
                     "headers": dict(response.headers),
-                    "body": _response_content(response),
+                    "body": response_body(response),
                 }
-            return _response_content(response)
+            return response_body(response)
 
     return FunctionNode(func=call_openapi, name=name)
 

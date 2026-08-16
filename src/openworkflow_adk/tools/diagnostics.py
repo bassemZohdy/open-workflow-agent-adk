@@ -6,6 +6,8 @@ implementation for existing callers; new code should import from the new
 location.
 """
 
+import warnings
+
 from openworkflow_adk.devtools.diagnostics import (
     Diagnostic,
     lint_workflow,
@@ -14,3 +16,10 @@ from openworkflow_adk.devtools.diagnostics import (
 )
 
 __all__ = ["Diagnostic", "lint_workflow", "workflow_mermaid", "workflow_plan"]
+
+warnings.warn(
+    "openworkflow_adk.tools.diagnostics is deprecated; "
+    "import from openworkflow_adk.devtools.diagnostics.",
+    DeprecationWarning,
+    stacklevel=2,
+)

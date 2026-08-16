@@ -4,14 +4,11 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
 from typing import Any, TextIO
 
+from openworkflow_adk._utils import utc_now_iso
+
 __all__ = ["JsonRunLogger"]
-
-
-def _timestamp() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 class JsonRunLogger:
@@ -21,5 +18,5 @@ class JsonRunLogger:
         self.stream = stream
 
     def __call__(self, record: dict[str, Any]) -> None:
-        self.stream.write(json.dumps({"timestamp": _timestamp(), **record}, default=str) + "\n")
+        self.stream.write(json.dumps({"timestamp": utc_now_iso(), **record}, default=str) + "\n")
         self.stream.flush()

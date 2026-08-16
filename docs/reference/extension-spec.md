@@ -26,7 +26,7 @@ Task-level ADK configuration goes in `task.metadata.adk`:
             question: Approve this action?
 ```
 
-Project-level registries go in `document.metadata.adk`:
+Project-level registries and defaults go in `document.metadata.adk`:
 
 ```yaml
 document:
@@ -36,6 +36,9 @@ document:
   version: '1.0.0'
   metadata:
     adk:
+      agent_defaults:
+        model: gemini-2.5-flash
+        instruction: Default agent instruction.
       models:
         flash:
           model: gemini-2.5-flash
@@ -67,7 +70,7 @@ single_turn` and persists its result under `output_key` (default: task name).
 Configuration is resolved in this order, with later entries overriding earlier
 ones:
 
-1. project defaults
+1. `document.metadata.adk.agent_defaults`
 2. task-level ADK values (`task.metadata.adk.agent`)
 3. `WORKFLOW_` environment variables
 

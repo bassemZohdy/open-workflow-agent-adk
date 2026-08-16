@@ -6,8 +6,7 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-import httpx
-
+from openworkflow_adk._utils import response_body
 from openworkflow_adk.adk_compat import DEFAULT_ROUTE, FunctionNode
 from openworkflow_adk.errors import OpenWorkflowError
 from openworkflow_adk.expressions import bind, evaluate
@@ -99,20 +98,11 @@ def _http_builder(
                 return {
                     "status": response.status_code,
                     "headers": dict(response.headers),
-                    "body": _response_content(response),
+                    "body": response_body(response),
                 }
-            return _response_content(response)
+            return response_body(response)
 
     return FunctionNode(func=request, name=name)
-
-
-def _response_content(response: httpx.Response) -> Any:
-    if not response.content:
-        return None
-    content_type = response.headers.get("content-type", "")
-    if "json" in content_type:
-        return response.json()
-    return response.text
 
 
 def _set_builder(name: str, task: Task) -> FunctionNode:

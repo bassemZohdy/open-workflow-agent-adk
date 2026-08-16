@@ -1,45 +1,19 @@
-"""Discoverable, trust-checked plugin manifests."""
+"""Backward-compatible facade for :mod:`openworkflow_adk.devtools.plugins`.
 
-from __future__ import annotations
+The ``tools`` package was split into ``interop`` (cross-runtime formats) and
+``devtools`` (diagnostics/devUX) under C24.25. This module re-exports the
+implementation for existing callers; new code should import from the new
+location.
+"""
 
-import hashlib
-import json
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
+import warnings
 
+from openworkflow_adk.devtools.plugins import PluginManifest, PluginRegistry
 
-@dataclass(frozen=True)
-class PluginManifest:
-    name: str
-    version: str
-    entrypoint: str
-    digest: str
-    path: Path
+__all__ = ["PluginManifest", "PluginRegistry"]
 
-
-class PluginRegistry:
-    """Load plugin manifests only when their digest is trusted."""
-
-    def __init__(self, trusted_digests: set[str] | frozenset[str] = frozenset()) -> None:
-        self.trusted_digests = frozenset(trusted_digests)
-        self.plugins: dict[str, PluginManifest] = {}
-
-    def discover(self, directory: str | Path) -> list[PluginManifest]:
-        discovered: list[PluginManifest] = []
-        for path in sorted(Path(directory).glob("*/plugin.json")):
-            raw = path.read_bytes()
-            digest = hashlib.sha256(raw).hexdigest()
-            if digest not in self.trusted_digests:
-                continue
-            data: Any = json.loads(raw)
-            manifest = PluginManifest(
-                name=str(data["name"]),
-                version=str(data["version"]),
-                entrypoint=str(data["entrypoint"]),
-                digest=digest,
-                path=path,
-            )
-            self.plugins[manifest.name] = manifest
-            discovered.append(manifest)
-        return discovered
+warnings.warn(
+    "openworkflow_adk.tools.plugins is deprecated; import from openworkflow_adk.devtools.plugins.",
+    DeprecationWarning,
+    stacklevel=2,
+)

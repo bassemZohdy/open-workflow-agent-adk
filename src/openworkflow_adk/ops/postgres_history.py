@@ -8,11 +8,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+from openworkflow_adk._utils import utc_now_iso
 from openworkflow_adk.ops.history import RunRecord
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _to_dt(value: str | None) -> datetime | None:
@@ -84,7 +81,7 @@ class PostgresRunHistory:
         self, run_id: str, workflow: str, state: dict[str, Any], region: str | None = None
     ) -> RunRecord:
         pool = await self._pool_ref()
-        now = _now()
+        now = utc_now_iso()
         record = RunRecord(
             run_id=run_id,
             workflow=workflow,
@@ -138,7 +135,7 @@ class PostgresRunHistory:
         pool = await self._pool_ref()
         record = await self.get(run_id)
         record.status = "failed" if error else "completed"
-        record.finished_at = _now()
+        record.finished_at = utc_now_iso()
         record.state = dict(state)
         record.output = output
         record.error = str(error) if error else None
@@ -447,7 +444,7 @@ class PostgresRunHistory:
             run_id=run_id,
             workflow=workflow,
             status="pending",
-            started_at=_now(),
+            started_at=utc_now_iso(),
             state=dict(input or {}),
         )
         await pool.execute(
@@ -531,7 +528,7 @@ class PostgresRunHistory:
             workflow=row["workflow"],
             workflow_namespace=row.get("workflow_namespace") or "default",
             status=row["status"],
-            started_at=row["started_at"].isoformat() if row["started_at"] else _now(),
+            started_at=row["started_at"].isoformat() if row["started_at"] else utc_now_iso(),
             state=json.loads(row["state"]),
             event_log=json.loads(row["event_log"]),
             checkpoint_index=row["checkpoint_index"],
