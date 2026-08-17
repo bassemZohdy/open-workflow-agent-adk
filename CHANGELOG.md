@@ -14,6 +14,8 @@
 - **Packaging and CI:** add the optional `temporal` dependency group, restore
   `contents: read` for release publishing, re-export `CatalogConfig`, and align
   the expression-timeout example with the runtime default.
+- **Spec parity:** resolve qualified catalog function calls, support nested
+  `listen.to.until` strategies, and implement `listen.read: raw`.
 
 ## 0.2.1 — 2026-08-11
 

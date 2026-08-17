@@ -1,5 +1,6 @@
-:warning: **Superseded.** Catalog mode was removed; the project now supports only
-extended mode. This ADR is kept as historical context.
+:warning: **Superseded.** The separate catalog mode was removed; catalogs are
+now resolved as standard qualified function calls while extended mode remains
+the sole authoring flavor. This ADR is kept as historical context.
 
 # ADR 0008: Extended workflow flavor
 
@@ -25,7 +26,8 @@ other implementors can parse the same documents and ignore the ADK metadata.
 ## Consequences
 
 - Only extended mode is documented, tested, and exposed in the CLI/API.
-- `use.catalogs` is still permitted by the upstream OpenWorkflow schema but is
-  ignored by this translator.
+- `use.catalogs` remains a standard OpenWorkflow registry and qualified calls
+  are resolved before translation; it does not create a separate authoring
+  mode.
 - Shared reusable functions should be placed in `use.functions` or exposed as
   agent tools.

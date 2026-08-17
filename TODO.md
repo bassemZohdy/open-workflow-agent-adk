@@ -17,12 +17,13 @@ Merged since v0.2.1:
   `persist-credentials: false`, job-scoped permissions). `actionlint` clean,
   Zizmor zero findings.
 
-Known gaps (deliberately uncommitted):
+Resolved in the current cleanup:
 
-- `use.catalogs` is parsed for interoperability only; runtime lookup is not
-  wired (catalog mode was removed — the translator ignores it).
-- `listen.to.until` nested consumption-strategy form (expression form works).
-- `listen` `read: raw` mode (`data`/`envelope` work).
+- `use.catalogs` resolves versioned `functions/<name>/<version>/function.yaml`
+  resources, including GitHub/GitLab repository URLs and local catalog roots.
+- `listen.to.until` supports both runtime expressions and nested event
+  consumption strategies; terminator events are excluded from task output.
+- `listen` supports `read: data`, `read: envelope`, and `read: raw`.
 
 Reference material lives in [`docs/`](docs/):
 

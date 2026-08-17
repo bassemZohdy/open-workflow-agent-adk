@@ -24,6 +24,11 @@ from openworkflow_adk.runtime import run_workflow
 def _add_file_and_mode_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("file", type=Path)
     parser.add_argument("--mode", choices=("auto", "extended"), default="auto")
+    parser.add_argument(
+        "--catalog-base-dir",
+        type=Path,
+        help="base directory for resolving relative catalog roots",
+    )
 
 
 def _load_document(args: argparse.Namespace) -> OpenWorkflowDocument:
@@ -174,6 +179,7 @@ def main() -> int:
                     document,
                     case.get("input", {}),
                     mode=args.mode,
+                    catalog_base_dir=str(args.catalog_base_dir or args.file.parent),
                 )
             )
             outputs = [event.output for event in events if event.output is not None]
@@ -264,6 +270,7 @@ def main() -> int:
             load(args.file, mode=args.mode),
             input_data,
             mode=args.mode,
+            catalog_base_dir=str(args.catalog_base_dir or args.file.parent),
         )
     )
     for event in events:

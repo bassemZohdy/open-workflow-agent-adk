@@ -21,6 +21,7 @@ from openworkflow_adk.models import OpenWorkflowDocument
 from openworkflow_adk.ops import replay as _replay
 from openworkflow_adk.ops.schedule import trigger_events
 from openworkflow_adk.resources.broker import Broker, InMemoryBroker
+from openworkflow_adk.resources.catalog import resolve_catalog_functions
 from openworkflow_adk.resources.memory import create_memory_service
 from openworkflow_adk.run_config import RunConfig
 from openworkflow_adk.security.security import redact, resolve_secret
@@ -118,6 +119,12 @@ async def run_workflow(
                 document = document.model_copy(update={"do": resumed_do})
             input = prior.state
             resumed_from_history = True
+    document = await resolve_catalog_functions(
+        document,
+        cfg.catalog_registry,
+        base_dir=cfg.catalog_base_dir,
+        environ=dict(os.environ),
+    )
     if (
         not resumed_from_history
         and isinstance(document.input, dict)

@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from openworkflow_adk.ops.logging import JsonRunLogger
     from openworkflow_adk.ops.postgres_history import PostgresRunHistory
     from openworkflow_adk.ops.telemetry import WorkflowTelemetry
+    from openworkflow_adk.resources.catalog import CatalogFunctionRegistry
 
 
 @dataclass(frozen=True)
@@ -55,6 +56,8 @@ class RunConfig:
     self_healer: Callable[[Exception, dict[str, Any]], Any] | None = None
     region: str | None = None
     mode: str = "auto"
+    catalog_registry: CatalogFunctionRegistry | None = None
+    catalog_base_dir: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:

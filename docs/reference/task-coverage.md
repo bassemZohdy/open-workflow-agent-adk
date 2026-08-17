@@ -16,7 +16,7 @@ tracks runtime support per task kind and cross-cutting feature.
 | `try`/`catch` | Supported | error filters (`catch.errors.with`), retry policies, `as` error capture, self-heal extension |
 | `do` (nested) | Supported | sequential nested task groups |
 | `emit` | Supported | broker publish (in-memory, Redis Streams, Kafka, RabbitMQ, NATS) |
-| `listen` | Supported | `one`/`any`/`all` consumption, `until` conditions, `foreach` iteration, `correlate` filters, `read: data/envelope` |
+| `listen` | Supported | `one`/`any`/`all` consumption, expression or nested `until`, `foreach` iteration, `correlate` filters, `read: data/envelope/raw` |
 | `call: http` | Supported | expressions, output modes, redirect policy, auth policies |
 | `call: openapi` | Supported | operation lookup and parameter binding |
 | `call: grpc` | Supported | egress/TLS/proto pinning, generated stubs |
@@ -52,7 +52,7 @@ tracks runtime support per task kind and cross-cutting feature.
 | `timeouts` | Supported | reusable timeout definitions referenced by `task.timeout` |
 | `functions` | Supported | document-level function task registry |
 | `extensions` | Supported | `extend` (kind or `all`), `when`, `before`/`after` task injection |
-| `catalogs` | Parsed | accepted for interoperability; runtime lookup not wired |
+| `catalogs` | Supported | qualified calls resolve versioned `function.yaml` resources from local, GitHub, or GitLab catalog roots |
 
 ## Retry policy details
 

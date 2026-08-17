@@ -16,6 +16,14 @@ class Broker(Protocol):
     async def consume(self, event_type: str | None = None) -> dict[str, Any]: ...
 
 
+class BrokerEvent(dict[str, Any]):
+    """Decoded workflow event with the original CloudEvent data retained."""
+
+    def __init__(self, value: Mapping[str, Any], *, raw_data: Any = None) -> None:
+        super().__init__(value)
+        self.raw_data = raw_data
+
+
 def to_cloudevent(event: Mapping[str, Any], *, source: str) -> dict[str, Any]:
     """Wrap an OpenWorkflow event in a JSON CloudEvents 1.0 envelope."""
     if event.get("specversion") == "1.0" and "data" in event:
@@ -35,11 +43,14 @@ def to_cloudevent(event: Mapping[str, Any], *, source: str) -> dict[str, Any]:
 def from_cloudevent(value: Mapping[str, Any]) -> dict[str, Any]:
     """Return the workflow event carried by a CloudEvents envelope."""
     if value.get("specversion") != "1.0" or "data" not in value:
-        return dict(value)
+        return BrokerEvent(value, raw_data=value.get("data"))
     data = value["data"]
     if not isinstance(data, dict):
-        return {"type": value.get("type", "com.openworkflow.event"), "data": data}
-    return dict(data)
+        return BrokerEvent(
+            {"type": value.get("type", "com.openworkflow.event"), "data": data},
+            raw_data=data,
+        )
+    return BrokerEvent(data, raw_data=data)
 
 
 class _CloudEventBroker:
@@ -256,7 +267,7 @@ class InMemoryBroker:
         self._queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
 
     async def publish(self, event: Mapping[str, Any]) -> None:
-        value = dict(event)
+        value = event if isinstance(event, BrokerEvent) else from_cloudevent(event)
         self.events.append(value)
         await self._queue.put(value)
 

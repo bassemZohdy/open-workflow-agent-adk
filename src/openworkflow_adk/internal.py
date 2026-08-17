@@ -26,6 +26,7 @@ from openworkflow_adk.resources.broker import (
     from_cloudevent,
     to_cloudevent,
 )
+from openworkflow_adk.resources.catalog import CatalogFunctionRegistry
 from openworkflow_adk.resources.memory import create_memory_service
 from openworkflow_adk.resources.providers import create_llm
 from openworkflow_adk.runtime import memory_service_for_document
@@ -43,6 +44,7 @@ __all__ = [
     "RedisStreamsBroker",
     "from_cloudevent",
     "to_cloudevent",
+    "CatalogFunctionRegistry",
     "NodeBuilderRegistry",
     "build_workflow",
     "create_llm",

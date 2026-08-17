@@ -63,6 +63,7 @@ from openworkflow_adk.ops.management import WorkflowManager  # noqa: E402,F401
 from openworkflow_adk.ops.memoization import ResultMemoization
 from openworkflow_adk.ops.postgres_history import PostgresRunHistory
 from openworkflow_adk.registry import WorkflowRegistry, WorkflowSearchResult
+from openworkflow_adk.resources.catalog import CatalogFunctionRegistry  # noqa: E402,F401
 from openworkflow_adk.resources.memory import (  # noqa: E402,F401
     FileMemoryService,
     InMemoryMemoryService,
@@ -124,6 +125,7 @@ __all__ = [
     "ModelSpec",
     "ProviderConfig",
     "MemoryConfig",
+    "CatalogFunctionRegistry",
     # history
     "RunRecord",
     "InMemoryRunHistory",
