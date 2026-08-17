@@ -45,8 +45,9 @@ Workflow state can hold attacker-controlled content (HTTP responses, tool
 output, LLM output written via `output_key`). Binding such state into an
 exec-family configuration would turn prompt injection into code execution.
 The loader therefore **rejects expression-bound values** (`${...}`) in
-`run.shell.command`, `run.script.code`, `run.container.image`/`command`, and
-MCP stdio `command` at translate time.
+`run.shell.command`, `run.script.code`, `run.container.image`/`command`,
+`run.container.arguments`/`environment`, and MCP stdio `command` at translate
+time.
 
 ## MCP stdio servers
 

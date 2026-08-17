@@ -8,9 +8,9 @@ location.
 
 import warnings
 
-from openworkflow_adk.devtools.benchmark import benchmark
+from openworkflow_adk.devtools.benchmark import benchmark, main
 
-__all__ = ["benchmark"]
+__all__ = ["benchmark", "main"]
 
 warnings.warn(
     "openworkflow_adk.tools.benchmark is deprecated; "

@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased — 2026-08-17 cleanup
+
+- **Security:** reject expression-bound `run.container.arguments` and
+  `run.container.environment` values, and scope unresolved-host test bypasses to
+  mocked resource tests.
+- **Correctness:** compare workflow versions with PEP 440 ordering, preserve raw
+  fork branches during resume, accept both `detail` and `details` error filters,
+  and make retry/self-heal composition explicit and tested.
+- **Robustness:** sanitize generated Temporal identifiers, hide internal LSP
+  errors from clients, deduplicate duplicate-task diagnostics, and expose the
+  benchmark shim's `main()` entrypoint.
+- **Packaging and CI:** add the optional `temporal` dependency group, restore
+  `contents: read` for release publishing, re-export `CatalogConfig`, and align
+  the expression-timeout example with the runtime default.
+
 ## 0.2.1 — 2026-08-11
 
 C24 post-review hardening: security, correctness, and architecture work from the

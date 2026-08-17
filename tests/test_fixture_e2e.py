@@ -49,7 +49,8 @@ async def test_subflow_golden_fixture_runs_with_registry() -> None:
 
 
 @respx.mock
-async def test_http_golden_fixture_runs_through_runtime() -> None:
+async def test_http_golden_fixture_runs_through_runtime(monkeypatch) -> None:
+    monkeypatch.setenv("WORKFLOW_EGRESS_SKIP_DNS", "1")
     respx.get("https://example.test/echo").mock(return_value=Response(200, json={"ok": True}))
 
     events = await run_workflow(load(FIXTURES / "http.yaml"))

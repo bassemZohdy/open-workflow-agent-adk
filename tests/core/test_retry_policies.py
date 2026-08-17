@@ -240,6 +240,83 @@ async def test_error_filter_match_runs_catch() -> None:
     assert deltas.get("failure", {}).get("status") == 503
 
 
+async def test_error_filter_accepts_detail_alias() -> None:
+    document = _document(
+        [
+            {
+                "guarded": {
+                    "try": [
+                        {
+                            "boom": {
+                                "raise": {
+                                    "error": {
+                                        "type": "https://demo.test/boom",
+                                        "status": 503,
+                                        "detail": "temporary",
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "catch": {
+                        "errors": {"with": {"detail": "temporary"}},
+                        "do": [{"fallback": {"set": {"used_fallback": '"yes"'}}}],
+                    },
+                }
+            }
+        ]
+    )
+
+    events = await run_workflow(document)
+
+    assert any(
+        event.actions and event.actions.state_delta.get("used_fallback") == "yes"
+        for event in events
+    )
+
+
+async def test_retry_and_self_heal_budgets_compose() -> None:
+    calls: list[int] = []
+    diagnoses: list[int] = []
+
+    async def always_fail() -> None:
+        calls.append(1)
+        raise RuntimeError("still failing")
+
+    async def diagnose(error: Exception, state: dict) -> dict:
+        del error, state
+        diagnoses.append(1)
+        return {"retry": True}
+
+    document = _document(
+        [
+            {
+                "guarded": {
+                    "try": [{"boom": {"call": "always_fail"}}],
+                    "catch": {
+                        "retry": {"limit": {"attempt": {"count": 1}}},
+                        "do": [{"fallback": {"set": {"used_fallback": '"yes"'}}}],
+                    },
+                    "metadata": {"adk": {"self_heal": {"max_attempts": 2}}},
+                }
+            }
+        ]
+    )
+
+    events = await run_workflow(
+        document,
+        function_registry={"always_fail": always_fail},
+        self_healer=diagnose,
+    )
+
+    assert len(calls) == 2
+    assert len(diagnoses) == 1
+    assert any(
+        event.actions and event.actions.state_delta.get("used_fallback") == "yes"
+        for event in events
+    )
+
+
 async def test_exponential_backoff_grows_delay() -> None:
     from openworkflow_adk.tasks.control_flow import _retry_delay
 

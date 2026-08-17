@@ -42,6 +42,7 @@ from openworkflow_adk.loader import WorkflowValidationError, load
 from openworkflow_adk.models import (
     AdkMetadata,
     AgentCharacteristics,
+    CatalogConfig,
     DocumentAdkMetadata,
     MemoryConfig,
     ModelReference,
@@ -116,6 +117,7 @@ __all__ = [
     # document & configuration model types
     "AdkMetadata",
     "AgentCharacteristics",
+    "CatalogConfig",
     "DocumentAdkMetadata",
     "TaskAdkMetadata",
     "ModelReference",

@@ -60,6 +60,9 @@ def _alarm_handler(_signum: int, _frame: Any) -> None:
     generator frame, which never reached the code under evaluation. Raising
     directly from the signal handler interrupts pure-Python evaluation at the
     next bytecode boundary, which reliably breaks pathological expressions.
+    ``jsonata-python`` is currently pure Python; if that implementation gains a
+    native evaluation core, this signal-based timeout must be revisited because
+    raising from a handler while C code is active is unsafe.
     """
     raise TimeoutError
 

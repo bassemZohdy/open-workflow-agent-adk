@@ -35,11 +35,12 @@ Reference material lives in [`docs/`](docs/):
 
 Spec baseline: **OpenWorkflow v1.0.3**. Run `spec-drift-check` before any schema work.
 
-## Post-v0.2.1 review backlog
+## Post-v0.2.1 cleanup (completed)
 
 Findings from the review of `de05106..5c0964e` (v0.2.1 hardening + spec parity),
-verified against the working tree on 2026-08-17. Test suite green, ruff clean;
-Docker-gated tests skipped locally. Items are open tasks, not fixes.
+verified against the working tree on 2026-08-17. The non-Docker test suite is
+green, Ruff/import-linter/actionlint/Zizmor are clean, and package metadata
+checks pass. The detailed items below are completed implementation notes.
 
 High:
 
@@ -107,8 +108,8 @@ Low:
   keyword names; guard by prefixing `activity_`.
 - **`devtools/diagnostics.py:78-83` duplicate-task diagnostic** emitted once per
   occurrence; dedupe to a single report.
-- **Verify under Docker** — `tests/ops/test_postgres_history.py` p50 assertion
-  (`PERCENT_CONT` can return NULL) skipped locally; run with `DOCKER_TESTS=1`.
+- **Verify under Docker** — `tests/ops/test_postgres_history.py` remains the
+  only pending validation because no Docker daemon is available here.
 
 ## Future work
 

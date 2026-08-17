@@ -210,6 +210,8 @@ def _exec_expression_errors(value: Any, path: str = "$") -> list[dict[str, str]]
             container = run["container"]
             exec_fields.append(("run.container.image", container.get("image")))
             exec_fields.append(("run.container.command", container.get("command")))
+            exec_fields.append(("run.container.arguments", container.get("arguments")))
+            exec_fields.append(("run.container.environment", container.get("environment")))
         for field_name, field_value in exec_fields:
             if _contains_expression(field_value):
                 errors.append(

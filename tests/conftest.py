@@ -11,13 +11,6 @@ import os
 
 import pytest
 
-# Integration suites exercise Docker-backed services (PostgreSQL, Redis) and
-# use mocked transports with reserved-but-unresolvable hosts such as
-# ``*.example.test``. The egress guard's DNS resolution is therefore disabled
-# for the test session; the SSRF/egress security tests exercise the fail-closed
-# paths explicitly by passing their own environ or patching getaddrinfo.
-os.environ.setdefault("WORKFLOW_EGRESS_SKIP_DNS", "1")
-
 
 def docker_enabled() -> bool:
     """Return True when Docker-backed integration tests may run.

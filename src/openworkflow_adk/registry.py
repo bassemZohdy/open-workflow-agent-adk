@@ -6,6 +6,8 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from packaging.version import InvalidVersion, Version
+
 from openworkflow_adk.models import OpenWorkflowDocument
 
 
@@ -56,7 +58,7 @@ class WorkflowRegistry:
         ]
         if not candidates:
             raise KeyError(f"workflow not found: {(namespace, name, version)!r}")
-        return sorted(candidates, key=lambda item: item.document.version)[-1]
+        return max(candidates, key=lambda item: _version_key(item.document.version))
 
     def search(self, query: str, *, limit: int = 10) -> list[WorkflowSearchResult]:
         """Find workflows whose metadata or task intent matches ``query``.
@@ -98,3 +100,11 @@ class WorkflowRegistry:
         return sorted(results, key=lambda result: (-result.score, result.document.document.name))[
             :limit
         ]
+
+
+def _version_key(version: str) -> tuple[int, Version | str]:
+    """Return a deterministic PEP 440 ordering key with a legacy fallback."""
+    try:
+        return (1, Version(version))
+    except InvalidVersion:
+        return (0, version)

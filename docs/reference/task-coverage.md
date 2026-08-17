@@ -60,6 +60,11 @@ tracks runtime support per task kind and cross-cutting feature.
 `delay` (duration), `backoff` (`constant`/`linear`/`exponential` with `ratio`),
 `jitter` (`from`/`to`), `limit.attempt.count`, `limit.duration`, and
 `when`/`exceptWhen` runtime expressions evaluated with `$error` and `$context`.
+`limit.attempt.count` is the total number of attempts, including the initial
+execution (`count: 1` means no retry). The ADK self-heal extension has an
+independent budget, so a healer may request another attempt after the retry
+policy is exhausted. Error filters accept the spec spelling `details` and the
+common singular alias `detail`.
 
 ## Workflow-level features
 
