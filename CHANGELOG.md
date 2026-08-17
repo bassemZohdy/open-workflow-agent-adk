@@ -51,7 +51,6 @@ v0.2.0 review.
   `(namespace_id, created_at DESC)` index added (`C24.27`); `catch`/`while`
   declared as explicit `Task` fields (`C24.28`).
 
-
 ## Unreleased
 
 - **Security (C25): GitHub Actions supply-chain hardening.** All third-party

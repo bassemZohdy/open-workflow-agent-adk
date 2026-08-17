@@ -1,7 +1,8 @@
 name: Setup OWF environment
 
-description: |
-  Install uv and Python, and sync dependencies after the caller checks out the repository.
+description: >-
+  Install uv and Python, and sync dependencies after the caller checks out
+  the repository.
 
 inputs:
   python-version:

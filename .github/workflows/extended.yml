@@ -38,7 +38,7 @@ jobs:
           python-version: "3.12"
       - name: Run benchmark
         run: |
-          uv run python -m openworkflow_adk.tools.benchmark \
+          uv run python -m openworkflow_adk.devtools.benchmark \
             --iterations "$BENCH_ITERATIONS" --max-p99-ms "$BENCH_MAX_P99_MS"
         env:
           BENCH_ITERATIONS: ${{ inputs.benchmark-iterations }}
