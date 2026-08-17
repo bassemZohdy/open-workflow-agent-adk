@@ -22,8 +22,13 @@ runs:
         cache-dependency-glob: |
           uv.lock
           pyproject.toml
-    - uses: actions/setup-python@v7
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
       with:
         python-version: ${{ inputs.python-version }}
-    - run: uv sync ${{ inputs.sync-args }}
+    - name: Sync dependencies
       shell: bash
+      env:
+        SYNC_ARGS: ${{ inputs.sync-args }}
+      run: |
+        read -r -a sync_arg_list <<< "$SYNC_ARGS"
+        uv sync "${sync_arg_list[@]}"

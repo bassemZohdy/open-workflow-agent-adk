@@ -54,6 +54,18 @@ v0.2.0 review.
 
 ## Unreleased
 
+- **Security (C25): GitHub Actions supply-chain hardening.** All third-party
+  actions are pinned to full commit SHAs with version comments (checkout,
+  setup-python, codecov, sbom-action, codeql-action, dependency-review-action,
+  gh-action-pypi-publish; setup-uv was already pinned), every checkout sets
+  `persist-credentials: false`, benchmark dispatch inputs are passed through
+  `env` instead of shell interpolation, `release.yml` permissions are
+  job-scoped (`id-token: write` on publish, `contents: write` on release-notes,
+  `contents: read` elsewhere), the version-check job no longer restores a
+  shared setup-uv cache, and the GitHub Release is created with the runner's
+  `gh release` CLI instead of a third-party action. `actionlint` is clean and
+  Zizmor reports zero findings.
+
 - **Added spec-parity features** (gap analysis against the OpenWorkflow v1.0.3
   schema and other implementors — SonataFlow, Synapse, Lemline, EventMesh):
   - **taskBase semantics for every task kind**: `if` conditional execution,

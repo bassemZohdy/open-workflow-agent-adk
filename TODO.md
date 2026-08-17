@@ -4,7 +4,9 @@
 
 `main` is at **v0.2.1**: the v1 workflow runtime, production hardening, tests,
 Docker support, CI, and release packaging are complete. The C24 post-review
-hardening track (security, correctness, architecture) has landed.
+hardening track (security, correctness, architecture) has landed, and the C25
+workflow supply-chain hardening (action pinning, credential handling,
+permission scoping) is complete.
 
 Spec-parity track (unreleased): gap analysis against the OpenWorkflow v1.0.3
 schema and fellow implementors closed the remaining runtime gaps — taskBase
@@ -39,39 +41,37 @@ These items are intentionally uncommitted in the current release line:
 
 ## Security backlog
 
-- [ ] **C25: harden GitHub Actions workflows against Zizmor findings** — the
-  current audit reports 47 SARIF findings across `canary.yml`, `ci.yml`,
-  `codeql.yml`, `dependency-review.yml`, `extended.yml`, and `release.yml`:
-  - **26 `unpinned-uses` errors:** third-party actions use mutable tags such as
-    `@v7`, `@v5`, `@v4`, `@v2`, or `@release/v1`. Pin each action to a full
-    commit SHA and retain a safe update path through Dependabot or an
-    equivalent reviewed process. Mutable tags can be retargeted after review
-    and introduce a supply-chain execution risk.
-  - **15 `artipacked` notes:** checkout leaves the GitHub token persisted in
-    local Git configuration because `persist-credentials: false` is not set.
-    Disable credential persistence in every job that does not explicitly need
-    Git push credentials, reducing the chance of token exposure through later
-    scripts or uploaded workspace contents.
-  - **2 `template-injection` errors:** `extended.yml` interpolates manual
-    benchmark inputs directly into a shell command. Pass them through `env`
-    and use quoted shell variables so dispatch input cannot become shell code.
-  - **2 `excessive-permissions` errors:** `release.yml` grants `contents: write`
-    and `id-token: write` at workflow scope, including test and version-check
-    jobs. Move permissions to the individual jobs that require them and keep
-    all other jobs read-only.
-  - **1 `cache-poisoning` error:** the release version-check job restores a
-    shared setup-uv cache. Isolate or disable that cache for trusted release
-    work, and verify that release inputs cannot be supplied by untrusted
-    workflow runs.
-  - **1 `superfluous-actions` note:** replace the release action that only
-    creates a GitHub Release with the runner's `gh release` command, or pin and
-    explicitly justify retaining the action.
-
-  Definition of done: `actionlint` passes, Zizmor has no error-level findings,
-  workflow permissions are job-scoped, checkout credential handling is
-  explicit, and the complete CI/release validation suite remains green.
+Completed (C25, see Archive).
 
 ## Archive
 
 Completed backlog detail (C1–C24 and earlier phases) is preserved in git history
 and the `v0.1.0` / `v0.2.0` / `v0.2.1` tags.
+
+**C25 — GitHub Actions supply-chain hardening (complete):** Zizmor's 47 SARIF
+findings across `canary.yml`, `ci.yml`, `codeql.yml`, `dependency-review.yml`,
+`extended.yml`, and `release.yml` are resolved:
+
+- **Unpinned uses (26 errors):** every third-party action is pinned to a full
+  commit SHA with a `# <tag>` version comment (Dependabot-safe update path):
+  `actions/checkout` v7, `actions/setup-python` v7, `codecov/codecov-action`
+  v5, `anchore/sbom-action` v0, `github/codeql-action` v4,
+  `actions/dependency-review-action` v5, `astral-sh/setup-uv` v9.0.0 (was
+  already pinned), and `pypa/gh-action-pypi-publish` release/v1; also pinned in
+  the `.github/actions/setup-owf` composite.
+- **`artipacked` (15 notes):** every checkout sets `persist-credentials: false`
+  — no job needs Git push credentials.
+- **`template-injection` (2 errors):** `extended.yml` benchmark dispatch
+  inputs pass through `env` and are consumed as quoted shell variables.
+- **`excessive-permissions` (2 errors):** `release.yml` defaults to
+  `contents: read`; `id-token: write` is scoped to the publish job and
+  `contents: write` to the release-notes job.
+- **`cache-poisoning` (1 error):** the version-check job disables the
+  setup-uv cache (`enable-cache: false`).
+- **`superfluous-actions` (1 note):** `softprops/action-gh-release` is replaced
+  with the runner's `gh release create` (body from the extracted CHANGELOG
+  section or `--generate-notes` fallback).
+
+  Verified: `actionlint` passes, Zizmor reports zero findings at any severity
+  (including informational), and the workflow-lint CI gate (`zizmor --format
+  sarif`) uploads an empty SARIF.
