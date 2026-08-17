@@ -51,6 +51,7 @@ def _error_matches_filter(error: OpenWorkflowError, error_filter: dict[str, Any]
         ("instance", error.instance),
         ("title", error.title),
         ("details", error.detail),
+        ("detail", error.detail),
     )
     for field, actual in checks:
         expected = error_filter.get(field)
@@ -68,7 +69,12 @@ def _retry_allowed(
     state: dict[str, Any],
     deadline: float | None,
 ) -> bool:
-    """Whether the failed attempt may be retried under the policy."""
+    """Whether the failed attempt may be retried under the policy.
+
+    ``limit.attempt.count`` is the total number of attempts, including the
+    initial execution. Therefore ``count: 1`` permits no retry and ``count: 2``
+    permits one retry.
+    """
     limit = policy.get("limit") or {}
     attempt_limit = (limit.get("attempt") or {}).get("count")
     if attempt_limit is not None and attempt + 1 >= int(attempt_limit):
@@ -140,6 +146,12 @@ def _try_builder(name: str, task: Task, registry: NodeBuilderRegistry) -> Functi
             retry_deadline = time.monotonic() + duration_seconds(limit_duration)
 
     async def run_try(ctx: Any) -> Any:
+        """Apply independent retry and self-heal budgets to the try body.
+
+        Retry and self-heal attempts compose additively: a self-heal diagnosis
+        may request another try after the retry policy is exhausted, while the
+        retry counter remains exhausted for subsequent failures.
+        """
         policy = task.effective_self_heal()
         heal_attempts = int(policy.get("max_attempts", 1)) if isinstance(policy, dict) else 1
         heal_attempt = 0

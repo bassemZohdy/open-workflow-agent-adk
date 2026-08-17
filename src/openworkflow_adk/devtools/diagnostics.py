@@ -78,13 +78,16 @@ def _lint_container(items: list[Any], known: set[str], path: str) -> list[Diagno
         item.name if isinstance(item, TaskItem) else TaskItem.model_validate(item).name
         for item in items
     ]
+    duplicate_names = {name for name in names if names.count(name) > 1}
+    reported: set[str] = set()
     for index, name in enumerate(names):
-        if names.count(name) > 1:
+        if name in duplicate_names and name not in reported:
             diagnostics.append(
                 Diagnostic(
                     "duplicate-task", f"task name {name!r} is duplicated", f"{path}[{index}]"
                 )
             )
+            reported.add(name)
     for index, item in enumerate(items):
         if not isinstance(item, TaskItem):
             item = TaskItem.model_validate(item)
@@ -98,11 +101,14 @@ def lint_workflow(document: OpenWorkflowDocument) -> list[Diagnostic]:
     items = document.do
     names = [item.name for item in items]
     known = set(names)
+    duplicate_names = {name for name in names if names.count(name) > 1}
+    reported: set[str] = set()
     for index, name in enumerate(names):
-        if names.count(name) > 1:
+        if name in duplicate_names and name not in reported:
             diagnostics.append(
                 Diagnostic("duplicate-task", f"task name {name!r} is duplicated", f"do[{index}]")
             )
+            reported.add(name)
     for index, item in enumerate(items):
         directive = item.task.then
         if directive and directive not in {"continue", "end", "exit"} and directive not in known:

@@ -194,7 +194,8 @@ def _listen_builder(
         read_mode = listen_config.get("read", "data")
         filters: list[dict[str, Any]] = []
         strategy = "one"
-        until: str | None = None
+        until_expression: str | None = None
+        until_strategy: dict[str, Any] | None = None
         if isinstance(configuration, dict):
             if "one" in configuration:
                 filters = [configuration["one"]]
@@ -203,12 +204,11 @@ def _listen_builder(
             elif "all" in configuration:
                 strategy, filters = "all", configuration["all"]
             maybe_until = configuration.get("until")
-            if isinstance(maybe_until, str):
-                until = maybe_until
-            elif maybe_until is not None:
-                raise NotImplementedError(
-                    "listen.to.until only supports runtime expression conditions"
-                )
+            if strategy == "any":
+                if isinstance(maybe_until, str):
+                    until_expression = maybe_until
+                elif isinstance(maybe_until, dict):
+                    until_strategy = maybe_until
         if suspend_listens:
             raise WorkflowSuspended(
                 task=name,
@@ -217,8 +217,12 @@ def _listen_builder(
             )
 
         correlations: dict[str, Any] = {}
+        until_correlations: dict[str, Any] = {}
+        until_consumed_filters: set[int] = set()
 
-        def _matches_filter(event: dict[str, Any], event_filter: Any) -> bool:
+        def _matches_filter(
+            event: dict[str, Any], event_filter: Any, correlation_values: dict[str, Any]
+        ) -> bool:
             if not isinstance(event_filter, dict):
                 return True
             properties = event_filter.get("with") or {}
@@ -234,8 +238,8 @@ def _listen_builder(
                 if not isinstance(rule, dict):
                     continue
                 value = evaluate(rule.get("from"), event) if rule.get("from") is not None else None
-                if correlate_name not in correlations:
-                    correlations[correlate_name] = value
+                if correlate_name not in correlation_values:
+                    correlation_values[correlate_name] = value
                 expected = rule.get("expect")
                 if expected is not None:
                     expected = (
@@ -245,37 +249,71 @@ def _listen_builder(
                     )
                     if value != expected:
                         return False
-                elif correlations.get(correlate_name) != value:
+                elif correlation_values.get(correlate_name) != value:
                     return False
             return True
 
         def _matches_any(event: dict[str, Any]) -> bool:
             if not filters:
                 return True
-            return any(_matches_filter(event, event_filter) for event_filter in filters)
+            return any(
+                _matches_filter(event, event_filter, correlations) for event_filter in filters
+            )
 
-        async def consume_one(event_filter: Any = None) -> dict[str, Any]:
+        def _matches_until(event: dict[str, Any]) -> bool:
+            if until_strategy is None:
+                return False
+            if "one" in until_strategy:
+                return _matches_filter(event, until_strategy["one"], until_correlations)
+            if "any" in until_strategy:
+                until_filters = until_strategy.get("any") or []
+                return not until_filters or any(
+                    _matches_filter(event, event_filter, until_correlations)
+                    for event_filter in until_filters
+                )
+            if "all" in until_strategy:
+                until_filters = until_strategy.get("all") or []
+                for index, event_filter in enumerate(until_filters):
+                    if index not in until_consumed_filters and _matches_filter(
+                        event, event_filter, until_correlations
+                    ):
+                        until_consumed_filters.add(index)
+                        break
+                return len(until_consumed_filters) == len(until_filters)
+            return False
+
+        async def consume_one(event_filter: Any = None) -> tuple[dict[str, Any], bool]:
             while True:
                 event = await broker.consume()
+                if until_strategy is not None and _matches_until(event):
+                    return event, True
                 matched = (
                     _matches_any(event)
                     if event_filter is None
-                    else _matches_filter(event, event_filter)
+                    else _matches_filter(event, event_filter, correlations)
                 )
                 if matched:
-                    return event
+                    return event, False
 
         def read(event: dict[str, Any]) -> Any:
-            return event.get("data") if read_mode == "data" else event
+            if read_mode == "raw":
+                return getattr(event, "raw_data", event.get("data"))
+            if read_mode == "envelope":
+                return dict(event)
+            return event.get("data")
 
         consumed: list[Any] = []
         results: list[Any] = []
         while True:
-            if strategy == "all" and until is None and len(filters) > len(consumed):
-                event = await consume_one(filters[len(consumed)])
+            if strategy == "all" and len(filters) > len(consumed):
+                event, is_until_event = await consume_one(filters[len(consumed)])
             else:
-                event = await consume_one()
+                event, is_until_event = await consume_one()
             value = read(event)
+            if is_until_event:
+                break
+            if until_expression is not None and evaluate(until_expression, [*consumed, value]):
+                break
             consumed.append(value)
             index = len(consumed) - 1
             if child_nodes:
@@ -289,17 +327,15 @@ def _listen_builder(
                     )
             else:
                 results.append(value)
-            if until is not None:
-                if evaluate(until, consumed):
-                    break
-            elif strategy == "all":
+            if strategy == "all":
                 if len(consumed) >= len(filters):
                     break
-            else:
+            elif until_expression is None and until_strategy is None:
                 break
-        if until is not None and not child_nodes:
+        has_until = until_expression is not None or until_strategy is not None
+        if has_until and not child_nodes:
             return consumed
-        if strategy == "all" and not child_nodes and until is None:
+        if strategy == "all" and not child_nodes and not has_until:
             return results
         return results[-1] if results else None
 

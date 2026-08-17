@@ -172,6 +172,7 @@ pip install "open-workflow-agent-adk[brokers]"  # Kafka, RabbitMQ, NATS adapters
 pip install "open-workflow-agent-adk[containers]"  # run: container tasks
 pip install "open-workflow-agent-adk[grpc]"     # call: grpc tasks
 pip install "open-workflow-agent-adk[bedrock]"  # Bedrock provider adapter
+pip install "open-workflow-agent-adk[temporal]" # Temporal exporter output
 pip install "open-workflow-agent-adk[redis]"    # Redis memory/broker adapters
 pip install "open-workflow-agent-adk[database]" # SQLAlchemy-backed memory
 pip install "open-workflow-agent-adk[all]"      # everything above

@@ -56,7 +56,7 @@ class MemoryConfig(BaseModel):
 
 
 class CatalogConfig(BaseModel):
-    """Reusable catalog endpoint (ignored by the ADK translator)."""
+    """Reusable catalog endpoint retained for interoperability compatibility."""
 
     model_config = ConfigDict(extra="allow")
 

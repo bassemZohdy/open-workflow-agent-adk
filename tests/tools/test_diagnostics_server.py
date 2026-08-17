@@ -40,3 +40,19 @@ def test_diagnostics_server_stdio_protocol() -> None:
     response = json.loads(output.getvalue())
     assert response["id"] == 1
     assert response["result"]["diagnostics"] == []
+
+
+def test_diagnostics_server_hides_internal_errors(caplog) -> None:
+    request = {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "unsupported/private-secret",
+    }
+    output = io.StringIO()
+
+    with caplog.at_level("ERROR"):
+        serve_stdio(io.StringIO(json.dumps(request) + "\n"), output)
+
+    response = json.loads(output.getvalue())
+    assert response["error"] == {"code": -32603, "message": "internal error"}
+    assert "unsupported/private-secret" in caplog.text

@@ -7,6 +7,7 @@ JSON-RPC framing so editor integrations do not need a separate web server.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import sys
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from openworkflow_adk.loader import WorkflowValidationError, load
 from openworkflow_adk.models import TASK_KEYS
 
 _TASK_LINE = re.compile(r"^\s*-\s*([A-Za-z][A-Za-z0-9_-]*)\s*:")
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -152,7 +154,8 @@ def serve_stdio(input_stream: TextIO = sys.stdin, output_stream: TextIO = sys.st
         response: dict[str, Any] = {"jsonrpc": "2.0", "id": request.get("id")}
         try:
             response["result"] = server.request(request["method"], request.get("params"))
-        except Exception as error:  # pragma: no cover - protocol boundary
-            response["error"] = {"code": -32603, "message": str(error)}
+        except Exception:  # pragma: no cover - protocol boundary
+            _LOGGER.exception("diagnostics request failed", extra={"method": request.get("method")})
+            response["error"] = {"code": -32603, "message": "internal error"}
         output_stream.write(json.dumps(response) + "\n")
         output_stream.flush()

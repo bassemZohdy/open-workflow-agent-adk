@@ -82,6 +82,14 @@ Callers that need incremental delivery can provide `event_sink`; it is invoked
 for every ADK event as it arrives and may be synchronous or asynchronous. The
 existing return value remains the complete event list.
 
+Qualified catalog calls use the OpenWorkflow form
+`function:version@catalog`. Define the catalog root under `use.catalogs`; the
+runtime resolves `functions/<function>/<version>/function.yaml` before graph
+construction. Repository roots from GitHub and GitLab are mapped to their raw
+machine-readable paths. For local catalogs, pass `catalog_base_dir` to
+`run_workflow` (the CLI also provides `--catalog-base-dir`); local resources are
+confined to that base.
+
 Set `token_budget` on `run_workflow` to enforce a run-level usage ceiling from
 ADK `total_token_count` metadata. Agent tasks continue to select models and
 providers independently through their `metadata.adk.agent.model`/`provider` configuration.

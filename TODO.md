@@ -17,12 +17,13 @@ Merged since v0.2.1:
   `persist-credentials: false`, job-scoped permissions). `actionlint` clean,
   Zizmor zero findings.
 
-Known gaps (deliberately uncommitted):
+Resolved in the current cleanup:
 
-- `use.catalogs` is parsed for interoperability only; runtime lookup is not
-  wired (catalog mode was removed — the translator ignores it).
-- `listen.to.until` nested consumption-strategy form (expression form works).
-- `listen` `read: raw` mode (`data`/`envelope` work).
+- `use.catalogs` resolves versioned `functions/<name>/<version>/function.yaml`
+  resources, including GitHub/GitLab repository URLs and local catalog roots.
+- `listen.to.until` supports both runtime expressions and nested event
+  consumption strategies; terminator events are excluded from task output.
+- `listen` supports `read: data`, `read: envelope`, and `read: raw`.
 
 Reference material lives in [`docs/`](docs/):
 
@@ -35,11 +36,12 @@ Reference material lives in [`docs/`](docs/):
 
 Spec baseline: **OpenWorkflow v1.0.3**. Run `spec-drift-check` before any schema work.
 
-## Post-v0.2.1 review backlog
+## Post-v0.2.1 cleanup (completed)
 
 Findings from the review of `de05106..5c0964e` (v0.2.1 hardening + spec parity),
-verified against the working tree on 2026-08-17. Test suite green, ruff clean;
-Docker-gated tests skipped locally. Items are open tasks, not fixes.
+verified against the working tree on 2026-08-17. The non-Docker test suite is
+green, Ruff/import-linter/actionlint/Zizmor are clean, and package metadata
+checks pass. The detailed items below are completed implementation notes.
 
 High:
 
@@ -107,8 +109,8 @@ Low:
   keyword names; guard by prefixing `activity_`.
 - **`devtools/diagnostics.py:78-83` duplicate-task diagnostic** emitted once per
   occurrence; dedupe to a single report.
-- **Verify under Docker** — `tests/ops/test_postgres_history.py` p50 assertion
-  (`PERCENT_CONT` can return NULL) skipped locally; run with `DOCKER_TESTS=1`.
+- **Verify under Docker** — `tests/ops/test_postgres_history.py` remains the
+  only pending validation because no Docker daemon is available here.
 
 ## Future work
 

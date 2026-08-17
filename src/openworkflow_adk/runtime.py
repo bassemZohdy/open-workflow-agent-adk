@@ -21,6 +21,7 @@ from openworkflow_adk.models import OpenWorkflowDocument
 from openworkflow_adk.ops import replay as _replay
 from openworkflow_adk.ops.schedule import trigger_events
 from openworkflow_adk.resources.broker import Broker, InMemoryBroker
+from openworkflow_adk.resources.catalog import resolve_catalog_functions
 from openworkflow_adk.resources.memory import create_memory_service
 from openworkflow_adk.run_config import RunConfig
 from openworkflow_adk.security.security import redact, resolve_secret
@@ -118,6 +119,12 @@ async def run_workflow(
                 document = document.model_copy(update={"do": resumed_do})
             input = prior.state
             resumed_from_history = True
+    document = await resolve_catalog_functions(
+        document,
+        cfg.catalog_registry,
+        base_dir=cfg.catalog_base_dir,
+        environ=dict(os.environ),
+    )
     if (
         not resumed_from_history
         and isinstance(document.input, dict)
@@ -401,8 +408,6 @@ def _resume_task_list(items: list[Any], checkpoint: str) -> list[Any] | None:
     kept (with its body replaced) so the surrounding control flow is preserved.
     Returns ``None`` when the checkpoint is not found.
     """
-    from openworkflow_adk.models import TaskItem
-
     for index, item in enumerate(items):
         if item.name == checkpoint:
             return items[index + 1 :]
@@ -423,19 +428,13 @@ def _resume_task_list(items: list[Any], checkpoint: str) -> list[Any] | None:
         fork = task.fork
         if isinstance(fork, dict):
             for branch_index, branch in enumerate(fork.get("branches", [])):
-                branch_item = TaskItem.model_validate(branch)
-                if (sliced := _resume_task_list([branch_item], checkpoint)) is not None:
+                if (sliced := _resume_raw_task_list([branch], checkpoint)) is not None:
                     replacement = item.model_copy(deep=True)
-                    branches = [
-                        TaskItem.model_validate(candidate) for candidate in fork.get("branches", [])
-                    ]
+                    branches = list(fork.get("branches", []))
                     branches[branch_index] = sliced[0]
                     replacement.task.fork = {
                         **fork,
-                        "branches": [
-                            branch.model_dump(by_alias=True, exclude_none=True)
-                            for branch in branches
-                        ],
+                        "branches": branches,
                     }
                     return [replacement, *items[index + 1 :]]
         for case in task.switch or []:
@@ -450,6 +449,80 @@ def _resume_task_list(items: list[Any], checkpoint: str) -> list[Any] | None:
                     updated_case if candidate is case else candidate for candidate in task.switch
                 ]
                 return [replacement, *items[index + 1 :]]
+    return None
+
+
+def _raw_task_mapping(item: Any) -> dict[str, Any] | None:
+    """Return the raw task mapping from a named task item, when available."""
+    if not isinstance(item, dict):
+        return None
+    if isinstance(item.get("task"), dict):
+        return item["task"]
+    if len(item) == 1:
+        candidate = next(iter(item.values()))
+        if isinstance(candidate, dict):
+            return candidate
+    return None
+
+
+def _resume_raw_task_list(items: list[Any], checkpoint: str) -> list[Any] | None:
+    """Resume a raw task list without normalizing unrelated branch entries."""
+    from copy import deepcopy
+
+    from openworkflow_adk.models import TaskItem
+
+    for index, raw_item in enumerate(items):
+        item = TaskItem.model_validate(raw_item)
+        if item.name == checkpoint:
+            return items[index + 1 :]
+        raw_task = _raw_task_mapping(raw_item)
+        if raw_task is None:
+            continue
+        for key in ("do", "try"):
+            children = raw_task.get(key)
+            if (
+                isinstance(children, list)
+                and (sliced := _resume_raw_task_list(children, checkpoint)) is not None
+            ):
+                replacement = deepcopy(raw_item)
+                _raw_task_mapping(replacement)[key] = sliced
+                return [replacement, *items[index + 1 :]]
+        catch = raw_task.get("catch")
+        if isinstance(catch, dict) and isinstance(catch.get("do"), list):
+            sliced = _resume_raw_task_list(catch["do"], checkpoint)
+            if sliced is not None:
+                replacement = deepcopy(raw_item)
+                replacement_task = _raw_task_mapping(replacement)
+                replacement_task["catch"] = {**catch, "do": sliced}
+                return [replacement, *items[index + 1 :]]
+        fork = raw_task.get("fork")
+        if isinstance(fork, dict) and isinstance(fork.get("branches"), list):
+            for branch_index, branch in enumerate(fork["branches"]):
+                sliced = _resume_raw_task_list([branch], checkpoint)
+                if sliced is not None:
+                    replacement = deepcopy(raw_item)
+                    replacement_task = _raw_task_mapping(replacement)
+                    branches = list(fork["branches"])
+                    branches[branch_index] = sliced[0]
+                    replacement_task["fork"] = {**fork, "branches": branches}
+                    return [replacement, *items[index + 1 :]]
+        for case in raw_task.get("switch") or []:
+            if not isinstance(case, dict):
+                continue
+            case_name, configuration = next(iter(case.items()))
+            children = configuration.get("do") if isinstance(configuration, dict) else None
+            if isinstance(children, list):
+                sliced = _resume_raw_task_list(children, checkpoint)
+                if sliced is not None:
+                    replacement = deepcopy(raw_item)
+                    replacement_task = _raw_task_mapping(replacement)
+                    replacement_task["switch"] = [
+                        {case_name: {**configuration, "do": sliced}}
+                        if candidate is case
+                        else candidate
+                        for candidate in raw_task.get("switch") or []
+                    ]
+                    return [replacement, *items[index + 1 :]]
     return None
 
 

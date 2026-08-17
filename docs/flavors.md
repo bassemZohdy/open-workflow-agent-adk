@@ -50,9 +50,10 @@ Pass `--mode extended` to enforce a hard policy.
 ## Reusable functions
 
 Workflow-level `use.functions` remains available in OpenWorkflow v1.0.3 for
-in-document reusable functions. External function catalogs are no longer
-supported by this translator; keep shared logic in `use.functions` or behind
-agent tools.
+in-document reusable functions. Qualified catalog calls such as
+`validateEmail:1.0.0@shared` are also supported when `use.catalogs.shared`
+defines a catalog root. The runtime resolves
+`functions/validateEmail/1.0.0/function.yaml` before building the graph.
 
 See [ADR 0008](decisions/0008-workflow-flavors.md) and the
 [extended reference](reference/extended.md).

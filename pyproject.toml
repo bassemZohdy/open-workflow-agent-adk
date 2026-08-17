@@ -20,6 +20,7 @@ dependencies = [
     "opentelemetry-api>=1.30",
     "jsonschema",
     "jsonata-python",
+    "packaging>=23",
     "pydantic>=2",
     "pyyaml",
 ]
@@ -27,6 +28,9 @@ dependencies = [
 [project.optional-dependencies]
 bedrock = [
     "boto3>=1.34",
+]
+temporal = [
+    "temporalio>=1.7",
 ]
 containers = [
     "docker>=7.0",
@@ -65,7 +69,7 @@ server = [
     "uvicorn>=0.30",
 ]
 all = [
-    "open-workflow-agent-adk[bedrock,containers,grpc,redis,database,brokers,server]",
+    "open-workflow-agent-adk[bedrock,temporal,containers,grpc,redis,database,brokers,server]",
 ]
 
 [project.urls]

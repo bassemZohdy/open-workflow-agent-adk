@@ -67,6 +67,36 @@ def test_expression_bound_container_image_is_rejected() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("arguments", ["${agent.argument}"]), ("environment", {"VALUE": "${agent.value}"})],
+)
+def test_expression_bound_container_exec_options_are_rejected(field: str, value: object) -> None:
+    with pytest.raises(WorkflowValidationError, match=f"run.container.{field}"):
+        load(
+            {
+                "document": {
+                    "dsl": "1.0.3",
+                    "namespace": "demo",
+                    "name": "inject",
+                    "version": "1.0.0",
+                },
+                "do": [
+                    {
+                        "exec": {
+                            "run": {
+                                "container": {
+                                    "image": "alpine:latest",
+                                    field: value,
+                                }
+                            }
+                        }
+                    }
+                ],
+            }
+        )
+
+
 def test_expression_bound_mcp_command_is_rejected() -> None:
     with pytest.raises(WorkflowValidationError, match="stdio.command"):
         load(
@@ -390,6 +420,7 @@ async def test_asyncapi_consumer_times_out_when_no_event_arrives(monkeypatch) ->
             pass
 
     monkeypatch.setenv("WORKFLOW_CONSUME_TIMEOUT_SECONDS", "0.2")
+    monkeypatch.setenv("WORKFLOW_EGRESS_SKIP_DNS", "1")
     # Build the document via the models directly: the vendored 1.0.3 schema's
     # AsyncAPI subscription variant does not validate, so bypass jsonschema and
     # exercise the runtime consume path.

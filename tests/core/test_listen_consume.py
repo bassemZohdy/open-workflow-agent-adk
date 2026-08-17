@@ -43,7 +43,7 @@ async def test_listen_until_stops_on_condition() -> None:
 
     outputs = [event.output for event in events if event.output is not None]
     collected = next(value for value in outputs if isinstance(value, list))
-    assert len(collected) == 3
+    assert len(collected) == 2
 
 
 async def test_listen_foreach_runs_tasks_per_event() -> None:
@@ -71,8 +71,8 @@ async def test_listen_foreach_runs_tasks_per_event() -> None:
     events = await run_workflow(document, broker=broker)
 
     deltas = _state_deltas(events)
-    assert deltas.get("last_n") == 1
-    assert deltas.get("last_i") == 1
+    assert deltas.get("last_n") == 0
+    assert deltas.get("last_i") == 0
 
 
 async def test_listen_correlate_first_value_defines_match() -> None:
@@ -137,3 +137,63 @@ async def test_listen_correlate_expect_expression() -> None:
 
     outputs = [event.output for event in events if event.output is not None]
     assert {"customer": "carol", "n": 2} in outputs
+
+
+async def test_listen_nested_until_consumes_terminator_without_returning_it() -> None:
+    broker = InMemoryBroker()
+    document = _document(
+        [
+            {
+                "collect": {
+                    "listen": {
+                        "to": {
+                            "any": [{"with": {"type": "demo.item"}}],
+                            "until": {"one": {"with": {"type": "demo.stop"}}},
+                        }
+                    }
+                }
+            }
+        ]
+    )
+
+    await broker.publish({"type": "demo.item", "data": {"n": 1}})
+    await broker.publish({"type": "demo.stop", "data": {"n": 2}})
+    await broker.publish({"type": "demo.item", "data": {"n": 3}})
+
+    events = await run_workflow(document, broker=broker)
+
+    outputs = [event.output for event in events if event.output is not None]
+    assert [{"n": 1}] in outputs
+    assert {"n": 2} not in outputs
+
+
+async def test_listen_nested_until_all_filters() -> None:
+    broker = InMemoryBroker()
+    document = _document(
+        [
+            {
+                "collect": {
+                    "listen": {
+                        "to": {
+                            "any": [{"with": {"type": "demo.item"}}],
+                            "until": {
+                                "all": [
+                                    {"with": {"type": "demo.stop.first"}},
+                                    {"with": {"type": "demo.stop.second"}},
+                                ]
+                            },
+                        }
+                    }
+                }
+            }
+        ]
+    )
+
+    await broker.publish({"type": "demo.item", "data": {"n": 1}})
+    await broker.publish({"type": "demo.stop.first", "data": {}})
+    await broker.publish({"type": "demo.stop.second", "data": {}})
+
+    events = await run_workflow(document, broker=broker)
+
+    outputs = [event.output for event in events if event.output is not None]
+    assert [{"n": 1}] in outputs

@@ -70,3 +70,25 @@ def test_linter_recurse_into_nested_tasks_for_missing_instruction() -> None:
     diagnostics = lint_workflow(document)
 
     assert any(item.code == "agent-instruction" and "inner" in item.message for item in diagnostics)
+
+
+def test_linter_reports_each_duplicate_task_name_once() -> None:
+    document = load(
+        {
+            "document": {
+                "dsl": "1.0.3",
+                "namespace": "demo",
+                "name": "duplicates",
+                "version": "1.0.0",
+            },
+            "do": [
+                {"same": {"wait": {"seconds": 0}}},
+                {"same": {"wait": {"seconds": 0}}},
+                {"same": {"wait": {"seconds": 0}}},
+            ],
+        }
+    )
+
+    diagnostics = lint_workflow(document)
+
+    assert sum(item.code == "duplicate-task" for item in diagnostics) == 1
