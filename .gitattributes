@@ -1,0 +1,2 @@
+# uv requires a UTF-8 TOML lockfile; keep its line endings stable across hosts.
+uv.lock text eol=lf

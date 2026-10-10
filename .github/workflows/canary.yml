@@ -1,6 +1,6 @@
 name: ADK Canary
 
-# Runs the full test suite against the latest google-adk release each night so
+# Runs the unit test suite against the latest google-adk release each night so
 # drift in the private workflow APIs consumed through adk_compat.py (C24.19) is
 # detected before it reaches users. Failures here are informational: the pinned
 # compatibility matrix in ci.yml remains the release gate.
@@ -25,20 +25,43 @@ jobs:
           python-version: "3.12"
       - name: Install uv
         run: pip install uv
-      - name: Sync with latest google-adk (unpinned)
+      - name: Validate the committed lockfile
+        run: uv lock --check --offline
+      - name: Sync the pinned baseline
+        run: uv sync --frozen --all-extras
+      - name: Install latest google-adk (unpinned)
         run: |
-          uv sync --all-extras
           uv pip install --reinstall --upgrade "google-adk"
-          uv run python -c "
-          import importlib.metadata as m
-          print('google-adk', m.version('google-adk'))
+          # Do not let uv run restore the manifest's pinned ADK before the test.
+          uv run --no-sync python - <<'PY'
+          import importlib.metadata as metadata
+          import os
+          from pathlib import Path
+
+          version = metadata.version("google-adk")
+          print("google-adk", version)
+          with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as env:
+              env.write(f"ADK_CANARY_VERSION={version}\n")
+          PY
+      - name: Verify the upgraded ADK is still installed
+        run: |
+          uv run --no-sync python -c "
+          import importlib.metadata as metadata
+          import os
+          assert metadata.version('google-adk') == os.environ['ADK_CANARY_VERSION'], \
+              'The upgraded canary ADK was replaced before testing'
           "
       - name: Run unit suite against latest ADK
-        run: uv run pytest -m "not integration" -q
-      - name: Report drift on failure
-        if: failure()
+        id: unit-tests
+        run: uv run --no-sync pytest -m "not integration" -q
+      - name: Report unit-suite failure
+        if: failure() && steps.unit-tests.outcome == 'failure'
         run: |
-          echo "::warning::The latest google-adk release broke the " \
-            "compatibility seam (adk_compat.py)."
-          echo "Inspect the failing imports above and update " \
+          echo "::warning::The unit suite failed against the installed latest google-adk."
+          echo "Inspect the failed tests before attributing the failure to " \
             "src/openworkflow_adk/adk_compat.py."
+      - name: Report environment failure
+        if: failure() && steps.unit-tests.outcome != 'failure'
+        run: |
+          echo "::warning::Canary environment setup failed before the unit suite ran."
+          echo "Inspect lock validation, dependency installation and package metadata above."
