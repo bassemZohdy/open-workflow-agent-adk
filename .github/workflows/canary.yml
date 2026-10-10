@@ -1,6 +1,6 @@
 name: ADK Canary
 
-# Runs the full test suite against the latest google-adk release each night so
+# Runs the unit test suite against the latest google-adk release each night so
 # drift in the private workflow APIs consumed through adk_compat.py (C24.19) is
 # detected before it reaches users. Failures here are informational: the pinned
 # compatibility matrix in ci.yml remains the release gate.
