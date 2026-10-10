@@ -1,5 +1,11 @@
 # open-workflow-agent-adk
 
+> **Consolidation preparation:** the target for portable workflow behavior is
+> [Open Workflow Agent](https://github.com/bassemZohdy/open-workflow-agent).
+> Read the [migration gates and pinned source manifest](docs/migration/README.md)
+> before changing an installed client. This source is retained; no runtime
+> migration, package rename, image promotion or archival is complete.
+
 Run declarative OpenWorkflow documents as reliable, observable AI workflows
 with [Google ADK](https://google.github.io/adk-docs/). Describe the business
 process in YAML or JSON, combine deterministic steps with AI agents, and run
